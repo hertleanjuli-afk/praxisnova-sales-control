@@ -1,0 +1,203 @@
+import { neon } from '@neondatabase/serverless';
+
+let _sql: ReturnType<typeof neon> | null = null;
+
+export default function sql(strings: TemplateStringsArray, ...values: any[]): Promise<Record<string, any>[]> {
+  if (!_sql) {
+    _sql = neon(process.env.DATABASE_URL!);
+  }
+  return _sql(strings, ...values) as Promise<Record<string, any>[]>;
+}
+
+export async function initializeDatabase(): Promise<void> {
+  await sql`
+    CREATE TABLE IF NOT EXISTS leads (
+      id SERIAL PRIMARY KEY,
+      apollo_id TEXT UNIQUE,
+      email TEXT UNIQUE NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      company TEXT,
+      title TEXT,
+      industry TEXT,
+      employee_count INTEGER,
+      hubspot_id TEXT,
+      linkedin_url TEXT,
+      sequence_status TEXT DEFAULT 'none',
+      sequence_type TEXT,
+      sequence_step INTEGER DEFAULT 0,
+      enrolled_at TIMESTAMPTZ,
+      exited_at TIMESTAMPTZ,
+      cooldown_until TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS email_events (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER REFERENCES leads(id),
+      sequence_type TEXT,
+      step_number INTEGER,
+      event_type TEXT,
+      brevo_message_id TEXT,
+      sender_used TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+}
+
+export interface Lead {
+  id: number;
+  apollo_id: string | null;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  company: string | null;
+  title: string | null;
+  industry: string | null;
+  employee_count: number | null;
+  hubspot_id: string | null;
+  linkedin_url: string | null;
+  sequence_status: string;
+  sequence_type: string | null;
+  sequence_step: number;
+  enrolled_at: string | null;
+  exited_at: string | null;
+  cooldown_until: string | null;
+  created_at: string;
+}
+
+export interface EmailEvent {
+  id: number;
+  lead_id: number;
+  sequence_type: string | null;
+  step_number: number | null;
+  event_type: string | null;
+  brevo_message_id: string | null;
+  sender_used: string | null;
+  created_at: string;
+}
+
+export async function getLeadByEmail(email: string): Promise<Lead | null> {
+  const rows = await sql`SELECT * FROM leads WHERE email = ${email} LIMIT 1`;
+  return (rows[0] as Lead) ?? null;
+}
+
+export async function getLeadById(id: number): Promise<Lead | null> {
+  const rows = await sql`SELECT * FROM leads WHERE id = ${id} LIMIT 1`;
+  return (rows[0] as Lead) ?? null;
+}
+
+export async function upsertLead(lead: Partial<Lead> & { email: string }): Promise<Lead> {
+  const rows = await sql`
+    INSERT INTO leads (
+      apollo_id, email, first_name, last_name, company, title,
+      industry, employee_count, hubspot_id, linkedin_url,
+      sequence_status, sequence_type, sequence_step,
+      enrolled_at, exited_at, cooldown_until
+    ) VALUES (
+      ${lead.apollo_id ?? null},
+      ${lead.email},
+      ${lead.first_name ?? null},
+      ${lead.last_name ?? null},
+      ${lead.company ?? null},
+      ${lead.title ?? null},
+      ${lead.industry ?? null},
+      ${lead.employee_count ?? null},
+      ${lead.hubspot_id ?? null},
+      ${lead.linkedin_url ?? null},
+      ${lead.sequence_status ?? 'none'},
+      ${lead.sequence_type ?? null},
+      ${lead.sequence_step ?? 0},
+      ${lead.enrolled_at ?? null},
+      ${lead.exited_at ?? null},
+      ${lead.cooldown_until ?? null}
+    )
+    ON CONFLICT (email) DO UPDATE SET
+      apollo_id = COALESCE(EXCLUDED.apollo_id, leads.apollo_id),
+      first_name = COALESCE(EXCLUDED.first_name, leads.first_name),
+      last_name = COALESCE(EXCLUDED.last_name, leads.last_name),
+      company = COALESCE(EXCLUDED.company, leads.company),
+      title = COALESCE(EXCLUDED.title, leads.title),
+      industry = COALESCE(EXCLUDED.industry, leads.industry),
+      employee_count = COALESCE(EXCLUDED.employee_count, leads.employee_count),
+      hubspot_id = COALESCE(EXCLUDED.hubspot_id, leads.hubspot_id),
+      linkedin_url = COALESCE(EXCLUDED.linkedin_url, leads.linkedin_url)
+    RETURNING *
+  `;
+  return rows[0] as Lead;
+}
+
+export async function updateLeadSequence(
+  id: number,
+  updates: {
+    sequence_status?: string;
+    sequence_type?: string;
+    sequence_step?: number;
+    enrolled_at?: string | null;
+    exited_at?: string | null;
+    cooldown_until?: string | null;
+  }
+): Promise<Lead | null> {
+  const rows = await sql`
+    UPDATE leads SET
+      sequence_status = COALESCE(${updates.sequence_status ?? null}, sequence_status),
+      sequence_type = COALESCE(${updates.sequence_type ?? null}, sequence_type),
+      sequence_step = COALESCE(${updates.sequence_step ?? null}, sequence_step),
+      enrolled_at = COALESCE(${updates.enrolled_at ?? null}, enrolled_at),
+      exited_at = COALESCE(${updates.exited_at ?? null}, exited_at),
+      cooldown_until = COALESCE(${updates.cooldown_until ?? null}, cooldown_until)
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return (rows[0] as Lead) ?? null;
+}
+
+export async function insertEmailEvent(event: {
+  lead_id: number;
+  sequence_type: string;
+  step_number: number;
+  event_type: string;
+  brevo_message_id?: string;
+  sender_used?: string;
+}): Promise<EmailEvent> {
+  const rows = await sql`
+    INSERT INTO email_events (lead_id, sequence_type, step_number, event_type, brevo_message_id, sender_used)
+    VALUES (
+      ${event.lead_id},
+      ${event.sequence_type},
+      ${event.step_number},
+      ${event.event_type},
+      ${event.brevo_message_id ?? null},
+      ${event.sender_used ?? null}
+    )
+    RETURNING *
+  `;
+  return rows[0] as EmailEvent;
+}
+
+export async function getLeadsForSequenceStep(
+  sequenceType: string,
+  step: number,
+  limit: number = 50
+): Promise<Lead[]> {
+  const rows = await sql`
+    SELECT * FROM leads
+    WHERE sequence_type = ${sequenceType}
+      AND sequence_step = ${step}
+      AND sequence_status = 'active'
+      AND (cooldown_until IS NULL OR cooldown_until < NOW())
+    ORDER BY enrolled_at ASC
+    LIMIT ${limit}
+  `;
+  return rows as Lead[];
+}
+
+export async function getEmailEventsForLead(leadId: number): Promise<EmailEvent[]> {
+  const rows = await sql`
+    SELECT * FROM email_events
+    WHERE lead_id = ${leadId}
+    ORDER BY created_at ASC
+  `;
+  return rows as EmailEvent[];
+}

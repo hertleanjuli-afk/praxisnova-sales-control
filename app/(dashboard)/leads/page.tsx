@@ -47,7 +47,7 @@ export default function LeadsPage() {
       const res = await fetch(`/api/leads/search?${params}`);
       if (!res.ok) throw new Error('Suche fehlgeschlagen');
       const data = await res.json();
-      setLeads(data.leads ?? []);
+      setLeads(data.results ?? data.leads ?? []);
       setSearched(true);
     } catch {
       setNotification({ type: 'error', message: 'Fehler bei der Lead-Suche.' });

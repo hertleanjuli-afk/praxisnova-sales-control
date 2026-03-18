@@ -39,7 +39,7 @@ export default function LeadSearchPanel({ onSearch, loading }: LeadSearchPanelPr
     e.preventDefault();
     if (!sector) return;
     onSearch({
-      sector,
+      sector: sector.toLowerCase(),
       state: state || undefined,
       limit,
     });

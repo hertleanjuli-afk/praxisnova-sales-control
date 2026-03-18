@@ -1,4 +1,8 @@
-const APOLLO_API_URL = 'https://api.apollo.io/v1/mixed_people/search';
+// Apollo People Search — tries /v1/mixed_people/search first, falls back to /v1/people/search
+const APOLLO_API_URLS = [
+  'https://api.apollo.io/v1/mixed_people/search',
+  'https://api.apollo.io/v1/people/search',
+];
 
 export interface ApolloLead {
   id: string;
@@ -127,23 +131,40 @@ export async function searchLeads(
     contact_email_status: ['verified', 'guessed', 'unavailable'],
   };
 
-  const response = await fetch(APOLLO_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-Key': apiKey,
-    },
-    body: JSON.stringify(body),
-  });
+  let data: ApolloSearchResponse | null = null;
+  let lastError = '';
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Apollo API error (${response.status}): ${errorText}`
-    );
+  for (const url of APOLLO_API_URLS) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.ok) {
+      data = (await response.json()) as ApolloSearchResponse;
+      break;
+    }
+
+    lastError = await response.text();
+    // If 403, try next endpoint
+    if (response.status === 403) {
+      console.warn(`Apollo endpoint ${url} returned 403, trying next...`);
+      continue;
+    }
+
+    // For other errors, throw immediately
+    throw new Error(`Apollo API error (${response.status}): ${lastError}`);
   }
 
-  const data = (await response.json()) as ApolloSearchResponse;
+  if (!data) {
+    throw new Error(
+      `Apollo API: Alle Endpoints gaben 403 zurück. Bitte prüfen Sie Ihren Apollo-Plan (Basic oder höher erforderlich). Details: ${lastError}`
+    );
+  }
 
   // Filter out leads without email addresses
   return data.people.filter(

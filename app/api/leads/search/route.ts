@@ -88,7 +88,8 @@ async function handleSearch(sector: string | null, state: string | undefined, li
 
     return NextResponse.json({ results, total: results.length });
   } catch (error) {
-    console.error('Lead search error:', error);
-    return NextResponse.json({ error: 'Fehler bei der Lead-Suche' }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Lead search error:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -45,12 +45,13 @@ export default function LeadsPage() {
       if (filters.state) params.set('state', filters.state);
 
       const res = await fetch(`/api/leads/search?${params}`);
-      if (!res.ok) throw new Error('Suche fehlgeschlagen');
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Suche fehlgeschlagen');
       setLeads(data.results ?? data.leads ?? []);
       setSearched(true);
-    } catch {
-      setNotification({ type: 'error', message: 'Fehler bei der Lead-Suche.' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Fehler bei der Lead-Suche.';
+      setNotification({ type: 'error', message: msg });
     } finally {
       setLoading(false);
     }

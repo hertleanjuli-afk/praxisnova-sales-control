@@ -121,12 +121,39 @@ export async function GET(request: NextRequest) {
       ? Math.round((appointmentsCount / leadsContactedCount) * 10000) / 100
       : 0;
 
+    // Total leads and active sequences (not time-filtered)
+    const totalLeadsResult = await sql`SELECT COUNT(*) as count FROM leads`;
+    const activeSeqResult = await sql`SELECT COUNT(*) as count FROM leads WHERE sequence_status = 'active'`;
+    const bookedResult = await sql`
+      SELECT COUNT(*) as count FROM leads
+      WHERE sequence_status = 'booked' AND exited_at >= NOW() - ${interval}::interval
+    `;
+
+    // Open & reply rates
+    const emailsSentCount = Number(emailsSent[0]?.count || 0);
+    const opensResult = await sql`
+      SELECT COUNT(*) as count FROM email_events
+      WHERE event_type = 'opened' AND created_at >= NOW() - ${interval}::interval
+    `;
+    const repliesCount = Number(replies[0]?.count || 0);
+    const opensCount = Number(opensResult[0]?.count || 0);
+    const openRate = emailsSentCount > 0 ? opensCount / emailsSentCount : 0;
+    const replyRate = emailsSentCount > 0 ? repliesCount / emailsSentCount : 0;
+
     return NextResponse.json({
+      // New fields for dashboard KPI cards
+      totalLeads: Number(totalLeadsResult[0]?.count || 0),
+      activeSequences: Number(activeSeqResult[0]?.count || 0),
+      emailsSent: emailsSentCount,
+      openRate,
+      replyRate,
+      meetingsBooked: Number(bookedResult[0]?.count || 0),
+      // Original fields
       leads_contacted: leadsContactedCount,
-      emails_sent: Number(emailsSent[0]?.count || 0),
+      emails_sent: emailsSentCount,
       emails_failed: Number(emailsFailed[0]?.count || 0),
       unsubscribes: Number(unsubscribes[0]?.count || 0),
-      replies: Number(replies[0]?.count || 0),
+      replies: repliesCount,
       by_sector: bySector,
       calls_total: Number(callStats[0]?.total || 0),
       calls_reached: Number(callStats[0]?.reached || 0),

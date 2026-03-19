@@ -14,14 +14,14 @@ interface SequenceLead {
   enrolled_at: string;
 }
 
-type SectorFilter = 'all' | 'Immobilien' | 'Handwerk' | 'Bauunternehmen' | 'inbound';
+type SectorFilter = 'all' | 'immobilien' | 'handwerk' | 'bauunternehmen' | 'inbound';
 type StatusFilter = 'all' | 'active' | 'completed';
 
 const SECTOR_TABS: { value: SectorFilter; label: string }[] = [
   { value: 'all', label: 'Alle' },
-  { value: 'Immobilien', label: 'Immobilien' },
-  { value: 'Handwerk', label: 'Handwerk' },
-  { value: 'Bauunternehmen', label: 'Bauunternehmen' },
+  { value: 'immobilien', label: 'Immobilien' },
+  { value: 'handwerk', label: 'Handwerk' },
+  { value: 'bauunternehmen', label: 'Bauunternehmen' },
   { value: 'inbound', label: 'Inbound' },
 ];
 

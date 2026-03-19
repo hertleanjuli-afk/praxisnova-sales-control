@@ -36,24 +36,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Step send windows (MEZ/CET hours) — each step is sent at a specific time
-  const STEP_SEND_HOURS: Record<number, number> = {
-    1: 8,   // 08:30
-    2: 10,  // 10:00
-    3: 14,  // 14:00
-    4: 9,   // 09:00
-    5: 11,  // 11:00
-  };
+  // Step send windows — ready for Vercel Pro plan (multiple cron runs per day)
+  // STEP_SEND_HOURS: { 1: 8, 2: 10, 3: 14, 4: 9, 5: 11 } (MEZ)
+  // Enable by upgrading to Pro and setting cron to "30 7,8,9,10,12,13 * * 1-4"
 
-  // Current hour in MEZ (UTC+1, or UTC+2 in summer)
-  const now = new Date();
-  const currentHourUTC = now.getUTCHours();
-  // Approximate MEZ: UTC+1 in winter, UTC+2 in summer
-  const month = now.getMonth(); // 0-11
-  const isSummerTime = month >= 2 && month <= 9; // March-October rough CEST
-  const currentHourMEZ = currentHourUTC + (isSummerTime ? 2 : 1);
-
-  const stats = { processed: 0, sent: 0, failed: 0, completed: 0, linkedin_tasks: 0, skipped_time: 0 };
+  const stats = { processed: 0, sent: 0, failed: 0, completed: 0, linkedin_tasks: 0 };
 
   try {
     // Get all active leads

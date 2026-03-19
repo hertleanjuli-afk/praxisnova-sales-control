@@ -22,14 +22,14 @@ export const handwerkSequence: SequenceStep[] = [
 
 <p>Genau das setzen wir mit Handwerksbetrieben wie {{company_name}} um: KI-gestützte Automatisierung, die aus einer Anfrage ein fertiges Angebot macht.</p>
 
-<p>Wenn Sie sehen möchten, wie das konkret funktioniert, lassen Sie uns 30 Minuten sprechen.</p>
+<p>Wenn Sie sehen möchten, wie das konkret funktioniert, lassen Sie uns 15 Minuten sprechen.</p>
 
 <p>Herzliche Grüße,<br>
 Anjuli Hertle<br>
 CEO &amp; Head of Sales<br>
 PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-<a href="https://calendly.com/meyer-samantha-praxisnovaai/30min">Termin buchen</a></p>
+<a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
 {{FOOTER}}
 </body>
@@ -61,7 +61,7 @@ Anjuli Hertle<br>
 CEO &amp; Head of Sales<br>
 PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-<a href="https://calendly.com/meyer-samantha-praxisnovaai/30min">Termin buchen</a></p>
+<a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
 {{FOOTER}}
 </body>
@@ -94,7 +94,7 @@ Anjuli Hertle<br>
 CEO &amp; Head of Sales<br>
 PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-<a href="https://calendly.com/meyer-samantha-praxisnovaai/30min">Termin buchen</a></p>
+<a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
 {{FOOTER}}
 </body>
@@ -126,7 +126,7 @@ Anjuli Hertle<br>
 CEO &amp; Head of Sales<br>
 PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-<a href="https://calendly.com/meyer-samantha-praxisnovaai/30min">Termin buchen</a></p>
+<a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
 {{FOOTER}}
 </body>
@@ -158,7 +158,7 @@ Anjuli Hertle<br>
 CEO &amp; Head of Sales<br>
 PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-<a href="https://calendly.com/meyer-samantha-praxisnovaai/30min">Termin buchen</a></p>
+<a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
 {{FOOTER}}
 </body>

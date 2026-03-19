@@ -8,6 +8,7 @@ import { bauunternehmenSequence } from '@/lib/sequences/bauunternehmen';
 import { inboundSequence } from '@/lib/sequences/inbound';
 import type { SequenceStep } from '@/types';
 import { formatSalutation } from '@/lib/gender';
+import { logAndNotifyError } from '@/lib/error-notify';
 
 const sequenceMap: Record<string, SequenceStep[]> = {
   immobilien: immobilienSequence,
@@ -153,6 +154,17 @@ export async function GET(request: NextRequest) {
           INSERT INTO email_events (lead_id, sequence_type, step_number, event_type)
           VALUES (${lead.id}, ${lead.sequence_type}, ${currentStep}, 'failed')
         `;
+        await logAndNotifyError({
+          errorType: 'brevo_send_failed',
+          leadId: lead.id,
+          leadName: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
+          leadEmail: lead.email,
+          leadCompany: lead.company,
+          sequenceType: lead.sequence_type,
+          stepNumber: currentStep,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          action: 'E-Mail senden via Brevo',
+        }).catch(() => {});
         stats.failed++;
       }
     }

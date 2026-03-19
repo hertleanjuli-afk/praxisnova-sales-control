@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/process-sequences", "schedule": "0 8 * * 2-4" },
-    { "path": "/api/cron/weekly-linkedin", "schedule": "0 7 * * 1" }
+    { "path": "/api/cron/weekly-linkedin", "schedule": "0 7 * * 1" },
+    { "path": "/api/cron/daily-summary", "schedule": "0 7 * * *" }
   ]
 }

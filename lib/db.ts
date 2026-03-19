@@ -70,6 +70,19 @@ export async function initializeDatabase(): Promise<void> {
       connected_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS error_logs (
+      id SERIAL PRIMARY KEY,
+      error_type TEXT NOT NULL,
+      lead_id INTEGER REFERENCES leads(id),
+      sequence_type TEXT,
+      step_number INTEGER,
+      error_message TEXT NOT NULL,
+      context TEXT,
+      notified BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
 }
 
 export interface Lead {

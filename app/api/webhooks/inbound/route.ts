@@ -3,6 +3,7 @@ import sql from '@/lib/db';
 import { createContact, searchContactByEmail } from '@/lib/hubspot';
 import { sendTransactionalEmail, generateConfirmLink } from '@/lib/brevo';
 import { inboundSequence } from '@/lib/sequences/inbound';
+import { formatSalutation } from '@/lib/gender';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -47,8 +48,11 @@ export async function POST(request: NextRequest) {
     // Send double opt-in confirmation email (Step 0)
     const confirmLink = generateConfirmLink(email);
     const step0 = inboundSequence[0];
+    const salutation = formatSalutation(firstName, lastName);
     const emailBody = step0.bodyTemplate
-      .replace(/\{\{first_name\}\}/g, firstName || 'dort')
+      .replace(/\{\{SALUTATION\}\}/g, salutation)
+      .replace(/\{\{first_name\}\}/g, firstName || '')
+      .replace(/\{\{last_name\}\}/g, lastName || '')
       .replace(/\{\{CONFIRM_LINK\}\}/g, confirmLink);
 
     await sendTransactionalEmail({

@@ -34,29 +34,21 @@ function getApiKey(): string {
 }
 
 function getHmacSecret(): string {
-  const secret = process.env.HMAC_SECRET;
+  const secret = process.env.BREVO_WEBHOOK_SECRET || process.env.INBOUND_WEBHOOK_SECRET;
   if (!secret) {
-    throw new Error('HMAC_SECRET environment variable is not set');
+    throw new Error('BREVO_WEBHOOK_SECRET environment variable is not set');
   }
   return secret;
 }
 
 function buildDsgvoFooter(unsubscribeLink: string): string {
   return `
-<br/><br/>
-<hr style="border:none;border-top:1px solid #ccc;margin:24px 0"/>
-<p style="font-size:12px;color:#666;line-height:1.5;">
-  Anjuli Hertle &mdash; CEO &amp; Head of Sales<br/>
-  PraxisNova AI | info@praxisnovaai.com | <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br/>
-  <a href="${process.env.IMPRESSUM_URL ?? '#'}">Impressum</a> | <a href="${process.env.DATENSCHUTZ_URL ?? '#'}">Datenschutz</a>
-</p>
+<br/>
+<hr style="border:none;border-top:1px solid #ddd;margin:24px 0"/>
 <p style="font-size:11px;color:#999;line-height:1.5;">
-  Sie erhalten diese E-Mail, da Ihre Gesch&auml;ftsadresse &ouml;ffentlich zug&auml;nglich ist (UWG &sect;7 Abs. 2 Nr. 3).<br/>
-  Wenn Sie keine weiteren E-Mails von uns erhalten m&ouml;chten:
-  <a href="${unsubscribeLink}">Jetzt abmelden</a>
-</p>
-<p style="font-size:11px;color:#999;">
-  PraxisNova AI | ${process.env.IMPRESSUM_ADDRESS ?? ''}
+  PraxisNova AI | Otto-Hahn-Str., 72622 N&uuml;rtingen | info@praxisnovaai.com<br/>
+  Sie erhalten diese E-Mail da Ihre Gesch&auml;ftsadresse &ouml;ffentlich zug&auml;nglich ist (UWG &sect;7).<br/>
+  Wenn Sie keine weiteren E-Mails w&uuml;nschen: <a href="${unsubscribeLink}">Abmelden</a>
 </p>`;
 }
 
@@ -116,7 +108,7 @@ export async function sendTransactionalEmail(
 
   const primarySender = process.env.BREVO_SENDER_EMAIL_PRIMARY ?? 'info@praxisnovaai.com';
   const fallbackSender = process.env.BREVO_SENDER_EMAIL_FALLBACK;
-  const senderName = process.env.BREVO_SENDER_NAME ?? 'Anjuli Hertle — PraxisNova AI';
+  const senderName = process.env.BREVO_SENDER_NAME ?? 'Anjuli Hertle, PraxisNova AI';
 
   // Generate unsubscribe link and append DSGVO footer
   const unsubscribeLink = generateUnsubscribeLink(to);

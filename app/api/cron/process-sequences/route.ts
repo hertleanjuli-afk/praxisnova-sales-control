@@ -7,6 +7,7 @@ import { handwerkSequence } from '@/lib/sequences/handwerk';
 import { bauunternehmenSequence } from '@/lib/sequences/bauunternehmen';
 import { inboundSequence } from '@/lib/sequences/inbound';
 import type { SequenceStep } from '@/types';
+import { formatSalutation } from '@/lib/gender';
 
 const sequenceMap: Record<string, SequenceStep[]> = {
   immobilien: immobilienSequence,
@@ -101,12 +102,16 @@ export async function GET(request: NextRequest) {
       }
 
       // Send email
+      const salutation = formatSalutation(lead.first_name, lead.last_name);
       const emailBody = step.bodyTemplate
-        .replace(/\{\{first_name\}\}/g, lead.first_name || 'dort')
+        .replace(/\{\{SALUTATION\}\}/g, salutation)
+        .replace(/\{\{first_name\}\}/g, lead.first_name || '')
+        .replace(/\{\{last_name\}\}/g, lead.last_name || '')
         .replace(/\{\{company_name\}\}/g, lead.company || 'Ihrem Unternehmen');
 
       const subject = (step.subject || '')
         .replace(/\{\{first_name\}\}/g, lead.first_name || '')
+        .replace(/\{\{last_name\}\}/g, lead.last_name || '')
         .replace(/\{\{company_name\}\}/g, lead.company || '');
 
       try {

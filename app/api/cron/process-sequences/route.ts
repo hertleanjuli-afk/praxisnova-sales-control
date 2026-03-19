@@ -109,14 +109,13 @@ export async function GET(request: NextRequest) {
       // Check if it's time for this step (day-wise)
       if (daysSinceEnroll < step.dayOffset) continue;
 
-      // Check if current hour matches the step's send window (skip for manual triggers)
-      if (!isManual && step.channel === 'email') {
-        const stepSendHour = STEP_SEND_HOURS[currentStep] ?? 8;
-        if (currentHourMEZ !== stepSendHour) {
-          stats.skipped_time++;
-          continue;
-        }
-      }
+      // Step send time windows (activated when cron runs multiple times per day on Pro plan)
+      // Currently disabled on Hobby plan (cron runs once at 08:00 UTC)
+      // To enable: upgrade to Vercel Pro and set cron to "30 7,8,9,10,12,13 * * 1-4"
+      // if (!isManual && step.channel === 'email') {
+      //   const stepSendHour = STEP_SEND_HOURS[currentStep] ?? 8;
+      //   if (currentHourMEZ !== stepSendHour) { stats.skipped_time++; continue; }
+      // }
 
       // Check if this step was already sent
       const alreadySent = await sql`

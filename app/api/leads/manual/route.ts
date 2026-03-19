@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'E-Mail ist erforderlich' }, { status: 400 });
   }
 
-  if (!industry || !VALID_INDUSTRIES.includes(industry)) {
+  const normalizedIndustry = industry?.toLowerCase?.().trim() || '';
+  if (!normalizedIndustry || !VALID_INDUSTRIES.includes(normalizedIndustry)) {
     return NextResponse.json(
       { error: `Branche muss eine der folgenden sein: ${VALID_INDUSTRIES.join(', ')}` },
       { status: 400 }
@@ -49,10 +50,10 @@ export async function POST(request: NextRequest) {
           last_name = ${last_name || null},
           company = ${company || null},
           title = ${title || null},
-          industry = ${industry},
+          industry = ${normalizedIndustry},
           employee_count = ${employee_count || null},
           sequence_status = 'active',
-          sequence_type = ${industry},
+          sequence_type = ${normalizedIndustry},
           sequence_step = 1,
           enrolled_at = NOW(),
           exited_at = NULL,
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     } else {
       const inserted = await sql`
         INSERT INTO leads (email, first_name, last_name, company, title, industry, employee_count, sequence_status, sequence_type, sequence_step, enrolled_at)
-        VALUES (${email}, ${first_name || null}, ${last_name || null}, ${company || null}, ${title || null}, ${industry}, ${employee_count || null}, 'active', ${industry}, 1, NOW())
+        VALUES (${email}, ${first_name || null}, ${last_name || null}, ${company || null}, ${title || null}, ${normalizedIndustry}, ${employee_count || null}, 'active', ${normalizedIndustry}, 1, NOW())
         RETURNING id
       `;
       leadId = inserted[0].id;
@@ -78,9 +79,9 @@ export async function POST(request: NextRequest) {
         lastname: last_name || '',
         company: company || '',
         jobtitle: title || '',
-        icp_type: industry,
+        icp_type: normalizedIndustry,
         sequence_status: 'active',
-        sequence_type: industry,
+        sequence_type: normalizedIndustry,
         sequence_step: '1',
       };
 
@@ -96,9 +97,9 @@ export async function POST(request: NextRequest) {
           last_name: last_name || undefined,
           company: company || undefined,
           title: title || undefined,
-          icp_type: industry,
+          icp_type: normalizedIndustry,
           sequence_status: 'active',
-          sequence_type: industry,
+          sequence_type: normalizedIndustry,
           sequence_step: 1,
         });
         if (newContact?.id) {

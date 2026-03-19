@@ -11,6 +11,14 @@ interface Analytics {
   openRate: number;
   replyRate: number;
   meetingsBooked: number;
+  calls_total: number;
+  calls_reached: number;
+  calls_not_reached: number;
+  calls_voicemail: number;
+  calls_appointment: number;
+  manual_stops: number;
+  linkedin_connections: number;
+  conversion_rate: number;
   bySector: {
     sector: string;
     leads: number;
@@ -104,14 +112,22 @@ export default function DashboardPage() {
 
       {/* KPI Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={`ext-${i}`} />
+            ))}
+          </div>
         </div>
       ) : (
         analytics && (
           <>
+            {/* Primary KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {kpiCards.map((card) => (
                 <div
@@ -124,6 +140,49 @@ export default function DashboardPage() {
                   </p>
                 </div>
               ))}
+            </div>
+
+            {/* Extended KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Telefonkontakte */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <p className="text-sm text-gray-500 mb-1">Telefonkontakte</p>
+                <p className="text-2xl font-bold text-indigo-700">
+                  {analytics.calls_total ?? 0}
+                </p>
+                <div className="mt-2 space-y-0.5 text-xs text-gray-500">
+                  <p>Erreicht: {analytics.calls_reached ?? 0}</p>
+                  <p>Nicht erreicht: {analytics.calls_not_reached ?? 0}</p>
+                  <p>Voicemail: {analytics.calls_voicemail ?? 0}</p>
+                  <p>Termin: {analytics.calls_appointment ?? 0}</p>
+                </div>
+              </div>
+
+              {/* Manuelle Stops */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <p className="text-sm text-gray-500 mb-1">Manuelle Stops</p>
+                <p className="text-2xl font-bold text-amber-600">
+                  {analytics.manual_stops ?? 0}
+                </p>
+              </div>
+
+              {/* LinkedIn Vernetzungen */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <p className="text-sm text-gray-500 mb-1">LinkedIn Vernetzungen</p>
+                <p className="text-2xl font-bold text-sky-600">
+                  {analytics.linkedin_connections ?? 0}
+                </p>
+              </div>
+
+              {/* Conversion Rate */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <p className="text-sm text-gray-500 mb-1">Conversion Rate</p>
+                <p className="text-2xl font-bold text-emerald-600">
+                  {analytics.conversion_rate != null
+                    ? `${(analytics.conversion_rate * 100).toFixed(1)}%`
+                    : '0.0%'}
+                </p>
+              </div>
             </div>
 
             {/* Sector breakdown */}

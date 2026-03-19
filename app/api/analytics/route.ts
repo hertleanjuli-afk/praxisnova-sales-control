@@ -83,13 +83,60 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Call logs stats
+    const callStats = await sql`
+      SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE result = 'reached') as reached,
+        COUNT(*) FILTER (WHERE result = 'not_reached') as not_reached,
+        COUNT(*) FILTER (WHERE result = 'voicemail') as voicemail,
+        COUNT(*) FILTER (WHERE result = 'appointment') as appointment
+      FROM call_logs
+      WHERE call_date >= NOW() - ${interval}::interval
+    `;
+
+    // Manual stops
+    const manualStops = await sql`
+      SELECT COUNT(*) as count FROM stop_reasons
+      WHERE created_at >= NOW() - ${interval}::interval
+    `;
+
+    // Stop reasons breakdown
+    const stopReasonRows = await sql`
+      SELECT reason, COUNT(*) as count FROM stop_reasons
+      WHERE created_at >= NOW() - ${interval}::interval
+      GROUP BY reason
+      ORDER BY count DESC
+    `;
+
+    // LinkedIn connections
+    const linkedinConns = await sql`
+      SELECT COUNT(*) as count FROM linkedin_connections
+      WHERE connected_at >= NOW() - ${interval}::interval
+    `;
+
+    const leadsContactedCount = Number(leadsContacted[0]?.count || 0);
+    const appointmentsCount = Number(callStats[0]?.appointment || 0);
+    const conversionRate = leadsContactedCount > 0
+      ? Math.round((appointmentsCount / leadsContactedCount) * 10000) / 100
+      : 0;
+
     return NextResponse.json({
-      leads_contacted: Number(leadsContacted[0]?.count || 0),
+      leads_contacted: leadsContactedCount,
       emails_sent: Number(emailsSent[0]?.count || 0),
       emails_failed: Number(emailsFailed[0]?.count || 0),
       unsubscribes: Number(unsubscribes[0]?.count || 0),
       replies: Number(replies[0]?.count || 0),
       by_sector: bySector,
+      calls_total: Number(callStats[0]?.total || 0),
+      calls_reached: Number(callStats[0]?.reached || 0),
+      calls_not_reached: Number(callStats[0]?.not_reached || 0),
+      calls_voicemail: Number(callStats[0]?.voicemail || 0),
+      calls_appointment: appointmentsCount,
+      manual_stops: Number(manualStops[0]?.count || 0),
+      stop_reasons: stopReasonRows.map(r => ({ reason: r.reason, count: Number(r.count) })),
+      linkedin_connections: Number(linkedinConns[0]?.count || 0),
+      conversion_rate: conversionRate,
       period,
     });
   } catch (error) {

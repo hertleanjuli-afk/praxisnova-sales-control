@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { leadId, reason = 'manual_stop' } = await request.json();
+  const { leadId, reason = 'manual_stop', stop_reason, stop_details } = await request.json();
 
   if (!leadId) {
     return NextResponse.json({ error: 'Lead-ID erforderlich' }, { status: 400 });
@@ -49,6 +49,14 @@ export async function POST(request: NextRequest) {
       } catch (hubspotError) {
         console.error('HubSpot sync error:', hubspotError);
       }
+    }
+
+    // Log stop reason if provided
+    if (stop_reason) {
+      await sql`
+        INSERT INTO stop_reasons (lead_id, reason, details)
+        VALUES (${leadId}, ${stop_reason}, ${stop_details || null})
+      `;
     }
 
     return NextResponse.json({ success: true, status, cooldown_until: cooldownUntil.toISOString() });

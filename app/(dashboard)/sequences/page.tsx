@@ -31,14 +31,34 @@ const STATUS_TABS: { value: StatusFilter; label: string }[] = [
   { value: 'completed', label: 'Abgeschlossen' },
 ];
 
+const STOP_REASONS = [
+  { value: 'linkedin_contact', label: 'LinkedIn-Kontakt aufgenommen' },
+  { value: 'phone_contact', label: 'Telefonisch kontaktiert' },
+  { value: 'no_interest', label: 'Kein Interesse' },
+  { value: 'wrong_contact', label: 'Falscher Ansprechpartner' },
+  { value: 'other', label: 'Anderer Grund' },
+];
+
 export default function SequencesPage() {
   const [leads, setLeads] = useState<SequenceLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sectorFilter, setSectorFilter] = useState<SectorFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [stoppingId, setStoppingId] = useState<number | null>(null);
   const [bookingId, setBookingId] = useState<number | null>(null);
+
+  // Stop modal state
+  const [showStopModal, setShowStopModal] = useState<number | null>(null);
+  const [stopReason, setStopReason] = useState('');
+  const [stopDetails, setStopDetails] = useState('');
+  const [stoppingId, setStoppingId] = useState<number | null>(null);
+
+  // Call modal state
+  const [showCallModal, setShowCallModal] = useState<number | null>(null);
+  const [callResult, setCallResult] = useState('');
+  const [callNotes, setCallNotes] = useState('');
+  const [callDateTime, setCallDateTime] = useState('');
+  const [savingCall, setSavingCall] = useState(false);
 
   const fetchSequences = useCallback(async () => {
     setLoading(true);
@@ -62,13 +82,26 @@ export default function SequencesPage() {
     fetchSequences();
   }, [fetchSequences]);
 
-  const handleStop = async (leadId: number) => {
+  const openStopModal = (leadId: number) => {
+    setShowStopModal(leadId);
+    setStopReason('');
+    setStopDetails('');
+  };
+
+  const handleStopConfirm = async () => {
+    if (!showStopModal || !stopReason) return;
+    const leadId = showStopModal;
     setStoppingId(leadId);
     try {
       const res = await fetch('/api/sequences/stop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId }),
+        body: JSON.stringify({
+          leadId,
+          reason: 'manual_stop',
+          stop_reason: stopReason,
+          stop_details: stopDetails,
+        }),
       });
       if (!res.ok) throw new Error('Stop failed');
       setLeads((prev) =>
@@ -76,6 +109,9 @@ export default function SequencesPage() {
           l.id === leadId ? { ...l, sequence_status: 'stopped' } : l
         )
       );
+      setShowStopModal(null);
+      setStopReason('');
+      setStopDetails('');
     } catch {
       setError('Sequenz konnte nicht gestoppt werden.');
     } finally {
@@ -101,6 +137,50 @@ export default function SequencesPage() {
       setError('Status konnte nicht aktualisiert werden.');
     } finally {
       setBookingId(null);
+    }
+  };
+
+  const openCallModal = (leadId: number) => {
+    setShowCallModal(leadId);
+    setCallResult('');
+    setCallNotes('');
+    // Pre-fill with current date/time
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const local = new Date(now.getTime() - offset * 60000);
+    setCallDateTime(local.toISOString().slice(0, 16));
+  };
+
+  const handleCallSave = async () => {
+    if (!showCallModal || !callResult) return;
+    const leadId = showCallModal;
+    setSavingCall(true);
+    try {
+      const res = await fetch('/api/leads/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId,
+          result: callResult,
+          notes: callNotes,
+          dateTime: callDateTime,
+        }),
+      });
+      if (!res.ok) throw new Error('Call save failed');
+      if (callResult === 'appointment') {
+        setLeads((prev) =>
+          prev.map((l) =>
+            l.id === leadId ? { ...l, sequence_status: 'booked' } : l
+          )
+        );
+      }
+      setShowCallModal(null);
+      setCallResult('');
+      setCallNotes('');
+    } catch {
+      setError('Anruf konnte nicht gespeichert werden.');
+    } finally {
+      setSavingCall(false);
     }
   };
 
@@ -259,20 +339,27 @@ export default function SequencesPage() {
               </div>
 
               {lead.sequence_status === 'active' && (
-                <div className="mt-auto flex gap-2">
+                <div className="mt-auto flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleBooked(lead.id)}
+                      disabled={bookingId === lead.id}
+                      className="flex-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {bookingId === lead.id ? 'Wird gespeichert...' : 'Termin gebucht'}
+                    </button>
+                    <button
+                      onClick={() => openCallModal(lead.id)}
+                      className="flex-1 rounded-md border border-[#2563EB] bg-white px-3 py-1.5 text-sm font-medium text-[#2563EB] hover:bg-blue-50 transition-colors"
+                    >
+                      Anruf erfassen
+                    </button>
+                  </div>
                   <button
-                    onClick={() => handleBooked(lead.id)}
-                    disabled={bookingId === lead.id}
-                    className="flex-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    onClick={() => openStopModal(lead.id)}
+                    className="w-full rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                   >
-                    {bookingId === lead.id ? 'Wird gespeichert...' : 'Termin gebucht'}
-                  </button>
-                  <button
-                    onClick={() => handleStop(lead.id)}
-                    disabled={stoppingId === lead.id}
-                    className="flex-1 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {stoppingId === lead.id ? 'Stoppen...' : 'Sequenz stoppen'}
+                    Sequenz stoppen
                   </button>
                 </div>
               )}
@@ -306,6 +393,147 @@ export default function SequencesPage() {
           <p className="mt-3 text-sm text-gray-500">
             Keine Sequenzen für die ausgewählten Filter gefunden.
           </p>
+        </div>
+      )}
+
+      {/* Stop Modal */}
+      {showStopModal !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">
+              Sequenz stoppen
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Grund <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={stopReason}
+                  onChange={(e) => setStopReason(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
+                >
+                  <option value="">Bitte wählen...</option>
+                  {STOP_REASONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {stopReason === 'other' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Details
+                  </label>
+                  <textarea
+                    value={stopDetails}
+                    onChange={(e) => setStopDetails(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none resize-none"
+                    placeholder="Bitte beschreiben Sie den Grund..."
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleStopConfirm}
+                  disabled={!stopReason || stoppingId === showStopModal}
+                  className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {stoppingId === showStopModal
+                    ? 'Wird gestoppt...'
+                    : 'Sequenz stoppen'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowStopModal(null);
+                    setStopReason('');
+                    setStopDetails('');
+                  }}
+                  className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Call Modal */}
+      {showCallModal !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">
+              Anruf erfassen
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Datum/Uhrzeit
+                </label>
+                <input
+                  type="datetime-local"
+                  value={callDateTime}
+                  onChange={(e) => setCallDateTime(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ergebnis <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={callResult}
+                  onChange={(e) => setCallResult(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
+                >
+                  <option value="">Bitte wählen...</option>
+                  <option value="reached">Erreicht</option>
+                  <option value="not_reached">Nicht erreicht</option>
+                  <option value="voicemail">Voicemail</option>
+                  <option value="appointment">Termin vereinbart</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notiz
+                </label>
+                <textarea
+                  value={callNotes}
+                  onChange={(e) => setCallNotes(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none resize-none"
+                  placeholder="Notizen zum Anruf..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleCallSave}
+                  disabled={!callResult || savingCall}
+                  className="flex-1 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {savingCall ? 'Wird gespeichert...' : 'Anruf speichern'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCallModal(null);
+                    setCallResult('');
+                    setCallNotes('');
+                  }}
+                  className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

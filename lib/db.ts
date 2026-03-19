@@ -44,6 +44,32 @@ export async function initializeDatabase(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS call_logs (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER REFERENCES leads(id),
+      call_date TIMESTAMPTZ DEFAULT NOW(),
+      result TEXT NOT NULL,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS stop_reasons (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER REFERENCES leads(id),
+      reason TEXT NOT NULL,
+      details TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS linkedin_connections (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER REFERENCES leads(id) UNIQUE,
+      connected_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
 }
 
 export interface Lead {

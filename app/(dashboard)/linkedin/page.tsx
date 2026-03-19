@@ -23,6 +23,8 @@ export default function LinkedInPage() {
   const [data, setData] = useState<LinkedInData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [connectedIds, setConnectedIds] = useState<Set<number>>(new Set());
+  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     async function fetchList() {
@@ -40,6 +42,62 @@ export default function LinkedInPage() {
     fetchList();
   }, []);
 
+  // Auto-hide toast
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(''), 2500);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
+  const handleToggleConnect = async (leadId: number, connected: boolean) => {
+    try {
+      if (connected) {
+        // Uncheck - DELETE
+        await fetch('/api/linkedin/connect', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leadId }),
+        });
+        setConnectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(leadId);
+          return next;
+        });
+      } else {
+        // Check - POST
+        await fetch('/api/linkedin/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leadId }),
+        });
+        setConnectedIds((prev) => {
+          const next = new Set(prev);
+          next.add(leadId);
+          return next;
+        });
+      }
+    } catch {
+      setError('Verbindungsstatus konnte nicht aktualisiert werden.');
+    }
+  };
+
+  const getLinkedInSearchUrl = (lead: LinkedInLead) => {
+    const keywords = [lead.first_name, lead.last_name, lead.company]
+      .filter(Boolean)
+      .join(' ');
+    return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keywords)}`;
+  };
+
+  const handleCopyAll = () => {
+    if (!data || data.leads.length === 0) return;
+    const text = data.leads
+      .map((lead) => `${lead.first_name} ${lead.last_name} - ${lead.company}`)
+      .join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setToastMessage('Kopiert!');
+    });
+  };
+
   const handleExportCSV = () => {
     if (!data || data.leads.length === 0) return;
 
@@ -49,7 +107,9 @@ export default function LinkedInPage() {
       'Firma',
       'Position',
       'LinkedIn URL',
+      'LinkedIn-Suche',
       'Branche',
+      'Vernetzt',
     ];
     const rows = data.leads.map((lead) => [
       lead.first_name ?? '',
@@ -57,7 +117,9 @@ export default function LinkedInPage() {
       lead.company ?? '',
       lead.title ?? '',
       lead.linkedin_url ?? '',
+      getLinkedInSearchUrl(lead),
       lead.industry ?? '',
+      connectedIds.has(lead.id) ? 'Ja' : 'Nein',
     ]);
 
     const csvContent = [
@@ -79,15 +141,47 @@ export default function LinkedInPage() {
   // Group leads by industry
   const groupedLeads: Record<string, LinkedInLead[]> = {};
   if (data) {
+    const industryOrder = ['Immobilien', 'Handwerk', 'Bauunternehmen'];
     for (const lead of data.leads) {
       const industry = lead.industry || 'Sonstige';
       if (!groupedLeads[industry]) groupedLeads[industry] = [];
       groupedLeads[industry].push(lead);
     }
+    // Sort by predefined order
+    const sortedEntries = Object.entries(groupedLeads).sort(([a], [b]) => {
+      const idxA = industryOrder.indexOf(a);
+      const idxB = industryOrder.indexOf(b);
+      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+    });
+    // Rebuild in order
+    for (const key of Object.keys(groupedLeads)) delete groupedLeads[key];
+    for (const [key, val] of sortedEntries) groupedLeads[key] = val;
   }
+
+  const getStatusBadge = (leadId: number) => {
+    if (connectedIds.has(leadId)) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+          Vernetzt
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+        Offen
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toastMessage && (
+        <div className="fixed top-4 right-4 z-50 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
+          {toastMessage}
+        </div>
+      )}
+
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -108,16 +202,28 @@ export default function LinkedInPage() {
             </p>
           )}
         </div>
-        <button
-          onClick={handleExportCSV}
-          disabled={!data || data.leads.length === 0}
-          className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          CSV exportieren
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleCopyAll}
+            disabled={!data || data.leads.length === 0}
+            className="inline-flex items-center gap-2 rounded-md border border-[#2563EB] bg-white px-4 py-2 text-sm font-medium text-[#2563EB] hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Alles kopieren
+          </button>
+          <button
+            onClick={handleExportCSV}
+            disabled={!data || data.leads.length === 0}
+            className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            CSV exportieren
+          </button>
+        </div>
       </div>
 
       {/* Error */}
@@ -168,9 +274,11 @@ export default function LinkedInPage() {
                   <thead>
                     <tr className="border-b border-gray-100">
                       <th className="px-5 py-2.5 font-medium text-gray-500">Name</th>
-                      <th className="px-5 py-2.5 font-medium text-gray-500">Position</th>
                       <th className="px-5 py-2.5 font-medium text-gray-500">Firma</th>
-                      <th className="px-5 py-2.5 font-medium text-gray-500">LinkedIn</th>
+                      <th className="px-5 py-2.5 font-medium text-gray-500">Position</th>
+                      <th className="px-5 py-2.5 font-medium text-gray-500">LinkedIn-Suche</th>
+                      <th className="px-5 py-2.5 font-medium text-gray-500">Status</th>
+                      <th className="px-5 py-2.5 font-medium text-gray-500 text-center">Vernetzt</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -179,17 +287,28 @@ export default function LinkedInPage() {
                         <td className="px-5 py-2.5 font-medium text-gray-900">
                           {lead.first_name} {lead.last_name}
                         </td>
-                        <td className="px-5 py-2.5 text-gray-600">{lead.title}</td>
                         <td className="px-5 py-2.5 text-gray-600">{lead.company}</td>
+                        <td className="px-5 py-2.5 text-gray-600">{lead.title}</td>
                         <td className="px-5 py-2.5">
                           <a
-                            href={lead.linkedin_url}
+                            href={getLinkedInSearchUrl(lead)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[#2563EB] hover:underline text-xs"
                           >
-                            Profil anzeigen
+                            Auf LinkedIn suchen
                           </a>
+                        </td>
+                        <td className="px-5 py-2.5">{getStatusBadge(lead.id)}</td>
+                        <td className="px-5 py-2.5 text-center">
+                          <input
+                            type="checkbox"
+                            checked={connectedIds.has(lead.id)}
+                            onChange={() =>
+                              handleToggleConnect(lead.id, connectedIds.has(lead.id))
+                            }
+                            className="h-4 w-4 rounded border-gray-300 text-[#2563EB] focus:ring-[#2563EB] cursor-pointer"
+                          />
                         </td>
                       </tr>
                     ))}

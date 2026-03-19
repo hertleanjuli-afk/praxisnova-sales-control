@@ -18,13 +18,42 @@ const sequenceMap: Record<string, SequenceStep[]> = {
 };
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret
+  // Auth: either cron secret OR authenticated session (for manual trigger)
   const authHeader = request.headers.get('authorization');
+  const isManual = request.headers.get('x-manual-trigger') === 'true';
+
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // If not cron, check for session auth (manual trigger from dashboard)
+    if (isManual) {
+      const { getServerSession } = await import('next-auth');
+      const { authOptions } = await import('@/lib/auth');
+      const session = await getServerSession(authOptions);
+      if (!session) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } else {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
   }
 
-  const stats = { processed: 0, sent: 0, failed: 0, completed: 0, linkedin_tasks: 0 };
+  // Step send windows (MEZ/CET hours) — each step is sent at a specific time
+  const STEP_SEND_HOURS: Record<number, number> = {
+    1: 8,   // 08:30
+    2: 10,  // 10:00
+    3: 14,  // 14:00
+    4: 9,   // 09:00
+    5: 11,  // 11:00
+  };
+
+  // Current hour in MEZ (UTC+1, or UTC+2 in summer)
+  const now = new Date();
+  const currentHourUTC = now.getUTCHours();
+  // Approximate MEZ: UTC+1 in winter, UTC+2 in summer
+  const month = now.getMonth(); // 0-11
+  const isSummerTime = month >= 2 && month <= 9; // March-October rough CEST
+  const currentHourMEZ = currentHourUTC + (isSummerTime ? 2 : 1);
+
+  const stats = { processed: 0, sent: 0, failed: 0, completed: 0, linkedin_tasks: 0, skipped_time: 0 };
 
   try {
     // Get all active leads
@@ -77,8 +106,17 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Check if it's time for this step
+      // Check if it's time for this step (day-wise)
       if (daysSinceEnroll < step.dayOffset) continue;
+
+      // Check if current hour matches the step's send window (skip for manual triggers)
+      if (!isManual && step.channel === 'email') {
+        const stepSendHour = STEP_SEND_HOURS[currentStep] ?? 8;
+        if (currentHourMEZ !== stepSendHour) {
+          stats.skipped_time++;
+          continue;
+        }
+      }
 
       // Check if this step was already sent
       const alreadySent = await sql`

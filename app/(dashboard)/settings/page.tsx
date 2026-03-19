@@ -28,6 +28,8 @@ export default function SettingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [initLoading, setInitLoading] = useState(false);
+  const [processLoading, setProcessLoading] = useState(false);
+  const [processMessage, setProcessMessage] = useState('');
   const [initMessage, setInitMessage] = useState('');
 
   const tiktokEnabled =
@@ -179,6 +181,44 @@ export default function SettingsPage() {
             }`}
           >
             {initMessage}
+          </p>
+        )}
+      </div>
+
+      {/* Manual Sequence Processing */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">Sequenz-Verarbeitung</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Sequenzen werden automatisch Mo-Do verarbeitet. Hier können Sie die Verarbeitung manuell starten (ignoriert Zeitfenster).
+        </p>
+        <button
+          onClick={async () => {
+            setProcessMessage('');
+            setProcessLoading(true);
+            try {
+              const res = await fetch('/api/cron/process-sequences', {
+                headers: { 'x-manual-trigger': 'true' },
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || 'Fehler');
+              const s = data.stats;
+              setProcessMessage(
+                `Verarbeitet: ${s.processed} Leads, ${s.sent} gesendet, ${s.failed} fehlgeschlagen, ${s.completed} abgeschlossen`
+              );
+            } catch (err) {
+              setProcessMessage(`Fehler: ${err instanceof Error ? err.message : String(err)}`);
+            } finally {
+              setProcessLoading(false);
+            }
+          }}
+          disabled={processLoading}
+          className="rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {processLoading ? 'Wird verarbeitet...' : 'Sequenz-Verarbeitung jetzt starten'}
+        </button>
+        {processMessage && (
+          <p className={`mt-3 text-sm ${processMessage.startsWith('Fehler') ? 'text-red-600' : 'text-green-600'}`}>
+            {processMessage}
           </p>
         )}
       </div>

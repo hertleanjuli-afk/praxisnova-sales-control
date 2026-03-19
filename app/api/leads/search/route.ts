@@ -50,6 +50,7 @@ async function handleSearch(sector: string | null, state: string | undefined, li
         AND (
           sequence_status = 'active'
           OR sequence_status = 'unsubscribed'
+          OR sequence_status = 'booked'
           OR (cooldown_until IS NOT NULL AND cooldown_until > NOW())
         )
       `;

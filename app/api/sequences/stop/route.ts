@@ -22,7 +22,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Lead nicht gefunden' }, { status: 404 });
     }
 
-    const status = reason === 'replied' ? 'replied' : reason === 'unsubscribed' ? 'unsubscribed' : 'completed';
+    const statusMap: Record<string, string> = {
+      replied: 'replied',
+      unsubscribed: 'unsubscribed',
+      booked: 'booked',
+    };
+    const status = statusMap[reason] || 'completed';
     const cooldownUntil = new Date();
     cooldownUntil.setDate(cooldownUntil.getDate() + 90);
 

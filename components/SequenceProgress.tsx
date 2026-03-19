@@ -3,11 +3,12 @@
 interface SequenceProgressProps {
   lead: any;
   onStop: (leadId: number) => void;
+  onBooked?: (leadId: number) => void;
 }
 
 const TOTAL_STEPS = 6;
 
-export default function SequenceProgress({ lead, onStop }: SequenceProgressProps) {
+export default function SequenceProgress({ lead, onStop, onBooked }: SequenceProgressProps) {
   const currentStep: number = lead.current_step ?? 1;
   const daysSinceEnrollment: number = lead.days_since_enrollment ?? 0;
 
@@ -84,13 +85,23 @@ export default function SequenceProgress({ lead, onStop }: SequenceProgressProps
         )}
       </div>
 
-      {/* Stop button */}
-      <button
-        onClick={() => onStop(lead.id)}
-        className="w-full rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
-      >
-        Sequenz stoppen
-      </button>
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        {onBooked && (
+          <button
+            onClick={() => onBooked(lead.id)}
+            className="flex-1 rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+          >
+            Termin gebucht
+          </button>
+        )}
+        <button
+          onClick={() => onStop(lead.id)}
+          className="flex-1 rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+        >
+          Sequenz stoppen
+        </button>
+      </div>
     </div>
   );
 }

@@ -38,6 +38,7 @@ export default function SequencesPage() {
   const [sectorFilter, setSectorFilter] = useState<SectorFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [stoppingId, setStoppingId] = useState<number | null>(null);
+  const [bookingId, setBookingId] = useState<number | null>(null);
 
   const fetchSequences = useCallback(async () => {
     setLoading(true);
@@ -82,6 +83,27 @@ export default function SequencesPage() {
     }
   };
 
+  const handleBooked = async (leadId: number) => {
+    setBookingId(leadId);
+    try {
+      const res = await fetch('/api/sequences/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId, reason: 'booked' }),
+      });
+      if (!res.ok) throw new Error('Booking failed');
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === leadId ? { ...l, sequence_status: 'booked' } : l
+        )
+      );
+    } catch {
+      setError('Status konnte nicht aktualisiert werden.');
+    } finally {
+      setBookingId(null);
+    }
+  };
+
   const getStepLabel = (step: number, type: string) => {
     const maxSteps = type === 'inbound' ? 4 : 5;
     return `Schritt ${step} / ${maxSteps}`;
@@ -105,6 +127,12 @@ export default function SequencesPage() {
         return (
           <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
             Gestoppt
+          </span>
+        );
+      case 'booked':
+        return (
+          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+            Termin gebucht
           </span>
         );
       case 'replied':
@@ -231,13 +259,22 @@ export default function SequencesPage() {
               </div>
 
               {lead.sequence_status === 'active' && (
-                <button
-                  onClick={() => handleStop(lead.id)}
-                  disabled={stoppingId === lead.id}
-                  className="mt-auto w-full rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {stoppingId === lead.id ? 'Wird gestoppt...' : 'Sequenz stoppen'}
-                </button>
+                <div className="mt-auto flex gap-2">
+                  <button
+                    onClick={() => handleBooked(lead.id)}
+                    disabled={bookingId === lead.id}
+                    className="flex-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {bookingId === lead.id ? 'Wird gespeichert...' : 'Termin gebucht'}
+                  </button>
+                  <button
+                    onClick={() => handleStop(lead.id)}
+                    disabled={stoppingId === lead.id}
+                    className="flex-1 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {stoppingId === lead.id ? 'Stoppen...' : 'Sequenz stoppen'}
+                  </button>
+                </div>
               )}
             </div>
           ))}

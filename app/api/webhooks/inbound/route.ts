@@ -24,8 +24,14 @@ export async function POST(request: NextRequest) {
 
     if (existing.length > 0) {
       const ex = existing[0];
-      if (ex.sequence_status === 'active' || ex.sequence_status === 'unsubscribed') {
+      if (ex.sequence_status === 'active' || ex.sequence_status === 'pending_optin') {
         return NextResponse.json({ ok: true, message: 'Lead already exists' });
+      }
+      if (ex.sequence_status === 'unsubscribed') {
+        return NextResponse.json({ ok: true, message: 'Lead is unsubscribed' });
+      }
+      if (ex.cooldown_until && new Date(ex.cooldown_until) > new Date()) {
+        return NextResponse.json({ ok: true, message: 'Lead is in cooldown' });
       }
     }
 

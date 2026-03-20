@@ -140,6 +140,40 @@ export async function GET(request: NextRequest) {
     const openRate = emailsSentCount > 0 ? opensCount / emailsSentCount : 0;
     const replyRate = emailsSentCount > 0 ? repliesCount / emailsSentCount : 0;
 
+    // Website clicks data
+    const clicksToday = await sql`
+      SELECT COUNT(*) as count FROM website_clicks WHERE clicked_at >= CURRENT_DATE
+    `;
+    const clicksThisWeek = await sql`
+      SELECT COUNT(*) as count FROM website_clicks WHERE clicked_at >= NOW() - INTERVAL '7 days'
+    `;
+    const clicksThisMonth = await sql`
+      SELECT COUNT(*) as count FROM website_clicks WHERE clicked_at >= NOW() - INTERVAL '30 days'
+    `;
+    const topButtons = await sql`
+      SELECT button_id, button_text, COUNT(*) as count FROM website_clicks
+      WHERE clicked_at >= NOW() - INTERVAL '7 days'
+      GROUP BY button_id, button_text ORDER BY count DESC LIMIT 5
+    `;
+    const clicksByDay = await sql`
+      SELECT DATE(clicked_at) as date, COUNT(*) as count FROM website_clicks
+      WHERE clicked_at >= NOW() - INTERVAL '7 days'
+      GROUP BY DATE(clicked_at) ORDER BY date
+    `;
+    const recentClicks = await sql`
+      SELECT wc.*, l.email as lead_email, l.first_name as lead_first_name, l.last_name as lead_last_name
+      FROM website_clicks wc LEFT JOIN leads l ON l.id = wc.lead_id
+      ORDER BY wc.clicked_at DESC LIMIT 10
+    `;
+
+    // Inbound vs Outbound lead counts
+    const inboundLeadsResult = await sql`
+      SELECT COUNT(*) as count FROM leads WHERE sequence_type = 'inbound'
+    `;
+    const outboundLeadsResult = await sql`
+      SELECT COUNT(*) as count FROM leads WHERE sequence_type IN ('immobilien', 'handwerk', 'bauunternehmen')
+    `;
+
     return NextResponse.json({
       // New fields for dashboard KPI cards
       totalLeads: Number(totalLeadsResult[0]?.count || 0),
@@ -164,6 +198,16 @@ export async function GET(request: NextRequest) {
       stop_reasons: stopReasonRows.map(r => ({ reason: r.reason, count: Number(r.count) })),
       linkedin_connections: Number(linkedinConns[0]?.count || 0),
       conversion_rate: conversionRate,
+      website_clicks: {
+        today: Number(clicksToday[0]?.count || 0),
+        this_week: Number(clicksThisWeek[0]?.count || 0),
+        this_month: Number(clicksThisMonth[0]?.count || 0),
+        top_buttons: topButtons.map(r => ({ button_id: r.button_id, button_text: r.button_text, count: Number(r.count) })),
+        by_day: clicksByDay.map(r => ({ date: r.date, count: Number(r.count) })),
+        recent: recentClicks,
+      },
+      inbound_leads: Number(inboundLeadsResult[0]?.count || 0),
+      outbound_leads: Number(outboundLeadsResult[0]?.count || 0),
       period,
     });
   } catch (error) {

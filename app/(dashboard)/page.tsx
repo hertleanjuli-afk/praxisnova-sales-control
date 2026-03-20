@@ -25,6 +25,16 @@ interface Analytics {
     active: number;
     emails: number;
   }[];
+  website_clicks?: {
+    today: number;
+    this_week: number;
+    this_month: number;
+    top_buttons: { button_id: string; button_text: string; count: number }[];
+    by_day: { date: string; count: number }[];
+    recent: any[];
+  };
+  inbound_leads?: number;
+  outbound_leads?: number;
 }
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -69,18 +79,21 @@ export default function DashboardPage() {
 
   const kpiCards = analytics
     ? [
-        { label: 'Leads gesamt', value: analytics.totalLeads },
-        { label: 'Aktive Sequenzen', value: analytics.activeSequences },
-        { label: 'E-Mails gesendet', value: analytics.emailsSent },
+        { label: 'Inbound Leads', value: analytics.inbound_leads ?? 0, color: 'text-purple-700' },
+        { label: 'Outbound Leads', value: analytics.outbound_leads ?? 0, color: 'text-[#1E3A5F]' },
+        { label: 'Aktive Sequenzen', value: analytics.activeSequences, color: 'text-[#1E3A5F]' },
+        { label: 'E-Mails gesendet', value: analytics.emailsSent, color: 'text-[#1E3A5F]' },
         {
           label: 'Öffnungsrate',
           value: `${(analytics.openRate * 100).toFixed(1)}%`,
+          color: 'text-[#1E3A5F]',
         },
         {
           label: 'Antwortrate',
           value: `${(analytics.replyRate * 100).toFixed(1)}%`,
+          color: 'text-[#1E3A5F]',
         },
-        { label: 'Termine gebucht', value: analytics.meetingsBooked },
+        { label: 'Termine gebucht', value: analytics.meetingsBooked, color: 'text-[#1E3A5F]' },
       ]
     : [];
 
@@ -135,11 +148,57 @@ export default function DashboardPage() {
                   className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
                 >
                   <p className="text-sm text-gray-500 mb-1">{card.label}</p>
-                  <p className="text-2xl font-bold text-[#1E3A5F]">
+                  <p className={`text-2xl font-bold ${card.color ?? 'text-[#1E3A5F]'}`}>
                     {card.value}
                   </p>
                 </div>
               ))}
+            </div>
+
+            {/* Website-Aktivität */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-[#1E3A5F]">Website-Aktivität</h3>
+                <a
+                  href="/clicks"
+                  className="text-sm font-medium text-[#2563EB] hover:underline"
+                >
+                  Alle Klicks ansehen &rarr;
+                </a>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Heute</p>
+                  <p className="text-xl font-bold text-[#2563EB]">
+                    {analytics.website_clicks?.today ?? 0}
+                  </p>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <p className="text-xs text-gray-500 mb-1">7 Tage</p>
+                  <p className="text-xl font-bold text-[#2563EB]">
+                    {analytics.website_clicks?.this_week ?? 0}
+                  </p>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <p className="text-xs text-gray-500 mb-1">30 Tage</p>
+                  <p className="text-xl font-bold text-[#2563EB]">
+                    {analytics.website_clicks?.this_month ?? 0}
+                  </p>
+                </div>
+              </div>
+              {analytics.website_clicks?.top_buttons && analytics.website_clicks.top_buttons.length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <h4 className="text-sm font-semibold text-[#1E3A5F] mb-3">Top Buttons</h4>
+                  <ul className="space-y-2">
+                    {analytics.website_clicks.top_buttons.slice(0, 5).map((btn) => (
+                      <li key={btn.button_id} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{btn.button_text}</span>
+                        <span className="font-medium text-[#2563EB]">{btn.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* Extended KPIs */}

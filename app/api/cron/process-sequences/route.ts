@@ -17,6 +17,36 @@ const sequenceMap: Record<string, SequenceStep[]> = {
   inbound: inboundSequence,
 };
 
+function getSenderForSequence(sequenceType: string): { email: string; name: string } {
+  switch (sequenceType) {
+    case 'immobilien':
+      return {
+        email: process.env.BREVO_SENDER_IMMOBILIEN_EMAIL || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
+        name: process.env.BREVO_SENDER_IMMOBILIEN_NAME || 'Anjuli Hertle',
+      };
+    case 'handwerk':
+      return {
+        email: process.env.BREVO_SENDER_HANDWERK_EMAIL || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
+        name: process.env.BREVO_SENDER_HANDWERK_NAME || 'Anjuli Hertle',
+      };
+    case 'bauunternehmen':
+      return {
+        email: process.env.BREVO_SENDER_BAU_EMAIL || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
+        name: process.env.BREVO_SENDER_BAU_NAME || 'Samantha Meyer',
+      };
+    case 'inbound':
+      return {
+        email: process.env.BREVO_SENDER_INBOUND_EMAIL || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
+        name: process.env.BREVO_SENDER_INBOUND_NAME || 'Anjuli Hertle',
+      };
+    default:
+      return {
+        email: process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
+        name: process.env.BREVO_SENDER_NAME || 'Anjuli Hertle',
+      };
+  }
+}
+
 export async function GET(request: NextRequest) {
   // Auth: either cron secret OR authenticated session (for manual trigger)
   const authHeader = request.headers.get('authorization');
@@ -144,11 +174,15 @@ export async function GET(request: NextRequest) {
         .replace(/\{\{company_name\}\}/g, lead.company || '');
 
       try {
+        // Get sender config based on sequence type
+        const senderConfig = getSenderForSequence(lead.sequence_type);
         const result = await sendTransactionalEmail({
           to: lead.email,
           subject,
           htmlContent: emailBody,
           tags: [lead.sequence_type, `step-${currentStep}`],
+          senderEmail: senderConfig.email,
+          senderName: senderConfig.name,
         });
 
         if (result.success) {

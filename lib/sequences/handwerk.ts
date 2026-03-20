@@ -24,10 +24,9 @@ export const handwerkSequence: SequenceStep[] = [
 
 <p>Wenn Sie sehen möchten, wie das konkret funktioniert, lassen Sie uns 15 Minuten sprechen.</p>
 
-<p>Herzliche Grüße,<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
 Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+CEO &amp; Head of Sales | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
@@ -56,10 +55,9 @@ PraxisNova AI<br>
 
 <p>Könnte so etwas auch für {{company_name}} funktionieren?</p>
 
-<p>Herzliche Grüße,<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
 Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+CEO &amp; Head of Sales | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
@@ -89,10 +87,9 @@ PraxisNova AI<br>
 
 <p>Laut einer Capmo-Studie verbringen Handwerker im Schnitt <strong>8,3 Stunden pro Woche</strong> mit Verwaltung. Unser Workshop zeigt, wie Sie diese Zeit drastisch reduzieren.</p>
 
-<p>Herzliche Grüße,<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
 Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+CEO &amp; Head of Sales | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
@@ -121,10 +118,9 @@ PraxisNova AI<br>
 
 <p>Einfach kurz antworten, ein Wort reicht.</p>
 
-<p>Herzliche Grüße,<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
 Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+CEO &amp; Head of Sales | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
@@ -153,10 +149,9 @@ Wir setzen gemeinsam eine konkrete Automatisierung um, z.&nbsp;B. Angebotserstel
 
 <p>Ansonsten wünsche ich Ihnen alles Gute!</p>
 
-<p>Herzliche Grüße,<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
 Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+CEO &amp; Head of Sales | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 

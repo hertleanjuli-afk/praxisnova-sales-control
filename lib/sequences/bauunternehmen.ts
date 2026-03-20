@@ -24,10 +24,9 @@ export const bauunternehmenSequence: SequenceStep[] = [
 
 <p>Wenn Sie sehen möchten, wie das konkret funktioniert, lassen Sie uns sprechen.</p>
 
-<p>Herzliche Grüße,<br>
-Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
+Samantha Meyer<br>
+Head of Process Automation | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
@@ -56,10 +55,9 @@ PraxisNova AI<br>
 
 <p>Wäre so etwas auch für {{company_name}} relevant?</p>
 
-<p>Herzliche Grüße,<br>
-Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
+Samantha Meyer<br>
+Head of Process Automation | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
@@ -89,10 +87,9 @@ PraxisNova AI<br>
 
 <p>Laut einer PwC-Studie lassen sich <strong>90 % der administrativen Aufgaben</strong> in der Baubranche automatisieren. Unser Workshop zeigt Ihnen, wo Sie anfangen.</p>
 
-<p>Herzliche Grüße,<br>
-Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
+Samantha Meyer<br>
+Head of Process Automation | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
@@ -121,10 +118,9 @@ PraxisNova AI<br>
 
 <p>Einfach kurz antworten, ein Wort reicht.</p>
 
-<p>Herzliche Grüße,<br>
-Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
+Samantha Meyer<br>
+Head of Process Automation | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 
@@ -153,10 +149,9 @@ Wir setzen gemeinsam eine konkrete Automatisierung um, z.&nbsp;B. Wochenberichte
 
 <p>Ansonsten wünsche ich Ihnen alles Gute!</p>
 
-<p>Herzliche Grüße,<br>
-Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+<p>Herzliche Gr&uuml;&szlig;e,<br>
+Samantha Meyer<br>
+Head of Process Automation | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
 

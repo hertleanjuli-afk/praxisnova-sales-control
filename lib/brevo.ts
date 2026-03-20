@@ -7,6 +7,8 @@ interface SendEmailInput {
   subject: string;
   htmlContent: string;
   tags?: string[];
+  senderEmail?: string;
+  senderName?: string;
 }
 
 interface SendEmailResult {
@@ -106,9 +108,9 @@ export async function sendTransactionalEmail(
 ): Promise<SendEmailResult> {
   const { to, subject, htmlContent, tags } = input;
 
-  const primarySender = process.env.BREVO_SENDER_EMAIL_PRIMARY ?? 'info@praxisnovaai.com';
+  const primarySender = input.senderEmail || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com';
   const fallbackSender = process.env.BREVO_SENDER_EMAIL_FALLBACK;
-  const senderName = process.env.BREVO_SENDER_NAME ?? 'Anjuli Hertle, PraxisNova AI';
+  const senderName = input.senderName || process.env.BREVO_SENDER_NAME || 'Anjuli Hertle';
 
   // Generate unsubscribe link and append DSGVO footer
   const unsubscribeLink = generateUnsubscribeLink(to);

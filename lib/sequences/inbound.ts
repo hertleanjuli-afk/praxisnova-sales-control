@@ -8,8 +8,7 @@ export interface SequenceStep {
 
 const SIGNATURE = `<p>Herzliche Gr&uuml;&szlig;e,<br>
 Anjuli Hertle<br>
-CEO &amp; Head of Sales<br>
-PraxisNova AI<br>
+CEO &amp; Head of Sales | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>`;
 

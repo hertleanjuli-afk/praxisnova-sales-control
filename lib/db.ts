@@ -83,6 +83,22 @@ export async function initializeDatabase(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS website_clicks (
+      id SERIAL PRIMARY KEY,
+      visitor_id TEXT NOT NULL,
+      lead_id INTEGER REFERENCES leads(id),
+      page TEXT DEFAULT '/',
+      button_id TEXT DEFAULT 'unknown',
+      button_text TEXT,
+      referrer TEXT,
+      clicked_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_website_clicks_visitor ON website_clicks(visitor_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_website_clicks_lead ON website_clicks(lead_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_website_clicks_date ON website_clicks(clicked_at)`;
 }
 
 export interface Lead {

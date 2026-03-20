@@ -7,7 +7,7 @@ import { formatSalutation } from '@/lib/gender';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { name, email, secret } = body;
+  const { name, email, secret, visitorId } = body;
 
   // Verify webhook secret
   if (secret !== process.env.INBOUND_WEBHOOK_SECRET) {
@@ -44,6 +44,14 @@ export async function POST(request: NextRequest) {
         sequence_step = 0
       RETURNING id
     `;
+
+    // Link anonymous click history to this new lead
+    if (visitorId) {
+      await sql`
+        UPDATE website_clicks SET lead_id = ${result[0].id}
+        WHERE visitor_id = ${visitorId} AND lead_id IS NULL
+      `;
+    }
 
     // Send double opt-in confirmation email (Step 0)
     const confirmLink = generateConfirmLink(email);

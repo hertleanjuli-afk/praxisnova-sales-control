@@ -200,7 +200,7 @@ export default function SettingsPage() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">Sequenz-Verarbeitung</h3>
         <p className="text-sm text-gray-500 mb-4">
-          Sequenzen werden automatisch Mo-Do verarbeitet. Hier können Sie die Verarbeitung manuell starten (ignoriert Zeitfenster).
+          Sequenzen werden automatisch Mo-Fr verarbeitet. Hier können Sie die Verarbeitung manuell starten (ignoriert Zeitfenster).
         </p>
         <button
           onClick={async () => {

@@ -83,10 +83,21 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Determine sequence type from icp_type
+      // Determine sequence type from icp_type, job title, and company
+      let sequenceType = 'allgemein'; // default
       const icpType = (props.icp_type || '').toLowerCase().trim();
-      const validTypes = ['immobilien', 'handwerk', 'bauunternehmen'];
-      const sequenceType = validTypes.includes(icpType) ? icpType : null;
+      const titleAndCompany = ((props.jobtitle || '') + ' ' + (props.company || '')).toLowerCase();
+
+      if (['immobilien', 'handwerk', 'bauunternehmen'].includes(icpType)) {
+        sequenceType = icpType;
+      } else if (titleAndCompany.includes('immobilien') || titleAndCompany.includes('makler') || titleAndCompany.includes('real estate')) {
+        sequenceType = 'immobilien';
+      } else if (titleAndCompany.includes('bauleiter') || titleAndCompany.includes('bau') || titleAndCompany.includes('construction') || titleAndCompany.includes('projektleiter')) {
+        sequenceType = 'bauunternehmen';
+      } else if (titleAndCompany.includes('handwerk') || titleAndCompany.includes('meister') || titleAndCompany.includes('elektro') || titleAndCompany.includes('sanitär')) {
+        sequenceType = 'handwerk';
+      }
+      // else stays 'allgemein'
 
       // Insert new lead
       const inserted = await sql`
@@ -103,10 +114,10 @@ export async function POST(request: NextRequest) {
           ${sequenceType},
           ${hubspotId},
           ${'apollo'},
-          ${sequenceType ? 'active' : 'none'},
+          ${'active'},
           ${sequenceType},
-          ${sequenceType ? 1 : 0},
-          ${sequenceType ? new Date().toISOString() : null}
+          ${1},
+          ${new Date().toISOString()}
         )
         RETURNING id
       `;
@@ -115,7 +126,7 @@ export async function POST(request: NextRequest) {
         hubspotId,
         email: props.email,
         leadId: inserted[0].id,
-        action: sequenceType ? `imported_and_started_${sequenceType}` : 'imported_no_sequence',
+        action: `imported_and_started_${sequenceType}`,
         sequenceType,
       });
     } catch (error) {

@@ -6,6 +6,7 @@ import { immobilienSequence } from '@/lib/sequences/immobilien';
 import { handwerkSequence } from '@/lib/sequences/handwerk';
 import { bauunternehmenSequence } from '@/lib/sequences/bauunternehmen';
 import { inboundSequence } from '@/lib/sequences/inbound';
+import { allgemeinSequence } from '@/lib/sequences/allgemein';
 import type { SequenceStep } from '@/types';
 import { formatSalutation } from '@/lib/gender';
 import { logAndNotifyError } from '@/lib/error-notify';
@@ -15,36 +16,62 @@ const sequenceMap: Record<string, SequenceStep[]> = {
   handwerk: handwerkSequence,
   bauunternehmen: bauunternehmenSequence,
   inbound: inboundSequence,
+  allgemein: allgemeinSequence,
 };
 
-function getSenderForSequence(sequenceType: string): { email: string; name: string } {
+// Inbox rotation for allgemein sequence
+const ALLGEMEIN_SENDERS = [
+  { email: 'hertle.anjuli@praxisnovaai.com', name: 'Anjuli Hertle', title: 'CEO &amp; Head of Sales' },
+  { email: 'info@praxisnovaai.com', name: 'Anjuli Hertle', title: 'CEO &amp; Head of Sales' },
+  { email: 'meyer.samantha@praxisnovaai.com', name: 'Samantha Meyer', title: 'Head of Process Automation' },
+];
+
+function getSenderForSequence(sequenceType: string, leadId?: number): { email: string; name: string; title: string } {
   switch (sequenceType) {
     case 'immobilien':
       return {
-        email: process.env.BREVO_SENDER_IMMOBILIEN_EMAIL || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
+        email: process.env.BREVO_SENDER_IMMOBILIEN_EMAIL || 'hertle.anjuli@praxisnovaai.com',
         name: process.env.BREVO_SENDER_IMMOBILIEN_NAME || 'Anjuli Hertle',
+        title: 'CEO &amp; Head of Sales',
       };
     case 'handwerk':
       return {
-        email: process.env.BREVO_SENDER_HANDWERK_EMAIL || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
+        email: process.env.BREVO_SENDER_HANDWERK_EMAIL || 'info@praxisnovaai.com',
         name: process.env.BREVO_SENDER_HANDWERK_NAME || 'Anjuli Hertle',
+        title: 'CEO &amp; Head of Sales',
       };
     case 'bauunternehmen':
       return {
-        email: process.env.BREVO_SENDER_BAU_EMAIL || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
+        email: process.env.BREVO_SENDER_BAU_EMAIL || 'meyer.samantha@praxisnovaai.com',
         name: process.env.BREVO_SENDER_BAU_NAME || 'Samantha Meyer',
+        title: 'Head of Process Automation',
       };
     case 'inbound':
       return {
-        email: process.env.BREVO_SENDER_INBOUND_EMAIL || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
+        email: process.env.BREVO_SENDER_INBOUND_EMAIL || 'info@praxisnovaai.com',
         name: process.env.BREVO_SENDER_INBOUND_NAME || 'Anjuli Hertle',
+        title: 'CEO &amp; Head of Sales',
       };
+    case 'allgemein': {
+      // Rotate based on lead ID (deterministic — same lead always gets same sender)
+      const idx = (leadId || 0) % ALLGEMEIN_SENDERS.length;
+      return ALLGEMEIN_SENDERS[idx];
+    }
     default:
       return {
         email: process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com',
         name: process.env.BREVO_SENDER_NAME || 'Anjuli Hertle',
+        title: 'CEO &amp; Head of Sales',
       };
   }
+}
+
+function buildSignature(sender: { name: string; title: string }): string {
+  return `<p>Herzliche Gr&uuml;&szlig;e,<br>
+${sender.name}<br>
+${sender.title} | PraxisNova AI<br>
+<a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
+<a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>`;
 }
 
 export async function GET(request: NextRequest) {
@@ -156,14 +183,17 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Send email
+      // Send email — get sender config (with rotation for allgemein)
+      const senderConfig = getSenderForSequence(lead.sequence_type, lead.id);
+      const signature = buildSignature(senderConfig);
       const salutation = formatSalutation(lead.first_name, lead.last_name);
       const emailBody = step.bodyTemplate
         .replace(/\{\{SALUTATION\}\}/g, salutation)
+        .replace(/\{\{SIGNATURE\}\}/g, signature)
         .replace(/\{\{first_name\}\}/g, lead.first_name || '')
         .replace(/\{\{last_name\}\}/g, lead.last_name || '')
         .replace(/\{\{company_name\}\}/g, lead.company || 'Ihrem Unternehmen')
-        .replace(/href="(https:\/\/(?:www\.)?praxisnovaai\.com[^"]*?)"/g, (match, url) => {
+        .replace(/href="(https:\/\/(?:www\.)?praxisnovaai\.com[^"]*?)"/g, (_match, url) => {
           const separator = url.includes('?') ? '&' : '?';
           return `href="${url}${separator}vid=${lead.id}"`;
         });
@@ -174,8 +204,6 @@ export async function GET(request: NextRequest) {
         .replace(/\{\{company_name\}\}/g, lead.company || '');
 
       try {
-        // Get sender config based on sequence type
-        const senderConfig = getSenderForSequence(lead.sequence_type);
         const result = await sendTransactionalEmail({
           to: lead.email,
           subject,

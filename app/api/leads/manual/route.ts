@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 import { createContact, searchContactByEmail, updateContact } from '@/lib/hubspot';
 
-const VALID_INDUSTRIES = ['immobilien', 'handwerk', 'bauunternehmen'];
+const VALID_INDUSTRIES = ['immobilien', 'handwerk', 'bauunternehmen', 'allgemein'];
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);

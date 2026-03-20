@@ -15,7 +15,7 @@ interface SequenceLead {
   lead_score: number;
 }
 
-type SectorFilter = 'all' | 'immobilien' | 'handwerk' | 'bauunternehmen' | 'inbound';
+type SectorFilter = 'all' | 'immobilien' | 'handwerk' | 'bauunternehmen' | 'inbound' | 'allgemein';
 type StatusFilter = 'all' | 'active' | 'completed';
 
 const SECTOR_TABS: { value: SectorFilter; label: string }[] = [
@@ -23,6 +23,7 @@ const SECTOR_TABS: { value: SectorFilter; label: string }[] = [
   { value: 'immobilien', label: 'Immobilien' },
   { value: 'handwerk', label: 'Handwerk' },
   { value: 'bauunternehmen', label: 'Bauunternehmen' },
+  { value: 'allgemein', label: 'Allgemein' },
   { value: 'inbound', label: 'Inbound' },
 ];
 

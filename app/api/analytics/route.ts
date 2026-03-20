@@ -166,6 +166,15 @@ export async function GET(request: NextRequest) {
       ORDER BY wc.clicked_at DESC LIMIT 10
     `;
 
+    // Hot leads (high score, not yet booked)
+    const hotLeads = await sql`
+      SELECT id, first_name, last_name, company, lead_score, sequence_type
+      FROM leads
+      WHERE lead_score > 30 AND sequence_status != 'booked'
+      ORDER BY lead_score DESC
+      LIMIT 10
+    `;
+
     // Inbound vs Outbound lead counts
     const inboundLeadsResult = await sql`
       SELECT COUNT(*) as count FROM leads WHERE sequence_type = 'inbound'
@@ -206,6 +215,14 @@ export async function GET(request: NextRequest) {
         by_day: clicksByDay.map(r => ({ date: r.date, count: Number(r.count) })),
         recent: recentClicks,
       },
+      hot_leads: hotLeads.map(l => ({
+        id: l.id,
+        first_name: l.first_name,
+        last_name: l.last_name,
+        company: l.company,
+        lead_score: Number(l.lead_score),
+        sequence_type: l.sequence_type,
+      })),
       inbound_leads: Number(inboundLeadsResult[0]?.count || 0),
       outbound_leads: Number(outboundLeadsResult[0]?.count || 0),
       period,

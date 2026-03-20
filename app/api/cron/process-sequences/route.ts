@@ -132,7 +132,11 @@ export async function GET(request: NextRequest) {
         .replace(/\{\{SALUTATION\}\}/g, salutation)
         .replace(/\{\{first_name\}\}/g, lead.first_name || '')
         .replace(/\{\{last_name\}\}/g, lead.last_name || '')
-        .replace(/\{\{company_name\}\}/g, lead.company || 'Ihrem Unternehmen');
+        .replace(/\{\{company_name\}\}/g, lead.company || 'Ihrem Unternehmen')
+        .replace(/href="(https:\/\/(?:www\.)?praxisnovaai\.com[^"]*?)"/g, (match, url) => {
+          const separator = url.includes('?') ? '&' : '?';
+          return `href="${url}${separator}vid=${lead.id}"`;
+        });
 
       const subject = (step.subject || '')
         .replace(/\{\{first_name\}\}/g, lead.first_name || '')
@@ -192,6 +196,53 @@ export async function GET(request: NextRequest) {
         stats.failed++;
       }
     }
+
+    // Double opt-in reminders
+    const pendingOptins = await sql`
+      SELECT * FROM leads
+      WHERE sequence_status = 'pending_optin'
+      AND sequence_type = 'inbound'
+      AND enrolled_at < NOW() - INTERVAL '24 hours'
+      AND (optin_reminded IS NULL OR optin_reminded = FALSE)
+    `;
+
+    for (const lead of pendingOptins) {
+      try {
+        const { generateConfirmLink, sendTransactionalEmail } = await import('@/lib/brevo');
+        const { formatSalutation } = await import('@/lib/gender');
+        const confirmLink = generateConfirmLink(lead.email);
+        const salutation = formatSalutation(lead.first_name, lead.last_name);
+
+        await sendTransactionalEmail({
+          to: lead.email,
+          subject: 'Haben Sie unsere Bestätigung verpasst?',
+          htmlContent: `<html><body style="font-family:Arial,sans-serif;font-size:15px;color:#333;line-height:1.6;">
+<p>${salutation}</p>
+<p>wir haben bemerkt, dass Sie Ihre E-Mail-Adresse noch nicht bestätigt haben.</p>
+<p>Klicken Sie einfach auf den folgenden Link, um die Bestätigung abzuschließen:</p>
+<p style="text-align:center;margin:30px 0;">
+  <a href="${confirmLink}" style="background-color:#2563eb;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;">Jetzt bestätigen</a>
+</p>
+<p>Der Link ist noch 24 Stunden gültig.</p>
+<p>Herzliche Grüße,<br>Anjuli Hertle<br>CEO &amp; Head of Sales<br>PraxisNova AI</p>
+{{FOOTER}}
+</body></html>`,
+          tags: ['inbound', 'optin-reminder'],
+        });
+
+        await sql`UPDATE leads SET optin_reminded = TRUE WHERE id = ${lead.id}`;
+        stats.sent++;
+      } catch (e) {
+        console.error('Opt-in reminder error:', e);
+      }
+    }
+
+    // Expire old pending opt-ins (7+ days)
+    await sql`
+      UPDATE leads SET sequence_status = 'expired'
+      WHERE sequence_status = 'pending_optin'
+      AND enrolled_at < NOW() - INTERVAL '7 days'
+    `;
 
     return NextResponse.json({ ok: true, stats });
   } catch (error) {

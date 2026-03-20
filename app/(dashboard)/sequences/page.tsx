@@ -12,6 +12,7 @@ interface SequenceLead {
   sequence_step: number;
   sequence_status: string;
   enrolled_at: string;
+  lead_score: number;
 }
 
 type SectorFilter = 'all' | 'immobilien' | 'handwerk' | 'bauunternehmen' | 'inbound';
@@ -296,7 +297,7 @@ export default function SequencesPage() {
       {/* Cards */}
       {!loading && leads.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {leads.map((lead) => (
+          {[...leads].sort((a, b) => (b.lead_score || 0) - (a.lead_score || 0)).map((lead) => (
             <div
               key={lead.id}
               className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col gap-3"
@@ -308,7 +309,16 @@ export default function SequencesPage() {
                   </h3>
                   <p className="text-xs text-gray-500">{lead.company}</p>
                 </div>
-                {getStatusBadge(lead.sequence_status)}
+                <div className="flex items-center gap-1.5">
+                  {getStatusBadge(lead.sequence_status)}
+                  {lead.lead_score > 0 && (
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      lead.lead_score >= 30 ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {lead.lead_score} Punkte
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1 text-sm text-gray-600">

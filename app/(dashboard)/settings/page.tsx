@@ -123,9 +123,20 @@ export default function SettingsPage() {
         <h3 className="text-base font-semibold text-[#1E3A5F] mb-3">
           Calendly-Link
         </h3>
-        <p className="text-sm text-gray-600 font-mono bg-gray-50 rounded-md px-3 py-2 border border-gray-100">
-          {process.env.NEXT_PUBLIC_CALENDLY_URL ?? 'Nicht konfiguriert (CALENDLY_LINK in .env setzen)'}
-        </p>
+        {process.env.NEXT_PUBLIC_CALENDLY_LINK ? (
+          <a
+            href={process.env.NEXT_PUBLIC_CALENDLY_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-[#2563EB] font-mono bg-gray-50 rounded-md px-3 py-2 border border-gray-100 block hover:underline"
+          >
+            {process.env.NEXT_PUBLIC_CALENDLY_LINK}
+          </a>
+        ) : (
+          <p className="text-sm text-gray-600 font-mono bg-gray-50 rounded-md px-3 py-2 border border-gray-100">
+            Nicht konfiguriert (CALENDLY_LINK in .env setzen)
+          </p>
+        )}
       </div>
 
       {/* Feature Flags */}

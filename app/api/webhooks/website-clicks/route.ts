@@ -5,7 +5,7 @@ import sql from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { visitorId, page, buttonId, buttonText, referrer, timestamp, secret } = body;
+  const { visitorId, page, buttonId, buttonText, referrer, timestamp, secret, utm_source, utm_medium, utm_campaign, utm_content } = body;
 
   if (secret !== process.env.INBOUND_WEBHOOK_SECRET) {
     return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
 
     // Insert the click
     const inserted = await sql`
-      INSERT INTO website_clicks (visitor_id, page, button_id, button_text, referrer, clicked_at)
-      VALUES (${visitorId}, ${page || '/'}, ${buttonId || 'unknown'}, ${buttonText || null}, ${referrer || null}, ${clickedAt})
+      INSERT INTO website_clicks (visitor_id, page, button_id, button_text, referrer, clicked_at, utm_source, utm_medium, utm_campaign, utm_content)
+      VALUES (${visitorId}, ${page || '/'}, ${buttonId || 'unknown'}, ${buttonText || null}, ${referrer || null}, ${clickedAt}, ${utm_source || null}, ${utm_medium || null}, ${utm_campaign || null}, ${utm_content || null})
       RETURNING id
     `;
 

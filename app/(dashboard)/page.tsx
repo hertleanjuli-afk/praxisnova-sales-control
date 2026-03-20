@@ -35,6 +35,7 @@ interface Analytics {
   };
   inbound_leads?: number;
   outbound_leads?: number;
+  hot_leads?: { id: number; first_name: string; last_name: string; company: string; lead_score: number; sequence_type: string }[];
 }
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -160,7 +161,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-[#1E3A5F]">Website-Aktivität</h3>
                 <a
-                  href="/clicks"
+                  href="/website-clicks"
                   className="text-sm font-medium text-[#2563EB] hover:underline"
                 >
                   Alle Klicks ansehen &rarr;
@@ -200,6 +201,35 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* Hot Leads */}
+            {analytics.hot_leads && analytics.hot_leads.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-[#1E3A5F] mb-3">Hot Leads (Score &gt; 30)</h3>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left p-3">Name</th>
+                        <th className="text-left p-3">Firma</th>
+                        <th className="text-left p-3">Sequenz</th>
+                        <th className="text-left p-3">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.hot_leads.map(lead => (
+                        <tr key={lead.id} className="border-t border-gray-100">
+                          <td className="p-3 font-medium">{lead.first_name} {lead.last_name}</td>
+                          <td className="p-3 text-gray-600">{lead.company}</td>
+                          <td className="p-3 text-gray-500">{lead.sequence_type}</td>
+                          <td className="p-3"><span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">{lead.lead_score}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Extended KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

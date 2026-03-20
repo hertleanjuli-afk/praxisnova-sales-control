@@ -29,7 +29,8 @@ export async function initializeDatabase(): Promise<void> {
       enrolled_at TIMESTAMPTZ,
       exited_at TIMESTAMPTZ,
       cooldown_until TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      lead_score INTEGER DEFAULT 0
     )
   `;
   await sql`
@@ -93,12 +94,24 @@ export async function initializeDatabase(): Promise<void> {
       button_text TEXT,
       referrer TEXT,
       clicked_at TIMESTAMPTZ DEFAULT NOW(),
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      utm_source TEXT,
+      utm_medium TEXT,
+      utm_campaign TEXT,
+      utm_content TEXT
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_website_clicks_visitor ON website_clicks(visitor_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_website_clicks_lead ON website_clicks(lead_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_website_clicks_date ON website_clicks(clicked_at)`;
+
+  // Add columns if they don't exist (for existing databases)
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_score INTEGER DEFAULT 0`;
+  await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_source TEXT`;
+  await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_medium TEXT`;
+  await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_campaign TEXT`;
+  await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_content TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS optin_reminded BOOLEAN DEFAULT FALSE`;
 }
 
 export interface Lead {

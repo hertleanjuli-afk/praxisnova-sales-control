@@ -36,22 +36,19 @@ function getLinkedInSearchUrl(lead: Lead): string {
 
 function getIndustryBadge(industry: string | null) {
   const lower = (industry || '').toLowerCase();
-  if (lower === 'immobilien') {
-    return <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">Immobilien</span>;
+  switch (lower) {
+    case 'immobilien':
+      return <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">Immobilien</span>;
+    case 'handwerk':
+      return <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">Handwerk</span>;
+    case 'bauunternehmen':
+      return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Bau</span>;
+    case 'inbound':
+      return <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">Inbound</span>;
+    case 'allgemein':
+    default:
+      return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">Allgemein</span>;
   }
-  if (lower === 'handwerk') {
-    return <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">Handwerk</span>;
-  }
-  if (lower === 'bauunternehmen') {
-    return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Bau</span>;
-  }
-  if (lower === 'inbound') {
-    return <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">Inbound</span>;
-  }
-  if (industry) {
-    return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">{industry}</span>;
-  }
-  return null;
 }
 
 function getStatusBadge(lead: Lead) {

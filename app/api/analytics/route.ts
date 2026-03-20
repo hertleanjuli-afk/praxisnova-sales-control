@@ -115,6 +115,25 @@ export async function GET(request: NextRequest) {
       WHERE connected_at >= NOW() - ${interval}::interval
     `;
 
+    // LinkedIn status KPIs
+    const linkedinRequests = await sql`
+      SELECT COUNT(*) as count FROM leads
+      WHERE linkedin_status IN ('request_sent', 'connected', 'message_sent')
+      AND linkedin_request_date >= NOW() - ${interval}::interval
+    `;
+
+    const linkedinConnected = await sql`
+      SELECT COUNT(*) as count FROM leads
+      WHERE linkedin_status IN ('connected', 'message_sent')
+      AND linkedin_connected_date >= NOW() - ${interval}::interval
+    `;
+
+    const linkedinMessages = await sql`
+      SELECT COUNT(*) as count FROM leads
+      WHERE linkedin_status = 'message_sent'
+      AND linkedin_message_date >= NOW() - ${interval}::interval
+    `;
+
     const leadsContactedCount = Number(leadsContacted[0]?.count || 0);
     const appointmentsCount = Number(callStats[0]?.appointment || 0);
     const conversionRate = leadsContactedCount > 0
@@ -206,6 +225,9 @@ export async function GET(request: NextRequest) {
       manual_stops: Number(manualStops[0]?.count || 0),
       stop_reasons: stopReasonRows.map(r => ({ reason: r.reason, count: Number(r.count) })),
       linkedin_connections: Number(linkedinConns[0]?.count || 0),
+      linkedin_requests: Number(linkedinRequests[0]?.count || 0),
+      linkedin_connected: Number(linkedinConnected[0]?.count || 0),
+      linkedin_messages: Number(linkedinMessages[0]?.count || 0),
       conversion_rate: conversionRate,
       website_clicks: {
         today: Number(clicksToday[0]?.count || 0),

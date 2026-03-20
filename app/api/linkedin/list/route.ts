@@ -11,7 +11,8 @@ export async function GET() {
 
   try {
     const leads = await sql`
-      SELECT id, first_name, last_name, company, title, linkedin_url, industry, created_at
+      SELECT id, first_name, last_name, company, title, linkedin_url, industry, created_at,
+             linkedin_status, linkedin_request_date, linkedin_connected_date, linkedin_message, linkedin_message_date
       FROM leads
       WHERE created_at >= NOW() - INTERVAL '7 days'
       AND linkedin_url IS NOT NULL AND linkedin_url != ''

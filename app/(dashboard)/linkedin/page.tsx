@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 
+type LinkedInStatus = 'request_sent' | 'connected' | 'message_sent' | null;
+
 interface LinkedInLead {
   id: number;
   first_name: string;
@@ -11,6 +13,11 @@ interface LinkedInLead {
   linkedin_url: string;
   industry: string;
   created_at: string;
+  linkedin_status: LinkedInStatus;
+  linkedin_request_date: string | null;
+  linkedin_connected_date: string | null;
+  linkedin_message: string | null;
+  linkedin_message_date: string | null;
 }
 
 interface LinkedInData {
@@ -19,20 +26,38 @@ interface LinkedInData {
   generated_at: string;
 }
 
+const INDUSTRY_ORDER = ['Immobilien', 'Handwerk', 'Bauunternehmen'];
+
+function formatDate(d: string | null): string {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('de-DE');
+}
+
+function getLinkedInSearchUrl(lead: LinkedInLead): string {
+  const keywords = [lead.first_name, lead.last_name, lead.company]
+    .filter(Boolean)
+    .join(' ');
+  return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keywords)}`;
+}
+
 export default function LinkedInPage() {
   const [data, setData] = useState<LinkedInData | null>(null);
+  const [leads, setLeads] = useState<LinkedInLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [connectedIds, setConnectedIds] = useState<Set<number>>(new Set());
-  const [toastMessage, setToastMessage] = useState('');
+  const [copiedToast, setCopiedToast] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState<number | null>(null);
+  const [messageText, setMessageText] = useState('');
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function fetchList() {
       try {
         const res = await fetch('/api/linkedin/list');
         if (!res.ok) throw new Error('Fehler beim Laden');
-        const json = await res.json();
+        const json: LinkedInData = await res.json();
         setData(json);
+        setLeads(json.leads);
       } catch {
         setError('LinkedIn-Liste konnte nicht geladen werden.');
       } finally {
@@ -42,65 +67,77 @@ export default function LinkedInPage() {
     fetchList();
   }, []);
 
-  // Auto-hide toast
   useEffect(() => {
-    if (!toastMessage) return;
-    const timer = setTimeout(() => setToastMessage(''), 2500);
+    if (!copiedToast) return;
+    const timer = setTimeout(() => setCopiedToast(false), 2500);
     return () => clearTimeout(timer);
-  }, [toastMessage]);
+  }, [copiedToast]);
 
-  const handleToggleConnect = async (leadId: number, connected: boolean) => {
+  const handleStatusUpdate = async (leadId: number, action: string, message?: string) => {
+    // Optimistic update
+    setLeads((prev) =>
+      prev.map((lead) => {
+        if (lead.id !== leadId) return lead;
+        const now = new Date().toISOString();
+        if (action === 'request_sent') {
+          return { ...lead, linkedin_status: 'request_sent' as LinkedInStatus, linkedin_request_date: now };
+        }
+        if (action === 'connected') {
+          return { ...lead, linkedin_status: 'connected' as LinkedInStatus, linkedin_connected_date: now };
+        }
+        if (action === 'message_sent') {
+          return {
+            ...lead,
+            linkedin_status: 'message_sent' as LinkedInStatus,
+            linkedin_message: message || null,
+            linkedin_message_date: now,
+          };
+        }
+        return lead;
+      })
+    );
+
     try {
-      if (connected) {
-        // Uncheck - DELETE
-        await fetch('/api/linkedin/connect', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leadId }),
-        });
-        setConnectedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(leadId);
-          return next;
-        });
-      } else {
-        // Check - POST
-        await fetch('/api/linkedin/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leadId }),
-        });
-        setConnectedIds((prev) => {
-          const next = new Set(prev);
-          next.add(leadId);
-          return next;
-        });
-      }
+      const body: Record<string, string | undefined> = { leadId: String(leadId), action };
+      if (message) body.message = message;
+      const res = await fetch('/api/linkedin/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error('Status update failed');
     } catch {
-      setError('Verbindungsstatus konnte nicht aktualisiert werden.');
+      setError('Status konnte nicht aktualisiert werden.');
+      // Revert: refetch
+      try {
+        const res = await fetch('/api/linkedin/list');
+        if (res.ok) {
+          const json: LinkedInData = await res.json();
+          setLeads(json.leads);
+        }
+      } catch {
+        // ignore
+      }
     }
   };
 
-  const getLinkedInSearchUrl = (lead: LinkedInLead) => {
-    const keywords = [lead.first_name, lead.last_name, lead.company]
-      .filter(Boolean)
-      .join(' ');
-    return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keywords)}`;
+  const handleSendMessage = () => {
+    if (showMessageModal === null || !messageText.trim()) return;
+    handleStatusUpdate(showMessageModal, 'message_sent', messageText.trim());
+    setShowMessageModal(null);
+    setMessageText('');
   };
 
   const handleCopyAll = () => {
-    if (!data || data.leads.length === 0) return;
-    const text = data.leads
+    if (leads.length === 0) return;
+    const text = leads
       .map((lead) => `${lead.first_name} ${lead.last_name} - ${lead.company}`)
       .join('\n');
-    navigator.clipboard.writeText(text).then(() => {
-      setToastMessage('Kopiert!');
-    });
+    navigator.clipboard.writeText(text).then(() => setCopiedToast(true));
   };
 
   const handleExportCSV = () => {
-    if (!data || data.leads.length === 0) return;
-
+    if (!data || leads.length === 0) return;
     const headers = [
       'Vorname',
       'Nachname',
@@ -109,9 +146,12 @@ export default function LinkedInPage() {
       'LinkedIn URL',
       'LinkedIn-Suche',
       'Branche',
-      'Vernetzt',
+      'Status',
+      'Anfrage-Datum',
+      'Verbunden-Datum',
+      'Nachricht-Datum',
     ];
-    const rows = data.leads.map((lead) => [
+    const rows = leads.map((lead) => [
       lead.first_name ?? '',
       lead.last_name ?? '',
       lead.company ?? '',
@@ -119,7 +159,10 @@ export default function LinkedInPage() {
       lead.linkedin_url ?? '',
       getLinkedInSearchUrl(lead),
       lead.industry ?? '',
-      connectedIds.has(lead.id) ? 'Ja' : 'Nein',
+      lead.linkedin_status ?? 'Offen',
+      formatDate(lead.linkedin_request_date),
+      formatDate(lead.linkedin_connected_date),
+      formatDate(lead.linkedin_message_date),
     ]);
 
     const csvContent = [
@@ -138,55 +181,124 @@ export default function LinkedInPage() {
     URL.revokeObjectURL(url);
   };
 
+  const toggleSection = (industry: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(industry)) {
+        next.delete(industry);
+      } else {
+        next.add(industry);
+      }
+      return next;
+    });
+  };
+
   // Group leads by industry
   const groupedLeads: Record<string, LinkedInLead[]> = {};
-  if (data) {
-    const industryOrder = ['Immobilien', 'Handwerk', 'Bauunternehmen'];
-    for (const lead of data.leads) {
-      const industry = lead.industry || 'Sonstige';
-      if (!groupedLeads[industry]) groupedLeads[industry] = [];
-      groupedLeads[industry].push(lead);
-    }
-    // Sort by predefined order
-    const sortedEntries = Object.entries(groupedLeads).sort(([a], [b]) => {
-      const idxA = industryOrder.indexOf(a);
-      const idxB = industryOrder.indexOf(b);
-      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
-    });
-    // Rebuild in order
-    for (const key of Object.keys(groupedLeads)) delete groupedLeads[key];
-    for (const [key, val] of sortedEntries) groupedLeads[key] = val;
+  for (const lead of leads) {
+    const industry = lead.industry || 'Sonstige';
+    if (!groupedLeads[industry]) groupedLeads[industry] = [];
+    groupedLeads[industry].push(lead);
   }
+  const sortedGroups = Object.entries(groupedLeads).sort(([a], [b]) => {
+    const idxA = INDUSTRY_ORDER.indexOf(a);
+    const idxB = INDUSTRY_ORDER.indexOf(b);
+    return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+  });
 
-  const getStatusBadge = (leadId: number) => {
-    if (connectedIds.has(leadId)) {
-      return (
-        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-          Vernetzt
-        </span>
-      );
+  const getStatusBadge = (lead: LinkedInLead) => {
+    switch (lead.linkedin_status) {
+      case 'request_sent':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+            Anfrage gesendet
+            {lead.linkedin_request_date && (
+              <span className="text-blue-500">{formatDate(lead.linkedin_request_date)}</span>
+            )}
+          </span>
+        );
+      case 'connected':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+            Verbunden
+            {lead.linkedin_connected_date && (
+              <span className="text-green-500">{formatDate(lead.linkedin_connected_date)}</span>
+            )}
+          </span>
+        );
+      case 'message_sent':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
+            Nachricht gesendet
+            {lead.linkedin_message_date && (
+              <span className="text-purple-500">{formatDate(lead.linkedin_message_date)}</span>
+            )}
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+            Offen
+          </span>
+        );
     }
-    return (
-      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-        Offen
-      </span>
-    );
   };
+
+  const getActionButton = (lead: LinkedInLead) => {
+    switch (lead.linkedin_status) {
+      case null:
+      case undefined:
+        return (
+          <button
+            onClick={() => handleStatusUpdate(lead.id, 'request_sent')}
+            className="inline-flex items-center rounded-md border border-[#2563EB] bg-white px-3 py-1.5 text-xs font-medium text-[#2563EB] hover:bg-blue-50 transition-colors"
+          >
+            Anfrage gesendet
+          </button>
+        );
+      case 'request_sent':
+        return (
+          <button
+            onClick={() => handleStatusUpdate(lead.id, 'connected')}
+            className="inline-flex items-center rounded-md border border-green-600 bg-white px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
+          >
+            Verbunden
+          </button>
+        );
+      case 'connected':
+        return (
+          <button
+            onClick={() => {
+              setShowMessageModal(lead.id);
+              setMessageText('');
+            }}
+            className="inline-flex items-center rounded-md border border-purple-600 bg-white px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50 transition-colors"
+          >
+            Nachricht senden
+          </button>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const modalLead = leads.find((l) => l.id === showMessageModal);
 
   return (
     <div className="space-y-6">
       {/* Toast */}
-      {toastMessage && (
+      {copiedToast && (
         <div className="fixed top-4 right-4 z-50 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
-          {toastMessage}
+          Kopiert!
         </div>
       )}
 
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
+          <h1 className="text-xl font-bold text-[#1E3A5F]">LinkedIn-Liste</h1>
           {data && (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 mt-1">
               Kalenderwoche: <span className="font-medium text-gray-700">{data.week}</span>
               {' | '}
               Generiert am:{' '}
@@ -205,7 +317,7 @@ export default function LinkedInPage() {
         <div className="flex gap-2">
           <button
             onClick={handleCopyAll}
-            disabled={!data || data.leads.length === 0}
+            disabled={leads.length === 0}
             className="inline-flex items-center gap-2 rounded-md border border-[#2563EB] bg-white px-4 py-2 text-sm font-medium text-[#2563EB] hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -215,7 +327,7 @@ export default function LinkedInPage() {
           </button>
           <button
             onClick={handleExportCSV}
-            disabled={!data || data.leads.length === 0}
+            disabled={leads.length === 0}
             className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,78 +362,85 @@ export default function LinkedInPage() {
       )}
 
       {/* Grouped leads */}
-      {!loading && data && data.leads.length > 0 && (
+      {!loading && leads.length > 0 && (
         <div className="space-y-6">
           <p className="text-sm text-gray-500">
-            {data.leads.length} Lead(s) mit LinkedIn-Profil diese Woche
+            {leads.length} Lead(s) mit LinkedIn-Profil diese Woche
           </p>
 
-          {Object.entries(groupedLeads).map(([industry, leads]) => (
-            <div
-              key={industry}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
-            >
-              <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                <h3 className="text-sm font-semibold text-[#1E3A5F]">
-                  {industry}{' '}
-                  <span className="text-gray-400 font-normal">
-                    ({leads.length})
-                  </span>
-                </h3>
+          {sortedGroups.map(([industry, groupLeads]) => {
+            const isCollapsed = collapsedSections.has(industry);
+            return (
+              <div
+                key={industry}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+              >
+                <button
+                  onClick={() => toggleSection(industry)}
+                  className="w-full bg-gray-50 px-5 py-3 border-b border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                >
+                  <h3 className="text-sm font-semibold text-[#1E3A5F]">
+                    {industry}{' '}
+                    <span className="text-gray-400 font-normal">
+                      ({groupLeads.length})
+                    </span>
+                  </h3>
+                  <svg
+                    className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {!isCollapsed && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="px-5 py-2.5 font-medium text-gray-500">Name</th>
+                          <th className="px-5 py-2.5 font-medium text-gray-500">Firma</th>
+                          <th className="px-5 py-2.5 font-medium text-gray-500">Position</th>
+                          <th className="px-5 py-2.5 font-medium text-gray-500">LinkedIn-Suche</th>
+                          <th className="px-5 py-2.5 font-medium text-gray-500">Status</th>
+                          <th className="px-5 py-2.5 font-medium text-gray-500">Aktion</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupLeads.map((lead) => (
+                          <tr key={lead.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                            <td className="px-5 py-2.5 font-medium text-gray-900">
+                              {lead.first_name} {lead.last_name}
+                            </td>
+                            <td className="px-5 py-2.5 text-gray-600">{lead.company}</td>
+                            <td className="px-5 py-2.5 text-gray-600">{lead.title}</td>
+                            <td className="px-5 py-2.5">
+                              <a
+                                href={getLinkedInSearchUrl(lead)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#2563EB] hover:underline text-xs"
+                              >
+                                Auf LinkedIn suchen
+                              </a>
+                            </td>
+                            <td className="px-5 py-2.5">{getStatusBadge(lead)}</td>
+                            <td className="px-5 py-2.5">{getActionButton(lead)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="px-5 py-2.5 font-medium text-gray-500">Name</th>
-                      <th className="px-5 py-2.5 font-medium text-gray-500">Firma</th>
-                      <th className="px-5 py-2.5 font-medium text-gray-500">Position</th>
-                      <th className="px-5 py-2.5 font-medium text-gray-500">LinkedIn-Suche</th>
-                      <th className="px-5 py-2.5 font-medium text-gray-500">Status</th>
-                      <th className="px-5 py-2.5 font-medium text-gray-500 text-center">Vernetzt</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leads.map((lead) => (
-                      <tr key={lead.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                        <td className="px-5 py-2.5 font-medium text-gray-900">
-                          {lead.first_name} {lead.last_name}
-                        </td>
-                        <td className="px-5 py-2.5 text-gray-600">{lead.company}</td>
-                        <td className="px-5 py-2.5 text-gray-600">{lead.title}</td>
-                        <td className="px-5 py-2.5">
-                          <a
-                            href={getLinkedInSearchUrl(lead)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#2563EB] hover:underline text-xs"
-                          >
-                            Auf LinkedIn suchen
-                          </a>
-                        </td>
-                        <td className="px-5 py-2.5">{getStatusBadge(lead.id)}</td>
-                        <td className="px-5 py-2.5 text-center">
-                          <input
-                            type="checkbox"
-                            checked={connectedIds.has(lead.id)}
-                            onChange={() =>
-                              handleToggleConnect(lead.id, connectedIds.has(lead.id))
-                            }
-                            className="h-4 w-4 rounded border-gray-300 text-[#2563EB] focus:ring-[#2563EB] cursor-pointer"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Empty state */}
-      {!loading && data && data.leads.length === 0 && (
+      {!loading && leads.length === 0 && data && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <svg className="mx-auto h-12 w-12 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
             <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
@@ -329,6 +448,45 @@ export default function LinkedInPage() {
           <p className="mt-3 text-sm text-gray-500">
             Keine LinkedIn-Leads für diese Woche gefunden.
           </p>
+        </div>
+      )}
+
+      {/* Message Modal */}
+      {showMessageModal !== null && modalLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
+            <h2 className="text-lg font-semibold text-[#1E3A5F] mb-1">
+              Nachricht an {modalLead.first_name} {modalLead.last_name}
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {modalLead.company} &middot; {modalLead.title}
+            </p>
+            <textarea
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              placeholder="LinkedIn-Nachricht einfügen"
+              rows={5}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none resize-none"
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowMessageModal(null);
+                  setMessageText('');
+                }}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleSendMessage}
+                disabled={!messageText.trim()}
+                className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Nachricht speichern
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

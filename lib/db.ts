@@ -112,6 +112,11 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_campaign TEXT`;
   await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_content TEXT`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS optin_reminded BOOLEAN DEFAULT FALSE`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_status TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_request_date TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_connected_date TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_message TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_message_date TIMESTAMPTZ`;
 }
 
 export interface Lead {

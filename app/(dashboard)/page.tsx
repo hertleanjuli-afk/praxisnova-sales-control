@@ -18,6 +18,9 @@ interface Analytics {
   calls_appointment: number;
   manual_stops: number;
   linkedin_connections: number;
+  linkedin_requests?: number;
+  linkedin_connected?: number;
+  linkedin_messages?: number;
   conversion_rate: number;
   bySector: {
     sector: string;
@@ -257,10 +260,13 @@ export default function DashboardPage() {
 
               {/* LinkedIn Vernetzungen */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <p className="text-sm text-gray-500 mb-1">LinkedIn Vernetzungen</p>
+                <p className="text-sm text-gray-500 mb-1">LinkedIn Anfragen</p>
                 <p className="text-2xl font-bold text-sky-600">
-                  {analytics.linkedin_connections ?? 0}
+                  {analytics.linkedin_requests ?? 0}
                 </p>
+                <div className="mt-2 space-y-0.5 text-xs text-gray-500">
+                  <p>Anfragen: {analytics.linkedin_requests ?? 0} | Verbunden: {analytics.linkedin_connected ?? 0} | Nachrichten: {analytics.linkedin_messages ?? 0}</p>
+                </div>
               </div>
 
               {/* Conversion Rate */}

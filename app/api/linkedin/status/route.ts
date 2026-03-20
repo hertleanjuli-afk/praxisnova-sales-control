@@ -61,6 +61,54 @@ export async function POST(request: NextRequest) {
         }
         break;
 
+      case 'replied': {
+        const cooldown = new Date();
+        cooldown.setDate(cooldown.getDate() + 90);
+        await sql`
+          UPDATE leads SET
+            linkedin_status = 'replied',
+            linkedin_reply = ${message || null},
+            linkedin_reply_date = ${now},
+            sequence_status = 'replied',
+            exited_at = ${now},
+            cooldown_until = ${cooldown.toISOString()}
+          WHERE id = ${leadId}
+        `;
+        if (lead[0].hubspot_id) {
+          await updateContact(lead[0].hubspot_id, {
+            sequence_status: 'replied',
+            linkedin_export_week: `Antwort erhalten ${new Date().toLocaleDateString('de-DE')}`,
+            cooldown_until: cooldown.toISOString().split('T')[0],
+          }).catch(console.error);
+        }
+        break;
+      }
+
+      case 'meeting_booked': {
+        const cooldown2 = new Date();
+        cooldown2.setDate(cooldown2.getDate() + 90);
+        await sql`
+          UPDATE leads SET
+            linkedin_status = 'meeting_booked',
+            sequence_status = 'booked',
+            exited_at = ${now},
+            cooldown_until = ${cooldown2.toISOString()}
+          WHERE id = ${leadId}
+        `;
+        await sql`
+          INSERT INTO email_events (lead_id, sequence_type, step_number, event_type)
+          VALUES (${leadId}, ${lead[0].sequence_type}, ${lead[0].sequence_step}, 'booked')
+        `;
+        if (lead[0].hubspot_id) {
+          await updateContact(lead[0].hubspot_id, {
+            sequence_status: 'booked',
+            linkedin_export_week: `Meeting gebucht ${new Date().toLocaleDateString('de-DE')}`,
+            cooldown_until: cooldown2.toISOString().split('T')[0],
+          }).catch(console.error);
+        }
+        break;
+      }
+
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }

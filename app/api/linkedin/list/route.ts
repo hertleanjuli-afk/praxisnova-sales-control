@@ -11,13 +11,14 @@ export async function GET() {
 
   try {
     const leads = await sql`
-      SELECT id, first_name, last_name, company, title, linkedin_url, industry, created_at,
-             linkedin_status, linkedin_request_date, linkedin_connected_date, linkedin_message, linkedin_message_date
+      SELECT id, first_name, last_name, company, title, email, linkedin_url, industry, created_at,
+             source, sequence_status, sequence_type,
+             linkedin_status, linkedin_request_date, linkedin_connected_date,
+             linkedin_message, linkedin_message_date,
+             linkedin_reply, linkedin_reply_date
       FROM leads
-      WHERE created_at >= NOW() - INTERVAL '7 days'
-      AND linkedin_url IS NOT NULL AND linkedin_url != ''
-      AND sequence_status != 'unsubscribed' AND sequence_status != 'bounced'
-      ORDER BY industry, created_at DESC
+      WHERE sequence_status != 'unsubscribed' AND sequence_status != 'bounced'
+      ORDER BY source, industry, created_at DESC
     `;
 
     const now = new Date();

@@ -21,6 +21,8 @@ interface Analytics {
   linkedin_requests?: number;
   linkedin_connected?: number;
   linkedin_messages?: number;
+  linkedin_replies?: number;
+  linkedin_meetings?: number;
   conversion_rate: number;
   bySector: {
     sector: string;
@@ -265,7 +267,7 @@ export default function DashboardPage() {
                   {analytics.linkedin_requests ?? 0}
                 </p>
                 <div className="mt-2 space-y-0.5 text-xs text-gray-500">
-                  <p>Anfragen: {analytics.linkedin_requests ?? 0} | Verbunden: {analytics.linkedin_connected ?? 0} | Nachrichten: {analytics.linkedin_messages ?? 0}</p>
+                  <p>Anfragen: {analytics.linkedin_requests ?? 0} | Verbunden: {analytics.linkedin_connected ?? 0} | Nachrichten: {analytics.linkedin_messages ?? 0} | Antworten: {analytics.linkedin_replies ?? 0} | Meetings: {analytics.linkedin_meetings ?? 0}</p>
                 </div>
               </div>
 

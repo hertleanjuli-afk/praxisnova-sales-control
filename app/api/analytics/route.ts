@@ -134,6 +134,20 @@ export async function GET(request: NextRequest) {
       AND linkedin_message_date >= NOW() - ${interval}::interval
     `;
 
+    // LinkedIn replies this period
+    const linkedinReplies = await sql`
+      SELECT COUNT(*) as count FROM leads
+      WHERE linkedin_status = 'replied'
+      AND linkedin_reply_date >= NOW() - ${interval}::interval
+    `;
+
+    // LinkedIn meetings booked this period
+    const linkedinMeetings = await sql`
+      SELECT COUNT(*) as count FROM leads
+      WHERE linkedin_status = 'meeting_booked'
+      AND exited_at >= NOW() - ${interval}::interval
+    `;
+
     const leadsContactedCount = Number(leadsContacted[0]?.count || 0);
     const appointmentsCount = Number(callStats[0]?.appointment || 0);
     const conversionRate = leadsContactedCount > 0
@@ -228,6 +242,8 @@ export async function GET(request: NextRequest) {
       linkedin_requests: Number(linkedinRequests[0]?.count || 0),
       linkedin_connected: Number(linkedinConnected[0]?.count || 0),
       linkedin_messages: Number(linkedinMessages[0]?.count || 0),
+      linkedin_replies: Number(linkedinReplies[0]?.count || 0),
+      linkedin_meetings: Number(linkedinMeetings[0]?.count || 0),
       conversion_rate: conversionRate,
       website_clicks: {
         today: Number(clicksToday[0]?.count || 0),

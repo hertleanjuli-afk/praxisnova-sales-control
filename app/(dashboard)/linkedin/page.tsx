@@ -2,62 +2,139 @@
 
 import { useState, useEffect } from 'react';
 
-type LinkedInStatus = 'request_sent' | 'connected' | 'message_sent' | null;
-
-interface LinkedInLead {
+interface Lead {
   id: number;
   first_name: string;
   last_name: string;
   company: string;
   title: string;
+  email: string;
   linkedin_url: string;
   industry: string;
   created_at: string;
-  linkedin_status: LinkedInStatus;
+  source: string | null;
+  sequence_status: string | null;
+  sequence_type: string | null;
+  linkedin_status: string | null;
   linkedin_request_date: string | null;
   linkedin_connected_date: string | null;
   linkedin_message: string | null;
   linkedin_message_date: string | null;
+  linkedin_reply: string | null;
+  linkedin_reply_date: string | null;
 }
-
-interface LinkedInData {
-  leads: LinkedInLead[];
-  week: string;
-  generated_at: string;
-}
-
-const INDUSTRY_ORDER = ['Immobilien', 'Handwerk', 'Bauunternehmen'];
 
 function formatDate(d: string | null): string {
   if (!d) return '';
   return new Date(d).toLocaleDateString('de-DE');
 }
 
-function getLinkedInSearchUrl(lead: LinkedInLead): string {
-  const keywords = [lead.first_name, lead.last_name, lead.company]
-    .filter(Boolean)
-    .join(' ');
+function getLinkedInSearchUrl(lead: Lead): string {
+  const keywords = [lead.first_name, lead.last_name, lead.company].filter(Boolean).join(' ');
   return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keywords)}`;
 }
 
+function getIndustryBadge(industry: string | null) {
+  const lower = (industry || '').toLowerCase();
+  if (lower === 'immobilien') {
+    return <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">Immobilien</span>;
+  }
+  if (lower === 'handwerk') {
+    return <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">Handwerk</span>;
+  }
+  if (lower === 'bauunternehmen') {
+    return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Bau</span>;
+  }
+  if (lower === 'inbound') {
+    return <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">Inbound</span>;
+  }
+  if (industry) {
+    return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">{industry}</span>;
+  }
+  return null;
+}
+
+function getStatusBadge(lead: Lead) {
+  switch (lead.linkedin_status) {
+    case 'request_sent':
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+          Anfrage gesendet
+          {lead.linkedin_request_date && <span className="text-blue-500">{formatDate(lead.linkedin_request_date)}</span>}
+        </span>
+      );
+    case 'connected':
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+          Verbunden
+          {lead.linkedin_connected_date && <span className="text-green-500">{formatDate(lead.linkedin_connected_date)}</span>}
+        </span>
+      );
+    case 'message_sent':
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
+          Nachricht gesendet
+          {lead.linkedin_message_date && <span className="text-purple-500">{formatDate(lead.linkedin_message_date)}</span>}
+        </span>
+      );
+    case 'replied':
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">
+          Antwort erhalten
+          {lead.linkedin_reply_date && <span className="text-orange-500">{formatDate(lead.linkedin_reply_date)}</span>}
+        </span>
+      );
+    case 'meeting_booked':
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+          Meeting gebucht
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+          Offen
+        </span>
+      );
+  }
+}
+
+const exportCSV = (leadsToExport: Lead[], filename: string) => {
+  const headers = ['Name', 'Firma', 'Sektor', 'Position', 'E-Mail', 'LinkedIn Status', 'Datum'];
+  const rows = leadsToExport.map(l => [
+    `${l.first_name || ''} ${l.last_name || ''}`.trim(),
+    l.company || '',
+    l.industry || '',
+    l.title || '',
+    l.email || '',
+    l.linkedin_status || 'offen',
+    l.created_at ? new Date(l.created_at).toLocaleDateString('de-DE') : '',
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 export default function LinkedInPage() {
-  const [data, setData] = useState<LinkedInData | null>(null);
-  const [leads, setLeads] = useState<LinkedInLead[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copiedToast, setCopiedToast] = useState(false);
-  const [showMessageModal, setShowMessageModal] = useState<number | null>(null);
-  const [messageText, setMessageText] = useState('');
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [showMessageModal, setShowMessageModal] = useState<{ leadId: number; type: 'message' | 'reply' } | null>(null);
+  const [modalText, setModalText] = useState('');
 
   useEffect(() => {
     async function fetchList() {
       try {
         const res = await fetch('/api/linkedin/list');
         if (!res.ok) throw new Error('Fehler beim Laden');
-        const json: LinkedInData = await res.json();
-        setData(json);
-        setLeads(json.leads);
+        const json = await res.json();
+        setLeads(json.leads || []);
       } catch {
         setError('LinkedIn-Liste konnte nicht geladen werden.');
       } finally {
@@ -79,21 +156,20 @@ export default function LinkedInPage() {
       prev.map((lead) => {
         if (lead.id !== leadId) return lead;
         const now = new Date().toISOString();
-        if (action === 'request_sent') {
-          return { ...lead, linkedin_status: 'request_sent' as LinkedInStatus, linkedin_request_date: now };
+        switch (action) {
+          case 'request_sent':
+            return { ...lead, linkedin_status: 'request_sent', linkedin_request_date: now };
+          case 'connected':
+            return { ...lead, linkedin_status: 'connected', linkedin_connected_date: now };
+          case 'message_sent':
+            return { ...lead, linkedin_status: 'message_sent', linkedin_message: message || null, linkedin_message_date: now };
+          case 'replied':
+            return { ...lead, linkedin_status: 'replied', linkedin_reply: message || null, linkedin_reply_date: now };
+          case 'meeting_booked':
+            return { ...lead, linkedin_status: 'meeting_booked' };
+          default:
+            return lead;
         }
-        if (action === 'connected') {
-          return { ...lead, linkedin_status: 'connected' as LinkedInStatus, linkedin_connected_date: now };
-        }
-        if (action === 'message_sent') {
-          return {
-            ...lead,
-            linkedin_status: 'message_sent' as LinkedInStatus,
-            linkedin_message: message || null,
-            linkedin_message_date: now,
-          };
-        }
-        return lead;
       })
     );
 
@@ -108,12 +184,11 @@ export default function LinkedInPage() {
       if (!res.ok) throw new Error('Status update failed');
     } catch {
       setError('Status konnte nicht aktualisiert werden.');
-      // Revert: refetch
       try {
         const res = await fetch('/api/linkedin/list');
         if (res.ok) {
-          const json: LinkedInData = await res.json();
-          setLeads(json.leads);
+          const json = await res.json();
+          setLeads(json.leads || []);
         }
       } catch {
         // ignore
@@ -121,11 +196,12 @@ export default function LinkedInPage() {
     }
   };
 
-  const handleSendMessage = () => {
-    if (showMessageModal === null || !messageText.trim()) return;
-    handleStatusUpdate(showMessageModal, 'message_sent', messageText.trim());
+  const handleModalSubmit = () => {
+    if (!showMessageModal || !modalText.trim()) return;
+    const action = showMessageModal.type === 'message' ? 'message_sent' : 'replied';
+    handleStatusUpdate(showMessageModal.leadId, action, modalText.trim());
     setShowMessageModal(null);
-    setMessageText('');
+    setModalText('');
   };
 
   const handleCopyAll = () => {
@@ -136,153 +212,149 @@ export default function LinkedInPage() {
     navigator.clipboard.writeText(text).then(() => setCopiedToast(true));
   };
 
-  const handleExportCSV = () => {
-    if (!data || leads.length === 0) return;
-    const headers = [
-      'Vorname',
-      'Nachname',
-      'Firma',
-      'Position',
-      'LinkedIn URL',
-      'LinkedIn-Suche',
-      'Branche',
-      'Status',
-      'Anfrage-Datum',
-      'Verbunden-Datum',
-      'Nachricht-Datum',
-    ];
-    const rows = leads.map((lead) => [
-      lead.first_name ?? '',
-      lead.last_name ?? '',
-      lead.company ?? '',
-      lead.title ?? '',
-      lead.linkedin_url ?? '',
-      getLinkedInSearchUrl(lead),
-      lead.industry ?? '',
-      lead.linkedin_status ?? 'Offen',
-      formatDate(lead.linkedin_request_date),
-      formatDate(lead.linkedin_connected_date),
-      formatDate(lead.linkedin_message_date),
-    ]);
+  const apolloLeads = leads.filter((l) => l.source === 'apollo');
+  const manualLeads = leads.filter((l) => l.source !== 'apollo');
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) =>
-        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')
-      ),
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `linkedin-liste-${data.week}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const toggleSection = (industry: string) => {
-    setCollapsedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(industry)) {
-        next.delete(industry);
-      } else {
-        next.add(industry);
-      }
-      return next;
-    });
-  };
-
-  // Group leads by industry
-  const groupedLeads: Record<string, LinkedInLead[]> = {};
-  for (const lead of leads) {
-    const industry = lead.industry || 'Sonstige';
-    if (!groupedLeads[industry]) groupedLeads[industry] = [];
-    groupedLeads[industry].push(lead);
-  }
-  const sortedGroups = Object.entries(groupedLeads).sort(([a], [b]) => {
-    const idxA = INDUSTRY_ORDER.indexOf(a);
-    const idxB = INDUSTRY_ORDER.indexOf(b);
-    return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
-  });
-
-  const getStatusBadge = (lead: LinkedInLead) => {
-    switch (lead.linkedin_status) {
-      case 'request_sent':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-            Anfrage gesendet
-            {lead.linkedin_request_date && (
-              <span className="text-blue-500">{formatDate(lead.linkedin_request_date)}</span>
-            )}
-          </span>
-        );
-      case 'connected':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-            Verbunden
-            {lead.linkedin_connected_date && (
-              <span className="text-green-500">{formatDate(lead.linkedin_connected_date)}</span>
-            )}
-          </span>
-        );
-      case 'message_sent':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
-            Nachricht gesendet
-            {lead.linkedin_message_date && (
-              <span className="text-purple-500">{formatDate(lead.linkedin_message_date)}</span>
-            )}
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-            Offen
-          </span>
-        );
-    }
-  };
-
-  const getActionButton = (lead: LinkedInLead) => {
+  const getActionButtons = (lead: Lead) => {
     switch (lead.linkedin_status) {
       case null:
       case undefined:
         return (
-          <button
-            onClick={() => handleStatusUpdate(lead.id, 'request_sent')}
-            className="inline-flex items-center rounded-md border border-[#2563EB] bg-white px-3 py-1.5 text-xs font-medium text-[#2563EB] hover:bg-blue-50 transition-colors"
-          >
-            Anfrage gesendet
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleStatusUpdate(lead.id, 'request_sent')}
+              className="inline-flex items-center rounded-md border border-[#2563EB] bg-white px-3 py-1.5 text-xs font-medium text-[#2563EB] hover:bg-blue-50 transition-colors"
+            >
+              Anfrage gesendet
+            </button>
+          </div>
         );
       case 'request_sent':
         return (
-          <button
-            onClick={() => handleStatusUpdate(lead.id, 'connected')}
-            className="inline-flex items-center rounded-md border border-green-600 bg-white px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
-          >
-            Verbunden
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleStatusUpdate(lead.id, 'connected')}
+              className="inline-flex items-center rounded-md border border-green-600 bg-white px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
+            >
+              Verbunden
+            </button>
+          </div>
         );
       case 'connected':
         return (
-          <button
-            onClick={() => {
-              setShowMessageModal(lead.id);
-              setMessageText('');
-            }}
-            className="inline-flex items-center rounded-md border border-purple-600 bg-white px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50 transition-colors"
-          >
-            Nachricht senden
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                setShowMessageModal({ leadId: lead.id, type: 'message' });
+                setModalText('');
+              }}
+              className="inline-flex items-center rounded-md border border-purple-600 bg-white px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50 transition-colors"
+            >
+              Nachricht senden
+            </button>
+            <button
+              onClick={() => handleStatusUpdate(lead.id, 'meeting_booked')}
+              className="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
+            >
+              Meeting gebucht
+            </button>
+          </div>
         );
+      case 'message_sent':
+        return (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                setShowMessageModal({ leadId: lead.id, type: 'reply' });
+                setModalText('');
+              }}
+              className="inline-flex items-center rounded-md border border-orange-600 bg-white px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50 transition-colors"
+            >
+              Antwort erhalten
+            </button>
+            <button
+              onClick={() => handleStatusUpdate(lead.id, 'meeting_booked')}
+              className="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
+            >
+              Meeting gebucht
+            </button>
+          </div>
+        );
+      case 'replied':
+      case 'meeting_booked':
+        return null;
       default:
         return null;
     }
   };
 
-  const modalLead = leads.find((l) => l.id === showMessageModal);
+  const modalLead = showMessageModal ? leads.find((l) => l.id === showMessageModal.leadId) : null;
+
+  const renderLeadCard = (lead: Lead) => (
+    <div key={lead.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col gap-3">
+      {/* Top row: name + sector badge */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">
+            {lead.first_name} {lead.last_name}
+          </p>
+          <p className="text-xs text-gray-600 truncate">{lead.company}</p>
+        </div>
+        {getIndustryBadge(lead.industry)}
+      </div>
+
+      {/* Position */}
+      {lead.title && (
+        <p className="text-xs text-gray-500 truncate">{lead.title}</p>
+      )}
+
+      {/* LinkedIn search link */}
+      <a
+        href={getLinkedInSearchUrl(lead)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[#2563EB] hover:underline text-xs"
+      >
+        Auf LinkedIn suchen
+      </a>
+
+      {/* Status badge */}
+      <div>{getStatusBadge(lead)}</div>
+
+      {/* Action buttons */}
+      {getActionButtons(lead)}
+    </div>
+  );
+
+  const renderSection = (title: string, sectionLeads: Lead[], csvFilename: string) => (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h2 className="text-lg font-bold text-[#1E3A5F]">
+          {title}{' '}
+          <span className="text-sm font-normal text-gray-400">({sectionLeads.length})</span>
+        </h2>
+        <button
+          onClick={() => exportCSV(sectionLeads, csvFilename)}
+          disabled={sectionLeads.length === 0}
+          className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          CSV exportieren
+        </button>
+      </div>
+      {sectionLeads.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+          <p className="text-sm text-gray-500">Keine Leads in dieser Kategorie.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sectionLeads.map(renderLeadCard)}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -295,26 +367,8 @@ export default function LinkedInPage() {
 
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-[#1E3A5F]">LinkedIn-Liste</h1>
-          {data && (
-            <p className="text-sm text-gray-500 mt-1">
-              Kalenderwoche: <span className="font-medium text-gray-700">{data.week}</span>
-              {' | '}
-              Generiert am:{' '}
-              <span className="font-medium text-gray-700">
-                {new Date(data.generated_at).toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2">
+        <h1 className="text-xl font-bold text-[#1E3A5F]">LinkedIn-Liste</h1>
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={handleCopyAll}
             disabled={leads.length === 0}
@@ -326,14 +380,18 @@ export default function LinkedInPage() {
             Alles kopieren
           </button>
           <button
-            onClick={handleExportCSV}
-            disabled={leads.length === 0}
+            onClick={() => exportCSV(apolloLeads, 'apollo-leads.csv')}
+            disabled={apolloLeads.length === 0}
             className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            CSV exportieren
+            Apollo CSV
+          </button>
+          <button
+            onClick={() => exportCSV(manualLeads, 'manuelle-leads.csv')}
+            disabled={manualLeads.length === 0}
+            className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Manuelle CSV
           </button>
         </div>
       </div>
@@ -361,110 +419,38 @@ export default function LinkedInPage() {
         </div>
       )}
 
-      {/* Grouped leads */}
+      {/* Sections */}
       {!loading && leads.length > 0 && (
-        <div className="space-y-6">
-          <p className="text-sm text-gray-500">
-            {leads.length} Lead(s) mit LinkedIn-Profil diese Woche
-          </p>
-
-          {sortedGroups.map(([industry, groupLeads]) => {
-            const isCollapsed = collapsedSections.has(industry);
-            return (
-              <div
-                key={industry}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
-              >
-                <button
-                  onClick={() => toggleSection(industry)}
-                  className="w-full bg-gray-50 px-5 py-3 border-b border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
-                >
-                  <h3 className="text-sm font-semibold text-[#1E3A5F]">
-                    {industry}{' '}
-                    <span className="text-gray-400 font-normal">
-                      ({groupLeads.length})
-                    </span>
-                  </h3>
-                  <svg
-                    className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {!isCollapsed && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                      <thead>
-                        <tr className="border-b border-gray-100">
-                          <th className="px-5 py-2.5 font-medium text-gray-500">Name</th>
-                          <th className="px-5 py-2.5 font-medium text-gray-500">Firma</th>
-                          <th className="px-5 py-2.5 font-medium text-gray-500">Position</th>
-                          <th className="px-5 py-2.5 font-medium text-gray-500">LinkedIn-Suche</th>
-                          <th className="px-5 py-2.5 font-medium text-gray-500">Status</th>
-                          <th className="px-5 py-2.5 font-medium text-gray-500">Aktion</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {groupLeads.map((lead) => (
-                          <tr key={lead.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                            <td className="px-5 py-2.5 font-medium text-gray-900">
-                              {lead.first_name} {lead.last_name}
-                            </td>
-                            <td className="px-5 py-2.5 text-gray-600">{lead.company}</td>
-                            <td className="px-5 py-2.5 text-gray-600">{lead.title}</td>
-                            <td className="px-5 py-2.5">
-                              <a
-                                href={getLinkedInSearchUrl(lead)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[#2563EB] hover:underline text-xs"
-                              >
-                                Auf LinkedIn suchen
-                              </a>
-                            </td>
-                            <td className="px-5 py-2.5">{getStatusBadge(lead)}</td>
-                            <td className="px-5 py-2.5">{getActionButton(lead)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="space-y-10">
+          {renderSection('Apollo Leads', apolloLeads, 'apollo-leads.csv')}
+          {renderSection('Manuell hinzugefügt', manualLeads, 'manuelle-leads.csv')}
         </div>
       )}
 
       {/* Empty state */}
-      {!loading && leads.length === 0 && data && (
+      {!loading && leads.length === 0 && !error && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <svg className="mx-auto h-12 w-12 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
             <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
           </svg>
-          <p className="mt-3 text-sm text-gray-500">
-            Keine LinkedIn-Leads für diese Woche gefunden.
-          </p>
+          <p className="mt-3 text-sm text-gray-500">Keine LinkedIn-Leads gefunden.</p>
         </div>
       )}
 
       {/* Message Modal */}
-      {showMessageModal !== null && modalLead && (
+      {showMessageModal && showMessageModal.type === 'message' && modalLead && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
             <h2 className="text-lg font-semibold text-[#1E3A5F] mb-1">
-              Nachricht an {modalLead.first_name} {modalLead.last_name}
+              LinkedIn-Nachricht &middot; {modalLead.first_name} {modalLead.last_name}
             </h2>
             <p className="text-sm text-gray-500 mb-4">
               {modalLead.company} &middot; {modalLead.title}
             </p>
             <textarea
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              placeholder="LinkedIn-Nachricht einfügen"
+              value={modalText}
+              onChange={(e) => setModalText(e.target.value)}
+              placeholder="Gesendete Nachricht einfügen..."
               rows={5}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none resize-none"
             />
@@ -472,18 +458,57 @@ export default function LinkedInPage() {
               <button
                 onClick={() => {
                   setShowMessageModal(null);
-                  setMessageText('');
+                  setModalText('');
                 }}
                 className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Abbrechen
               </button>
               <button
-                onClick={handleSendMessage}
-                disabled={!messageText.trim()}
+                onClick={handleModalSubmit}
+                disabled={!modalText.trim()}
                 className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Nachricht speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reply Modal */}
+      {showMessageModal && showMessageModal.type === 'reply' && modalLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
+            <h2 className="text-lg font-semibold text-[#1E3A5F] mb-1">
+              LinkedIn-Antwort &middot; {modalLead.first_name} {modalLead.last_name}
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {modalLead.company} &middot; {modalLead.title}
+            </p>
+            <textarea
+              value={modalText}
+              onChange={(e) => setModalText(e.target.value)}
+              placeholder="Erhaltene Antwort einfügen..."
+              rows={5}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500 focus:outline-none resize-none"
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowMessageModal(null);
+                  setModalText('');
+                }}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleModalSubmit}
+                disabled={!modalText.trim()}
+                className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Antwort speichern & Sequenz stoppen
               </button>
             </div>
           </div>

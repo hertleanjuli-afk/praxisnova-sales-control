@@ -23,6 +23,8 @@ interface Analytics {
   linkedin_messages?: number;
   linkedin_replies?: number;
   linkedin_meetings?: number;
+  linkedin_no_profile?: number;
+  linkedin_by_sector?: { sector: string; requests: number; connected: number; messages: number; replied: number; meetings: number; no_linkedin: number }[];
   conversion_rate: number;
   bySector: {
     sector: string;
@@ -236,8 +238,71 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {/* LinkedIn Aktivität */}
+            <div>
+              <h3 className="text-lg font-semibold text-[#1E3A5F] mb-3">LinkedIn Aktivit&auml;t</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <div className="text-2xl font-bold text-blue-600">{analytics.linkedin_requests ?? 0}</div>
+                  <div className="text-xs text-gray-500 mt-1">Anfragen gesendet</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <div className="text-2xl font-bold text-green-600">{analytics.linkedin_connected ?? 0}</div>
+                  <div className="text-xs text-gray-500 mt-1">Verbunden</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <div className="text-2xl font-bold text-purple-600">{analytics.linkedin_messages ?? 0}</div>
+                  <div className="text-xs text-gray-500 mt-1">Nachrichten gesendet</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <div className="text-2xl font-bold text-orange-600">{analytics.linkedin_replies ?? 0}</div>
+                  <div className="text-xs text-gray-500 mt-1">Antworten erhalten</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <div className="text-2xl font-bold text-emerald-600">{analytics.linkedin_meetings ?? 0}</div>
+                  <div className="text-xs text-gray-500 mt-1">Termine via LinkedIn</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <div className="text-2xl font-bold text-red-600">{analytics.linkedin_no_profile ?? 0}</div>
+                  <div className="text-xs text-gray-500 mt-1">Kein LinkedIn</div>
+                </div>
+              </div>
+
+              {/* Sector breakdown */}
+              {analytics.linkedin_by_sector && analytics.linkedin_by_sector.length > 0 && (
+                <div className="mt-3 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left p-2 font-medium text-gray-600">Sektor</th>
+                        <th className="text-center p-2 font-medium text-gray-600">Anfragen</th>
+                        <th className="text-center p-2 font-medium text-gray-600">Verbunden</th>
+                        <th className="text-center p-2 font-medium text-gray-600">Nachrichten</th>
+                        <th className="text-center p-2 font-medium text-gray-600">Antworten</th>
+                        <th className="text-center p-2 font-medium text-gray-600">Meetings</th>
+                        <th className="text-center p-2 font-medium text-gray-600">Kein LI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.linkedin_by_sector.map(s => (
+                        <tr key={s.sector} className="border-t border-gray-100">
+                          <td className="p-2 font-medium capitalize">{s.sector}</td>
+                          <td className="p-2 text-center">{s.requests}</td>
+                          <td className="p-2 text-center">{s.connected}</td>
+                          <td className="p-2 text-center">{s.messages}</td>
+                          <td className="p-2 text-center">{s.replied}</td>
+                          <td className="p-2 text-center">{s.meetings}</td>
+                          <td className="p-2 text-center">{s.no_linkedin}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             {/* Extended KPIs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Telefonkontakte */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <p className="text-sm text-gray-500 mb-1">Telefonkontakte</p>
@@ -258,17 +323,6 @@ export default function DashboardPage() {
                 <p className="text-2xl font-bold text-amber-600">
                   {analytics.manual_stops ?? 0}
                 </p>
-              </div>
-
-              {/* LinkedIn Vernetzungen */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <p className="text-sm text-gray-500 mb-1">LinkedIn Anfragen</p>
-                <p className="text-2xl font-bold text-sky-600">
-                  {analytics.linkedin_requests ?? 0}
-                </p>
-                <div className="mt-2 space-y-0.5 text-xs text-gray-500">
-                  <p>Anfragen: {analytics.linkedin_requests ?? 0} | Verbunden: {analytics.linkedin_connected ?? 0} | Nachrichten: {analytics.linkedin_messages ?? 0} | Antworten: {analytics.linkedin_replies ?? 0} | Meetings: {analytics.linkedin_meetings ?? 0}</p>
-                </div>
               </div>
 
               {/* Conversion Rate */}

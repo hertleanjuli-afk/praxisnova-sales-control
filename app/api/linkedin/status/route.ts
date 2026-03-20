@@ -109,6 +109,21 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      case 'no_linkedin':
+        await sql`
+          UPDATE leads SET
+            linkedin_status = 'no_linkedin',
+            linkedin_no_profile = TRUE,
+            linkedin_no_profile_date = ${now}
+          WHERE id = ${leadId}
+        `;
+        if (lead[0].hubspot_id) {
+          await updateContact(lead[0].hubspot_id, {
+            linkedin_export_week: `Kein LinkedIn ${new Date().toLocaleDateString('de-DE')}`,
+          }).catch(console.error);
+        }
+        break;
+
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }

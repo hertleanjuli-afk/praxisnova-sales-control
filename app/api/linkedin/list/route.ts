@@ -15,7 +15,8 @@ export async function GET() {
              source, sequence_status, sequence_type,
              linkedin_status, linkedin_request_date, linkedin_connected_date,
              linkedin_message, linkedin_message_date,
-             linkedin_reply, linkedin_reply_date
+             linkedin_reply, linkedin_reply_date,
+             linkedin_no_profile, linkedin_no_profile_date
       FROM leads
       WHERE sequence_status != 'unsubscribed' AND sequence_status != 'bounced'
       ORDER BY source, industry, created_at DESC

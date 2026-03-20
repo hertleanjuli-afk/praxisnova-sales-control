@@ -22,6 +22,7 @@ interface Lead {
   linkedin_message_date: string | null;
   linkedin_reply: string | null;
   linkedin_reply_date: string | null;
+  linkedin_no_profile_date: string | null;
 }
 
 function formatDate(d: string | null): string {
@@ -85,6 +86,13 @@ function getStatusBadge(lead: Lead) {
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
           Meeting gebucht
+        </span>
+      );
+    case 'no_linkedin':
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+          Kein LinkedIn
+          {lead.linkedin_no_profile_date && <span className="text-red-500">{formatDate(lead.linkedin_no_profile_date)}</span>}
         </span>
       );
     default:
@@ -164,6 +172,8 @@ export default function LinkedInPage() {
             return { ...lead, linkedin_status: 'replied', linkedin_reply: message || null, linkedin_reply_date: now };
           case 'meeting_booked':
             return { ...lead, linkedin_status: 'meeting_booked' };
+          case 'no_linkedin':
+            return { ...lead, linkedin_status: 'no_linkedin', linkedin_no_profile_date: now };
           default:
             return lead;
         }
@@ -224,8 +234,16 @@ export default function LinkedInPage() {
             >
               Anfrage gesendet
             </button>
+            <button
+              onClick={() => handleStatusUpdate(lead.id, 'no_linkedin')}
+              className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+            >
+              Kein LinkedIn
+            </button>
           </div>
         );
+      case 'no_linkedin':
+        return null;
       case 'request_sent':
         return (
           <div className="flex flex-wrap gap-2">
@@ -267,7 +285,7 @@ export default function LinkedInPage() {
               }}
               className="inline-flex items-center rounded-md border border-orange-600 bg-white px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50 transition-colors"
             >
-              Antwort erhalten
+              Nachricht beantwortet
             </button>
             <button
               onClick={() => handleStatusUpdate(lead.id, 'meeting_booked')}

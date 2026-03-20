@@ -148,6 +148,28 @@ export async function GET(request: NextRequest) {
       AND exited_at >= NOW() - ${interval}::interval
     `;
 
+    // No LinkedIn profile this period
+    const linkedinNoProfile = await sql`
+      SELECT COUNT(*) as count FROM leads
+      WHERE linkedin_status = 'no_linkedin'
+      AND linkedin_no_profile_date >= NOW() - ${interval}::interval
+    `;
+
+    // LinkedIn sector breakdown
+    const linkedinBySector = await sql`
+      SELECT
+        industry,
+        COUNT(*) FILTER (WHERE linkedin_status IN ('request_sent','connected','message_sent','replied','meeting_booked')) as requests,
+        COUNT(*) FILTER (WHERE linkedin_status IN ('connected','message_sent','replied','meeting_booked')) as connected,
+        COUNT(*) FILTER (WHERE linkedin_status IN ('message_sent','replied','meeting_booked')) as messages,
+        COUNT(*) FILTER (WHERE linkedin_status IN ('replied','meeting_booked')) as replied,
+        COUNT(*) FILTER (WHERE linkedin_status = 'meeting_booked') as meetings,
+        COUNT(*) FILTER (WHERE linkedin_status = 'no_linkedin') as no_linkedin
+      FROM leads
+      WHERE industry IS NOT NULL
+      GROUP BY industry
+    `;
+
     const leadsContactedCount = Number(leadsContacted[0]?.count || 0);
     const appointmentsCount = Number(callStats[0]?.appointment || 0);
     const conversionRate = leadsContactedCount > 0
@@ -244,6 +266,16 @@ export async function GET(request: NextRequest) {
       linkedin_messages: Number(linkedinMessages[0]?.count || 0),
       linkedin_replies: Number(linkedinReplies[0]?.count || 0),
       linkedin_meetings: Number(linkedinMeetings[0]?.count || 0),
+      linkedin_no_profile: Number(linkedinNoProfile[0]?.count || 0),
+      linkedin_by_sector: linkedinBySector.map(r => ({
+        sector: r.industry,
+        requests: Number(r.requests),
+        connected: Number(r.connected),
+        messages: Number(r.messages),
+        replied: Number(r.replied),
+        meetings: Number(r.meetings),
+        no_linkedin: Number(r.no_linkedin),
+      })),
       conversion_rate: conversionRate,
       website_clicks: {
         today: Number(clicksToday[0]?.count || 0),

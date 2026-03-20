@@ -120,6 +120,8 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_reply TEXT`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_reply_date TIMESTAMPTZ`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_no_profile BOOLEAN DEFAULT FALSE`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_no_profile_date TIMESTAMPTZ`;
   // Mark existing Apollo leads
   await sql`UPDATE leads SET source = 'apollo' WHERE apollo_id IS NOT NULL AND (source IS NULL OR source = 'manual')`;
 }

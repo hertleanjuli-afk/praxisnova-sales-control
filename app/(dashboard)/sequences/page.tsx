@@ -49,6 +49,9 @@ export default function SequencesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [bookingId, setBookingId] = useState<number | null>(null);
 
+  // Reply marking state
+  const [markingReplyId, setMarkingReplyId] = useState<number | null>(null);
+
   // Stop modal state
   const [showStopModal, setShowStopModal] = useState<number | null>(null);
   const [stopReason, setStopReason] = useState('');
@@ -139,6 +142,27 @@ export default function SequencesPage() {
       setError('Status konnte nicht aktualisiert werden.');
     } finally {
       setBookingId(null);
+    }
+  };
+
+  const handleMarkReplied = async (leadId: number) => {
+    setMarkingReplyId(leadId);
+    try {
+      const res = await fetch('/api/sequences/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId, reason: 'replied' }),
+      });
+      if (!res.ok) throw new Error('Mark replied failed');
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === leadId ? { ...l, sequence_status: 'replied' } : l
+        )
+      );
+    } catch {
+      setError('Status konnte nicht aktualisiert werden.');
+    } finally {
+      setMarkingReplyId(null);
     }
   };
 
@@ -366,6 +390,13 @@ export default function SequencesPage() {
                       Anruf erfassen
                     </button>
                   </div>
+                  <button
+                    onClick={() => handleMarkReplied(lead.id)}
+                    disabled={markingReplyId === lead.id}
+                    className="w-full rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {markingReplyId === lead.id ? 'Wird markiert...' : 'Als beantwortet markieren'}
+                  </button>
                   <button
                     onClick={() => openStopModal(lead.id)}
                     className="w-full rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"

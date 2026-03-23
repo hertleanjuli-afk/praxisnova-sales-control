@@ -30,15 +30,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { event, email, 'message-id': messageId } = body;
+  const { event, email, 'message-id': messageId, sender: senderEmail } = body;
 
-  if (!event || !email) {
-    return NextResponse.json({ error: 'Missing event or email' }, { status: 400 });
+  if (!event) {
+    return NextResponse.json({ error: 'Missing event' }, { status: 400 });
+  }
+
+  // For inbound/reply events, the lead email may be in the "sender" field instead of "email"
+  const isInboundReply = event === 'inbound_email_processed' || event === 'inbound';
+  const leadEmail = isInboundReply ? (senderEmail || email) : email;
+
+  if (!leadEmail) {
+    return NextResponse.json({ error: 'Missing email' }, { status: 400 });
   }
 
   try {
-    const leads = await sql`SELECT * FROM leads WHERE email = ${email}`;
+    const leads = await sql`SELECT * FROM leads WHERE email = ${leadEmail}`;
     if (leads.length === 0) {
+      console.log(`[Brevo Webhook] Lead not found for email=${leadEmail}, event=${event}`);
       return NextResponse.json({ ok: true, message: 'Lead not found, skipping' });
     }
 
@@ -54,9 +63,12 @@ export async function POST(request: NextRequest) {
       hard_bounce: 'bounced',
       soft_bounce: 'bounced',
       reply: 'replied',
+      inbound_email_processed: 'replied',
+      inbound: 'replied',
     };
 
     const eventType = eventMap[event] || event;
+    console.log(`[Brevo Webhook] event=${event}, mapped=${eventType}, lead=${lead.id}, email=${leadEmail}`);
 
     // Log the event
     await sql`
@@ -64,7 +76,7 @@ export async function POST(request: NextRequest) {
       VALUES (${lead.id}, ${lead.sequence_type}, ${lead.sequence_step}, ${eventType}, ${messageId || null})
     `;
 
-    // Auto-stop rules
+    // Auto-stop rules — also update if lead already completed (reply can come after sequence ends)
     if (eventType === 'unsubscribed' || eventType === 'replied' || eventType === 'bounced') {
       const newStatus = eventType === 'bounced' ? 'bounced' : eventType === 'replied' ? 'replied' : 'unsubscribed';
       const cooldownUntil = new Date();
@@ -73,10 +85,12 @@ export async function POST(request: NextRequest) {
       await sql`
         UPDATE leads SET
           sequence_status = ${newStatus},
-          exited_at = NOW(),
+          exited_at = COALESCE(exited_at, NOW()),
           cooldown_until = ${cooldownUntil.toISOString()}
         WHERE id = ${lead.id}
+          AND sequence_status NOT IN ('unsubscribed', 'bounced')
       `;
+      console.log(`[Brevo Webhook] Updated lead ${lead.id} status to ${newStatus}`);
 
       // Sync to HubSpot
       if (lead.hubspot_id) {

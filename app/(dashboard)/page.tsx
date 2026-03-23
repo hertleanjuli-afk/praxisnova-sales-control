@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import FeedbackBanner from '@/components/FeedbackBanner';
 
 type Period = 'week' | 'month' | 'all';
 
@@ -60,6 +61,33 @@ function SkeletonCard() {
   );
 }
 
+function getReadableName(buttonId: string, buttonText: string | null): string {
+  const id = (buttonId || '').toLowerCase();
+  const text = (buttonText || '').toLowerCase();
+  if (id.includes('workshop_01') || (id.includes('service_cta_01') && text.includes('workshop'))) return 'Workshop Starter';
+  if (id.includes('workshop_02') || (id.includes('service_cta_02') && text.includes('workshop'))) return 'Workshop Professional';
+  if (id.includes('workshop_03')) return 'KI-Prozessautomatisierung';
+  if (id.includes('auto_01') || text.includes('immobilien')) return 'Immobilienmakler';
+  if (id.includes('auto_02') || text.includes('handwerk')) return 'Handwerksbetriebe';
+  if (id.includes('auto_03') || text.includes('bau')) return 'Bauunternehmen';
+  if (id === 'hero_cta_primary') return 'Hero: Workshops entdecken';
+  if (id === 'hero_cta_secondary') return 'Hero: Audit buchen';
+  if (id === 'cta_bottom') return 'Bottom CTA';
+  if (id === 'launch_banner_cta') return 'Launch Banner';
+  if (id === 'pageview') return 'Seitenaufruf';
+  if (id.includes('scroll')) return buttonText || 'Scroll';
+  return buttonText || buttonId || 'Unbekannt';
+}
+
+function getClickCategory(buttonId: string, buttonText: string | null): 'workshop' | 'automation' | 'cta' | 'other' {
+  const id = (buttonId || '').toLowerCase();
+  const text = (buttonText || '').toLowerCase();
+  if (id.includes('workshop') || (id.includes('service_cta') && text.includes('workshop'))) return 'workshop';
+  if (id.includes('auto_') || text.includes('immobilien') || text.includes('handwerk') || text.includes('bau')) return 'automation';
+  if (id.includes('hero_cta') || id === 'cta_bottom' || id === 'launch_banner_cta' || id.includes('calendly') || text.includes('audit') || text.includes('termin')) return 'cta';
+  return 'other';
+}
+
 export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>('week');
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
@@ -107,6 +135,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Weekly Feedback Banner */}
+      <FeedbackBanner />
+
       {/* Period tabs */}
       <div className="flex gap-2">
         {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
@@ -194,19 +225,43 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
-              {analytics.website_clicks?.top_buttons && analytics.website_clicks.top_buttons.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <h4 className="text-sm font-semibold text-[#1E3A5F] mb-3">Top Buttons</h4>
-                  <ul className="space-y-2">
-                    {analytics.website_clicks.top_buttons.slice(0, 5).map((btn) => (
-                      <li key={btn.button_id} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-700">{btn.button_text}</span>
-                        <span className="font-medium text-[#2563EB]">{btn.count}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {analytics.website_clicks?.top_buttons && analytics.website_clicks.top_buttons.length > 0 && (() => {
+                const topButtons = analytics.website_clicks?.top_buttons || [];
+                const workshopClicks = topButtons.filter(b => getClickCategory(b.button_id, b.button_text) === 'workshop').reduce((s, b) => s + b.count, 0);
+                const automationClicks = topButtons.filter(b => getClickCategory(b.button_id, b.button_text) === 'automation').reduce((s, b) => s + b.count, 0);
+                const ctaClicks = topButtons.filter(b => getClickCategory(b.button_id, b.button_text) === 'cta').reduce((s, b) => s + b.count, 0);
+                return (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                    <h4 className="text-sm font-semibold text-[#1E3A5F] mb-3">Klick-Kategorien</h4>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="bg-blue-50 rounded-lg p-3 text-center">
+                        <div className="text-lg font-bold text-blue-700">{workshopClicks}</div>
+                        <div className="text-xs text-blue-600">Workshops</div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-3 text-center">
+                        <div className="text-lg font-bold text-green-700">{automationClicks}</div>
+                        <div className="text-xs text-green-600">Automatisierung</div>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-3 text-center">
+                        <div className="text-lg font-bold text-purple-700">{ctaClicks}</div>
+                        <div className="text-xs text-purple-600">CTAs</div>
+                      </div>
+                    </div>
+                    <h4 className="text-sm font-semibold text-[#1E3A5F] mt-4 mb-3">Top Buttons</h4>
+                    <div className="space-y-2">
+                      {topButtons.slice(0, 5).map((btn, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          <span className="text-gray-700 min-w-0 truncate flex-1">{getReadableName(btn.button_id, btn.button_text)}</span>
+                          <div className="w-24 bg-gray-100 rounded-full h-1.5">
+                            <div className="bg-[#2563EB] h-1.5 rounded-full" style={{ width: `${Math.min(100, (btn.count / Math.max(...topButtons.map(b => b.count))) * 100)}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-500 w-8 text-right">{btn.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Hot Leads */}

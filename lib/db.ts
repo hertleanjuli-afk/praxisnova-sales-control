@@ -105,6 +105,63 @@ export async function initializeDatabase(): Promise<void> {
   await sql`CREATE INDEX IF NOT EXISTS idx_website_clicks_lead ON website_clicks(lead_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_website_clicks_date ON website_clicks(clicked_at)`;
 
+  // Performance Intelligence tables
+  await sql`
+    CREATE TABLE IF NOT EXISTS weekly_reports (
+      id SERIAL PRIMARY KEY,
+      week_start DATE NOT NULL,
+      week_end DATE NOT NULL,
+      leads_contacted INTEGER DEFAULT 0,
+      emails_sent INTEGER DEFAULT 0,
+      emails_opened INTEGER DEFAULT 0,
+      emails_replied INTEGER DEFAULT 0,
+      meetings_booked INTEGER DEFAULT 0,
+      linkedin_requests INTEGER DEFAULT 0,
+      linkedin_connected INTEGER DEFAULT 0,
+      linkedin_messages INTEGER DEFAULT 0,
+      linkedin_replied INTEGER DEFAULT 0,
+      linkedin_meetings INTEGER DEFAULT 0,
+      sector_immobilien_count INTEGER DEFAULT 0,
+      sector_handwerk_count INTEGER DEFAULT 0,
+      sector_bau_count INTEGER DEFAULT 0,
+      sector_allgemein_count INTEGER DEFAULT 0,
+      best_performing_sector TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS change_log (
+      id SERIAL PRIMARY KEY,
+      change_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      change_type TEXT NOT NULL,
+      change_description TEXT NOT NULL,
+      changed_by TEXT NOT NULL,
+      expected_impact TEXT,
+      actual_impact TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS weekly_feedback (
+      id SERIAL PRIMARY KEY,
+      week_start DATE NOT NULL,
+      question_1 TEXT DEFAULT 'Was lief diese Woche gut?',
+      answer_1 TEXT,
+      question_2 TEXT DEFAULT 'Was lief nicht gut?',
+      answer_2 TEXT,
+      question_3 TEXT DEFAULT 'Haben wir etwas geändert?',
+      answer_3 TEXT,
+      question_4 TEXT DEFAULT 'Welche Reaktionen haben wir von Leads bekommen?',
+      answer_4 TEXT,
+      question_5 TEXT DEFAULT 'Was wollen wir nächste Woche testen?',
+      answer_5 TEXT,
+      submitted_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
   // Add columns if they don't exist (for existing databases)
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_score INTEGER DEFAULT 0`;
   await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_source TEXT`;

@@ -16,7 +16,6 @@ const REQUIRED_EVENTS = [
   'click',
   'unsubscribed',
   'complaint',
-  'inbound',
 ];
 
 export async function POST(request: NextRequest) {

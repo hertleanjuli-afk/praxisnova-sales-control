@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 
 interface Lead {
@@ -106,7 +105,7 @@ function getStatusBadge(lead: Lead) {
 
 const exportCSV = (leadsToExport: Lead[], filename: string) => {
   const headers = ['Name', 'Firma', 'Sektor', 'Position', 'E-Mail', 'LinkedIn Status', 'Datum'];
-  const rows = leadsToExport.map(l => [
+  const rows = leadsToExport.map((l) => [
     `${l.first_name || ''} ${l.last_name || ''}`.trim(),
     l.company || '',
     l.industry || '',
@@ -115,7 +114,7 @@ const exportCSV = (leadsToExport: Lead[], filename: string) => {
     l.linkedin_status || 'offen',
     l.created_at ? new Date(l.created_at).toLocaleDateString('de-DE') : '',
   ]);
-  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -132,6 +131,11 @@ export default function LinkedInPage() {
   const [copiedToast, setCopiedToast] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState<{ leadId: number; type: 'message' | 'reply' } | null>(null);
   const [modalText, setModalText] = useState('');
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sectorFilter, setSectorFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     async function fetchList() {
@@ -156,30 +160,21 @@ export default function LinkedInPage() {
   }, [copiedToast]);
 
   const handleStatusUpdate = async (leadId: number, action: string, message?: string) => {
-    // Optimistic update
     setLeads((prev) =>
       prev.map((lead) => {
         if (lead.id !== leadId) return lead;
         const now = new Date().toISOString();
         switch (action) {
-          case 'request_sent':
-            return { ...lead, linkedin_status: 'request_sent', linkedin_request_date: now };
-          case 'connected':
-            return { ...lead, linkedin_status: 'connected', linkedin_connected_date: now };
-          case 'message_sent':
-            return { ...lead, linkedin_status: 'message_sent', linkedin_message: message || null, linkedin_message_date: now };
-          case 'replied':
-            return { ...lead, linkedin_status: 'replied', linkedin_reply: message || null, linkedin_reply_date: now };
-          case 'meeting_booked':
-            return { ...lead, linkedin_status: 'meeting_booked' };
-          case 'no_linkedin':
-            return { ...lead, linkedin_status: 'no_linkedin', linkedin_no_profile_date: now };
-          default:
-            return lead;
+          case 'request_sent': return { ...lead, linkedin_status: 'request_sent', linkedin_request_date: now };
+          case 'connected': return { ...lead, linkedin_status: 'connected', linkedin_connected_date: now };
+          case 'message_sent': return { ...lead, linkedin_status: 'message_sent', linkedin_message: message || null, linkedin_message_date: now };
+          case 'replied': return { ...lead, linkedin_status: 'replied', linkedin_reply: message || null, linkedin_reply_date: now };
+          case 'meeting_booked': return { ...lead, linkedin_status: 'meeting_booked' };
+          case 'no_linkedin': return { ...lead, linkedin_status: 'no_linkedin', linkedin_no_profile_date: now };
+          default: return lead;
         }
       })
     );
-
     try {
       const body: Record<string, string | undefined> = { leadId: String(leadId), action };
       if (message) body.message = message;
@@ -193,13 +188,8 @@ export default function LinkedInPage() {
       setError('Status konnte nicht aktualisiert werden.');
       try {
         const res = await fetch('/api/linkedin/list');
-        if (res.ok) {
-          const json = await res.json();
-          setLeads(json.leads || []);
-        }
-      } catch {
-        // ignore
-      }
+        if (res.ok) { const json = await res.json(); setLeads(json.leads || []); }
+      } catch { /* ignore */ }
     }
   };
 
@@ -213,14 +203,33 @@ export default function LinkedInPage() {
 
   const handleCopyAll = () => {
     if (leads.length === 0) return;
-    const text = leads
-      .map((lead) => `${lead.first_name} ${lead.last_name} - ${lead.company}`)
-      .join('\n');
+    const text = leads.map((lead) => `${lead.first_name} ${lead.last_name} - ${lead.company}`).join('\n');
     navigator.clipboard.writeText(text).then(() => setCopiedToast(true));
   };
 
-  const apolloLeads = leads.filter((l) => l.source === 'apollo');
-  const manualLeads = leads.filter((l) => l.source !== 'apollo');
+  // Client-side filtering
+  const filteredLeads = leads.filter((lead) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const nameMatch = `${lead.first_name || ''} ${lead.last_name || ''}`.toLowerCase().includes(q);
+      const companyMatch = (lead.company || '').toLowerCase().includes(q);
+      if (!nameMatch && !companyMatch) return false;
+    }
+    if (sectorFilter !== 'all') {
+      if ((lead.industry || 'allgemein').toLowerCase() !== sectorFilter) return false;
+    }
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'open') {
+        if (lead.linkedin_status !== null && lead.linkedin_status !== undefined) return false;
+      } else if ((lead.linkedin_status || '') !== statusFilter) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const apolloLeads = filteredLeads.filter((l) => l.source === 'apollo');
+  const manualLeads = filteredLeads.filter((l) => l.source !== 'apollo');
 
   const getActionButtons = (lead: Lead) => {
     switch (lead.linkedin_status) {
@@ -228,76 +237,33 @@ export default function LinkedInPage() {
       case undefined:
         return (
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleStatusUpdate(lead.id, 'request_sent')}
-              className="inline-flex items-center rounded-md border border-[#2563EB] bg-white px-3 py-1.5 text-xs font-medium text-[#2563EB] hover:bg-blue-50 transition-colors"
-            >
-              Anfrage gesendet
-            </button>
-            <button
-              onClick={() => handleStatusUpdate(lead.id, 'no_linkedin')}
-              className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-            >
-              Kein LinkedIn
-            </button>
+            <button onClick={() => handleStatusUpdate(lead.id, 'request_sent')} className="inline-flex items-center rounded-md border border-[#2563EB] bg-white px-3 py-1.5 text-xs font-medium text-[#2563EB] hover:bg-blue-50 transition-colors">Anfrage gesendet</button>
+            <button onClick={() => handleStatusUpdate(lead.id, 'no_linkedin')} className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors">Kein LinkedIn</button>
           </div>
         );
-      case 'no_linkedin':
-        return null;
+      case 'no_linkedin': return null;
       case 'request_sent':
         return (
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleStatusUpdate(lead.id, 'connected')}
-              className="inline-flex items-center rounded-md border border-green-600 bg-white px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
-            >
-              Verbunden
-            </button>
+            <button onClick={() => handleStatusUpdate(lead.id, 'connected')} className="inline-flex items-center rounded-md border border-green-600 bg-white px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors">Verbunden</button>
           </div>
         );
       case 'connected':
         return (
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => {
-                setShowMessageModal({ leadId: lead.id, type: 'message' });
-                setModalText('');
-              }}
-              className="inline-flex items-center rounded-md border border-purple-600 bg-white px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50 transition-colors"
-            >
-              Nachricht senden
-            </button>
-            <button
-              onClick={() => handleStatusUpdate(lead.id, 'meeting_booked')}
-              className="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
-            >
-              Meeting gebucht
-            </button>
+            <button onClick={() => { setShowMessageModal({ leadId: lead.id, type: 'message' }); setModalText(''); }} className="inline-flex items-center rounded-md border border-purple-600 bg-white px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50 transition-colors">Nachricht senden</button>
+            <button onClick={() => handleStatusUpdate(lead.id, 'meeting_booked')} className="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition-colors">Meeting gebucht</button>
           </div>
         );
       case 'message_sent':
         return (
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => {
-                setShowMessageModal({ leadId: lead.id, type: 'reply' });
-                setModalText('');
-              }}
-              className="inline-flex items-center rounded-md border border-orange-600 bg-white px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50 transition-colors"
-            >
-              Nachricht beantwortet
-            </button>
-            <button
-              onClick={() => handleStatusUpdate(lead.id, 'meeting_booked')}
-              className="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
-            >
-              Meeting gebucht
-            </button>
+            <button onClick={() => { setShowMessageModal({ leadId: lead.id, type: 'reply' }); setModalText(''); }} className="inline-flex items-center rounded-md border border-orange-600 bg-white px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50 transition-colors">Nachricht beantwortet</button>
+            <button onClick={() => handleStatusUpdate(lead.id, 'meeting_booked')} className="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition-colors">Meeting gebucht</button>
           </div>
         );
       case 'replied':
       case 'meeting_booked':
-        return null;
       default:
         return null;
     }
@@ -307,36 +273,16 @@ export default function LinkedInPage() {
 
   const renderLeadCard = (lead: Lead) => (
     <div key={lead.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col gap-3">
-      {/* Top row: name + sector badge */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">
-            {lead.first_name} {lead.last_name}
-          </p>
+          <p className="text-sm font-semibold text-gray-900 truncate">{lead.first_name} {lead.last_name}</p>
           <p className="text-xs text-gray-600 truncate">{lead.company}</p>
         </div>
         {getIndustryBadge(lead.industry)}
       </div>
-
-      {/* Position */}
-      {lead.title && (
-        <p className="text-xs text-gray-500 truncate">{lead.title}</p>
-      )}
-
-      {/* LinkedIn search link */}
-      <a
-        href={getLinkedInSearchUrl(lead)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-[#2563EB] hover:underline text-xs"
-      >
-        Auf LinkedIn suchen
-      </a>
-
-      {/* Status badge */}
+      {lead.title && <p className="text-xs text-gray-500 truncate">{lead.title}</p>}
+      <a href={getLinkedInSearchUrl(lead)} target="_blank" rel="noopener noreferrer" className="text-[#2563EB] hover:underline text-xs">Auf LinkedIn suchen</a>
       <div>{getStatusBadge(lead)}</div>
-
-      {/* Action buttons */}
       {getActionButtons(lead)}
     </div>
   );
@@ -344,111 +290,106 @@ export default function LinkedInPage() {
   const renderSection = (title: string, sectionLeads: Lead[], csvFilename: string) => (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h2 className="text-lg font-bold text-[#1E3A5F]">
-          {title}{' '}
-          <span className="text-sm font-normal text-gray-400">({sectionLeads.length})</span>
-        </h2>
-        <button
-          onClick={() => exportCSV(sectionLeads, csvFilename)}
-          disabled={sectionLeads.length === 0}
-          className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
+        <h2 className="text-lg font-bold text-[#1E3A5F]">{title} <span className="text-sm font-normal text-gray-400">({sectionLeads.length})</span></h2>
+        <button onClick={() => exportCSV(sectionLeads, csvFilename)} disabled={sectionLeads.length === 0} className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           CSV exportieren
         </button>
       </div>
       {sectionLeads.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <p className="text-sm text-gray-500">Keine Leads in dieser Kategorie.</p>
-        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center"><p className="text-sm text-gray-500">Keine Leads in dieser Kategorie.</p></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sectionLeads.map(renderLeadCard)}
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{sectionLeads.map(renderLeadCard)}</div>
       )}
     </div>
   );
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
       {copiedToast && (
-        <div className="fixed top-4 right-4 z-50 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
-          Kopiert!
-        </div>
+        <div className="fixed top-4 right-4 z-50 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-lg">Kopiert!</div>
       )}
 
-      {/* Header bar */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-xl font-bold text-[#1E3A5F]">LinkedIn-Liste</h1>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleCopyAll}
-            disabled={leads.length === 0}
-            className="inline-flex items-center gap-2 rounded-md border border-[#2563EB] bg-white px-4 py-2 text-sm font-medium text-[#2563EB] hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+          <button onClick={handleCopyAll} disabled={leads.length === 0} className="inline-flex items-center gap-2 rounded-md border border-[#2563EB] bg-white px-4 py-2 text-sm font-medium text-[#2563EB] hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
             Alles kopieren
           </button>
-          <button
-            onClick={() => exportCSV(apolloLeads, 'apollo-leads.csv')}
-            disabled={apolloLeads.length === 0}
-            className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Apollo CSV
-          </button>
-          <button
-            onClick={() => exportCSV(manualLeads, 'manuelle-leads.csv')}
-            disabled={manualLeads.length === 0}
-            className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Manuelle CSV
-          </button>
+          <button onClick={() => exportCSV(apolloLeads, 'apollo-leads.csv')} disabled={apolloLeads.length === 0} className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Apollo CSV</button>
+          <button onClick={() => exportCSV(manualLeads, 'manuelle-leads.csv')} disabled={manualLeads.length === 0} className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Manuelle CSV</button>
         </div>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-4">
-          <p className="text-sm text-red-700">{error}</p>
+      {/* Search + Filter bar */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" placeholder="Name oder Firma suchen..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm focus:border-[#2563EB] focus:ring-[#2563EB] focus:outline-none" />
+          </div>
+          <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-[#2563EB] focus:ring-[#2563EB] focus:outline-none">
+            <option value="all">Alle Sektoren</option>
+            <option value="immobilien">Immobilien</option>
+            <option value="bauunternehmen">Bau</option>
+            <option value="handwerk">Handwerk</option>
+            <option value="allgemein">Allgemein</option>
+          </select>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-[#2563EB] focus:ring-[#2563EB] focus:outline-none">
+            <option value="all">Alle Status</option>
+            <option value="open">Offen</option>
+            <option value="request_sent">Anfrage gesendet</option>
+            <option value="connected">Verbunden</option>
+            <option value="message_sent">Nachricht gesendet</option>
+            <option value="replied">Antwort erhalten</option>
+            <option value="meeting_booked">Meeting gebucht</option>
+            <option value="no_linkedin">Kein LinkedIn</option>
+          </select>
+          {(searchQuery || sectorFilter !== 'all' || statusFilter !== 'all') && (
+            <button onClick={() => { setSearchQuery(''); setSectorFilter('all'); setStatusFilter('all'); }}
+              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap">
+              Filter zurücksetzen
+            </button>
+          )}
         </div>
-      )}
+        {(searchQuery || sectorFilter !== 'all' || statusFilter !== 'all') && (
+          <p className="mt-2 text-xs text-gray-500">{filteredLeads.length} von {leads.length} Leads angezeigt</p>
+        )}
+      </div>
 
-      {/* Loading */}
+      {error && <div className="rounded-md bg-red-50 border border-red-200 p-4"><p className="text-sm text-red-700">{error}</p></div>}
+
       {loading && (
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 animate-pulse">
               <div className="h-4 bg-gray-200 rounded w-32 mb-4" />
-              <div className="space-y-3">
-                <div className="h-3 bg-gray-200 rounded w-full" />
-                <div className="h-3 bg-gray-200 rounded w-full" />
-                <div className="h-3 bg-gray-200 rounded w-3/4" />
-              </div>
+              <div className="space-y-3"><div className="h-3 bg-gray-200 rounded w-full" /><div className="h-3 bg-gray-200 rounded w-full" /><div className="h-3 bg-gray-200 rounded w-3/4" /></div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Sections */}
-      {!loading && leads.length > 0 && (
+      {!loading && filteredLeads.length > 0 && (
         <div className="space-y-10">
           {renderSection('Apollo Leads', apolloLeads, 'apollo-leads.csv')}
           {renderSection('Manuell hinzugefügt', manualLeads, 'manuelle-leads.csv')}
         </div>
       )}
 
-      {/* Empty state */}
-      {!loading && leads.length === 0 && !error && (
+      {!loading && filteredLeads.length === 0 && !error && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <svg className="mx-auto h-12 w-12 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
             <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
           </svg>
-          <p className="mt-3 text-sm text-gray-500">Keine LinkedIn-Leads gefunden.</p>
+          <p className="mt-3 text-sm text-gray-500">{leads.length === 0 ? 'Keine LinkedIn-Leads gefunden.' : 'Keine Leads entsprechen den Filterkriterien.'}</p>
         </div>
       )}
 
@@ -456,36 +397,13 @@ export default function LinkedInPage() {
       {showMessageModal && showMessageModal.type === 'message' && modalLead && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
-            <h2 className="text-lg font-semibold text-[#1E3A5F] mb-1">
-              LinkedIn-Nachricht &middot; {modalLead.first_name} {modalLead.last_name}
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              {modalLead.company} &middot; {modalLead.title}
-            </p>
-            <textarea
-              value={modalText}
-              onChange={(e) => setModalText(e.target.value)}
-              placeholder="Gesendete Nachricht einfügen..."
-              rows={5}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none resize-none"
-            />
+            <h2 className="text-lg font-semibold text-[#1E3A5F] mb-1">LinkedIn-Nachricht &middot; {modalLead.first_name} {modalLead.last_name}</h2>
+            <p className="text-sm text-gray-500 mb-4">{modalLead.company} &middot; {modalLead.title}</p>
+            <textarea value={modalText} onChange={(e) => setModalText(e.target.value)} placeholder="Gesendete Nachricht einfügen..." rows={5}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none resize-none" />
             <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => {
-                  setShowMessageModal(null);
-                  setModalText('');
-                }}
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={handleModalSubmit}
-                disabled={!modalText.trim()}
-                className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Nachricht speichern
-              </button>
+              <button onClick={() => { setShowMessageModal(null); setModalText(''); }} className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Abbrechen</button>
+              <button onClick={handleModalSubmit} disabled={!modalText.trim()} className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Nachricht speichern</button>
             </div>
           </div>
         </div>
@@ -495,36 +413,13 @@ export default function LinkedInPage() {
       {showMessageModal && showMessageModal.type === 'reply' && modalLead && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
-            <h2 className="text-lg font-semibold text-[#1E3A5F] mb-1">
-              LinkedIn-Antwort &middot; {modalLead.first_name} {modalLead.last_name}
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              {modalLead.company} &middot; {modalLead.title}
-            </p>
-            <textarea
-              value={modalText}
-              onChange={(e) => setModalText(e.target.value)}
-              placeholder="Erhaltene Antwort einfügen..."
-              rows={5}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500 focus:outline-none resize-none"
-            />
+            <h2 className="text-lg font-semibold text-[#1E3A5F] mb-1">LinkedIn-Antwort &middot; {modalLead.first_name} {modalLead.last_name}</h2>
+            <p className="text-sm text-gray-500 mb-4">{modalLead.company} &middot; {modalLead.title}</p>
+            <textarea value={modalText} onChange={(e) => setModalText(e.target.value)} placeholder="Erhaltene Antwort einfügen..." rows={5}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500 focus:outline-none resize-none" />
             <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => {
-                  setShowMessageModal(null);
-                  setModalText('');
-                }}
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={handleModalSubmit}
-                disabled={!modalText.trim()}
-                className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Antwort speichern & Sequenz stoppen
-              </button>
+              <button onClick={() => { setShowMessageModal(null); setModalText(''); }} className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Abbrechen</button>
+              <button onClick={handleModalSubmit} disabled={!modalText.trim()} className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Antwort speichern &amp; Sequenz stoppen</button>
             </div>
           </div>
         </div>

@@ -31,7 +31,7 @@ export const handwerkSequence: SequenceStep[] = [
   },
   {
     step: 2,
-    dayOffset: 3,
+    dayOffset: 4,
     channel: 'email',
     subject: '45 Minuten auf 7 Minuten: Was ein Elektrobetrieb automatisiert hat',
     bodyTemplate: `<html>
@@ -57,7 +57,7 @@ export const handwerkSequence: SequenceStep[] = [
   },
   {
     step: 3,
-    dayOffset: 7,
+    dayOffset: 9,
     channel: 'email',
     subject: 'Was Handwerksbetriebe in unserem Workshop konkret umsetzen',
     bodyTemplate: `<html>
@@ -85,7 +85,7 @@ export const handwerkSequence: SequenceStep[] = [
   },
   {
     step: 4,
-    dayOffset: 10,
+    dayOffset: 14,
     channel: 'email',
     subject: 'Was kostet bei {{company_name}} am meisten Zeit?',
     bodyTemplate: `<html>
@@ -110,7 +110,7 @@ export const handwerkSequence: SequenceStep[] = [
   },
   {
     step: 5,
-    dayOffset: 14,
+    dayOffset: 20,
     channel: 'email',
     subject: 'Letzte Nachricht, zwei Wege für {{company_name}}',
     bodyTemplate: `<html>
@@ -135,7 +135,7 @@ export const handwerkSequence: SequenceStep[] = [
   },
   {
     step: 6,
-    dayOffset: 17,
+    dayOffset: 26,
     channel: 'linkedin',
     bodyTemplate: `LinkedIn-Aufgabe (manuell): Verbindungsanfrage an {{first_name}} von {{company_name}} senden. Nachricht: "Hallo {{first_name}}, ich besch&auml;ftige mich mit KI-Automatisierung f&uuml;r Handwerksbetriebe und bin auf {{company_name}} aufmerksam geworden. W&uuml;rde mich freuen, uns zu vernetzen, vielleicht ergibt sich ein spannender Austausch." Hinweis: Diese Nachricht wird NICHT automatisch versendet. Bitte manuell &uuml;ber LinkedIn versenden.`,
   },

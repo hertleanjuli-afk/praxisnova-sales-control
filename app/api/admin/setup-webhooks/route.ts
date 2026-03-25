@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const allEvents = [...new Set([...currentEvents, ...REQUIRED_EVENTS])];
+      const allEvents = Array.from(new Set(currentEvents.concat(REQUIRED_EVENTS)));
 
       const updateRes = await fetch(`https://api.brevo.com/v3/webhooks/${webhookId}`, {
         method: 'PUT',

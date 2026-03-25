@@ -15,7 +15,7 @@ const REQUIRED_EVENTS = [
   'opened',       // ← the one we need to enable
   'click',
   'unsubscribed',
-  'complaint',
+  'spam',
 ];
 
 export async function POST(request: NextRequest) {

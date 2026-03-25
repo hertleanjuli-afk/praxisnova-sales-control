@@ -263,7 +263,6 @@ export async function GET(request: NextRequest) {
     const pendingOptins = await sql`
       SELECT * FROM leads
       WHERE sequence_status = 'pending_optin'
-      AND sequence_type = 'inbound'
       AND enrolled_at < NOW() - INTERVAL '24 hours'
       AND (optin_reminded IS NULL OR optin_reminded = FALSE)
     `;

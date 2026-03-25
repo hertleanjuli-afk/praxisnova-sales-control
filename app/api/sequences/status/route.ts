@@ -13,24 +13,33 @@ export async function GET(request: NextRequest) {
   const sector = searchParams.get('sector');
   const status = searchParams.get('status');
 
-  let leads;
+  // When filtering by 'completed', include ALL terminal/done states
+  const statusesToQuery: string[] =
+    status === 'completed'
+      ? ['completed', 'replied', 'booked', 'stopped', 'unsubscribed']
+      : status
+      ? [status]
+      : ['active'];
 
+  let leads;
   if (sector && status) {
     leads = await sql`
       SELECT * FROM leads
-      WHERE sequence_type = ${sector} AND sequence_status = ${status}
+      WHERE sequence_type = ${sector}
+        AND sequence_status = ANY(${statusesToQuery})
       ORDER BY enrolled_at DESC
     `;
   } else if (sector) {
     leads = await sql`
       SELECT * FROM leads
-      WHERE sequence_type = ${sector} AND sequence_status = 'active'
+      WHERE sequence_type = ${sector}
+        AND sequence_status = 'active'
       ORDER BY enrolled_at DESC
     `;
   } else if (status) {
     leads = await sql`
       SELECT * FROM leads
-      WHERE sequence_status = ${status}
+      WHERE sequence_status = ANY(${statusesToQuery})
       ORDER BY enrolled_at DESC
     `;
   } else {
@@ -44,16 +53,20 @@ export async function GET(request: NextRequest) {
   // Get latest email event for each lead
   const leadIds = leads.map((l) => l.id);
   const events: Record<number, { event_type: string; step_number: number; created_at: string }> = {};
-
   if (leadIds.length > 0) {
     const latestEvents = await sql`
-      SELECT DISTINCT ON (lead_id) lead_id, event_type, step_number, created_at
+      SELECT DISTINCT ON (lead_id)
+        lead_id, event_type, step_number, created_at
       FROM email_events
       WHERE lead_id = ANY(${leadIds})
       ORDER BY lead_id, created_at DESC
     `;
     for (const e of latestEvents) {
-      events[e.lead_id] = { event_type: e.event_type, step_number: e.step_number, created_at: e.created_at };
+      events[e.lead_id] = {
+        event_type: e.event_type,
+        step_number: e.step_number,
+        created_at: e.created_at,
+      };
     }
   }
 

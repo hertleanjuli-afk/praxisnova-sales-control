@@ -27,7 +27,7 @@ export const allgemeinSequence: SequenceStep[] = [
   },
   {
     step: 2,
-    dayOffset: 3,
+    dayOffset: 4,
     channel: 'email',
     subject: 'Was unsere Kunden in 4 Wochen automatisiert haben',
     bodyTemplate: `<html>
@@ -50,7 +50,7 @@ export const allgemeinSequence: SequenceStep[] = [
   },
   {
     step: 3,
-    dayOffset: 7,
+    dayOffset: 9,
     channel: 'email',
     subject: 'Unser Workshop: Was in einem halben Tag möglich ist',
     bodyTemplate: `<html>
@@ -74,7 +74,7 @@ export const allgemeinSequence: SequenceStep[] = [
   },
   {
     step: 4,
-    dayOffset: 10,
+    dayOffset: 14,
     channel: 'email',
     subject: 'Was kostet bei {{company_name}} am meisten Zeit?',
     bodyTemplate: `<html>
@@ -96,7 +96,7 @@ export const allgemeinSequence: SequenceStep[] = [
   },
   {
     step: 5,
-    dayOffset: 14,
+    dayOffset: 20,
     channel: 'email',
     subject: 'Meine letzte Nachricht, zwei Optionen für {{company_name}}',
     bodyTemplate: `<html>
@@ -118,7 +118,7 @@ export const allgemeinSequence: SequenceStep[] = [
   },
   {
     step: 6,
-    dayOffset: 17,
+    dayOffset: 26,
     channel: 'linkedin',
     bodyTemplate: `LinkedIn-Aufgabe (manuell): Verbindungsanfrage an {{first_name}} von {{company_name}} senden. Nachricht: "Hallo {{first_name}}, ich besch&auml;ftige mich mit KI-Automatisierung f&uuml;r mittelst&auml;ndische Unternehmen und bin auf {{company_name}} aufmerksam geworden. W&uuml;rde mich freuen, uns zu vernetzen." Hinweis: Diese Nachricht wird NICHT automatisch versendet. Bitte manuell &uuml;ber LinkedIn versenden.`,
   },

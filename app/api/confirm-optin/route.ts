@@ -10,7 +10,7 @@ function verifyOptinToken(token: string): { valid: boolean; email: string | null
     if (!payload || !signature) return { valid: false, email: null };
 
     const decoded = Buffer.from(payload, 'base64').toString('utf-8');
-    const [email, expiryStr] = decoded.split('|');
+    const [email, expiryStr] = decoded.split(':');
     const expiry = parseInt(expiryStr, 10);
 
     // Check expiry (24 hours)
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         sequence_status = 'active',
         sequence_step = 1,
         enrolled_at = NOW()
-      WHERE email = ${email} AND sequence_type = 'inbound'
+      WHERE email = ${email} AND sequence_status = 'pending_optin'
     `;
 
     // Update HubSpot

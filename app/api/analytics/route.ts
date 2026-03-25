@@ -28,27 +28,39 @@ export async function GET(request: NextRequest) {
     // KPI cards
     const leadsContacted = await sql`
       SELECT COUNT(DISTINCT lead_id) as count FROM email_events
-      WHERE event_type = 'sent' AND created_at >= NOW() - ${interval}::interval
+      WHERE event_type = 'sent'
+        AND created_at >= NOW() - ${interval}::interval
     `;
 
     const emailsSent = await sql`
       SELECT COUNT(*) as count FROM email_events
-      WHERE event_type = 'sent' AND created_at >= NOW() - ${interval}::interval
+      WHERE event_type = 'sent'
+        AND created_at >= NOW() - ${interval}::interval
     `;
 
     const emailsFailed = await sql`
       SELECT COUNT(*) as count FROM email_events
-      WHERE event_type = 'failed' AND created_at >= NOW() - ${interval}::interval
+      WHERE event_type = 'failed'
+        AND created_at >= NOW() - ${interval}::interval
     `;
 
     const unsubscribes = await sql`
       SELECT COUNT(*) as count FROM email_events
-      WHERE event_type = 'unsubscribed' AND created_at >= NOW() - ${interval}::interval
+      WHERE event_type = 'unsubscribed'
+        AND created_at >= NOW() - ${interval}::interval
     `;
 
     const replies = await sql`
       SELECT COUNT(*) as count FROM email_events
-      WHERE event_type = 'replied' AND created_at >= NOW() - ${interval}::interval
+      WHERE event_type = 'replied'
+        AND created_at >= NOW() - ${interval}::interval
+    `;
+
+    // Count replied leads from leads table (accurate — email_events has no 'replied' events)
+    const repliedLeadsResult = await sql`
+      SELECT COUNT(*) as count FROM leads
+      WHERE sequence_status = 'replied'
+        AND exited_at >= NOW() - ${interval}::interval
     `;
 
     // Per-sector breakdown
@@ -115,47 +127,48 @@ export async function GET(request: NextRequest) {
       WHERE connected_at >= NOW() - ${interval}::interval
     `;
 
-    // LinkedIn status KPIs
+    // LinkedIn status KPIs — cumulative funnel:
+    // Each stage counts everyone who REACHED that stage (even if they progressed further)
     const linkedinRequests = await sql`
       SELECT COUNT(*) as count FROM leads
-      WHERE linkedin_status IN ('request_sent', 'connected', 'message_sent')
-      AND linkedin_request_date >= NOW() - ${interval}::interval
+      WHERE linkedin_status IN ('request_sent', 'connected', 'message_sent', 'replied', 'meeting_booked')
+        AND linkedin_request_date >= NOW() - ${interval}::interval
     `;
 
     const linkedinConnected = await sql`
       SELECT COUNT(*) as count FROM leads
-      WHERE linkedin_status IN ('connected', 'message_sent')
-      AND linkedin_connected_date >= NOW() - ${interval}::interval
+      WHERE linkedin_status IN ('connected', 'message_sent', 'replied', 'meeting_booked')
+        AND linkedin_connected_date >= NOW() - ${interval}::interval
     `;
 
     const linkedinMessages = await sql`
       SELECT COUNT(*) as count FROM leads
-      WHERE linkedin_status = 'message_sent'
-      AND linkedin_message_date >= NOW() - ${interval}::interval
+      WHERE linkedin_status IN ('message_sent', 'replied', 'meeting_booked')
+        AND linkedin_message_date >= NOW() - ${interval}::interval
     `;
 
     // LinkedIn replies this period
     const linkedinReplies = await sql`
       SELECT COUNT(*) as count FROM leads
-      WHERE linkedin_status = 'replied'
-      AND linkedin_reply_date >= NOW() - ${interval}::interval
+      WHERE linkedin_status IN ('replied', 'meeting_booked')
+        AND linkedin_reply_date >= NOW() - ${interval}::interval
     `;
 
     // LinkedIn meetings booked this period
     const linkedinMeetings = await sql`
       SELECT COUNT(*) as count FROM leads
       WHERE linkedin_status = 'meeting_booked'
-      AND exited_at >= NOW() - ${interval}::interval
+        AND exited_at >= NOW() - ${interval}::interval
     `;
 
     // No LinkedIn profile this period
     const linkedinNoProfile = await sql`
       SELECT COUNT(*) as count FROM leads
       WHERE linkedin_status = 'no_linkedin'
-      AND linkedin_no_profile_date >= NOW() - ${interval}::interval
+        AND linkedin_no_profile_date >= NOW() - ${interval}::interval
     `;
 
-    // LinkedIn sector breakdown
+    // LinkedIn sector breakdown (cumulative funnel per sector)
     const linkedinBySector = await sql`
       SELECT
         industry,
@@ -172,53 +185,68 @@ export async function GET(request: NextRequest) {
 
     const leadsContactedCount = Number(leadsContacted[0]?.count || 0);
     const appointmentsCount = Number(callStats[0]?.appointment || 0);
-    const conversionRate = leadsContactedCount > 0
-      ? Math.round((appointmentsCount / leadsContactedCount) * 10000) / 100
-      : 0;
+    const conversionRate =
+      leadsContactedCount > 0
+        ? Math.round((appointmentsCount / leadsContactedCount) * 10000) / 100
+        : 0;
 
     // Total leads and active sequences (not time-filtered)
     const totalLeadsResult = await sql`SELECT COUNT(*) as count FROM leads`;
     const activeSeqResult = await sql`SELECT COUNT(*) as count FROM leads WHERE sequence_status = 'active'`;
     const bookedResult = await sql`
       SELECT COUNT(*) as count FROM leads
-      WHERE sequence_status = 'booked' AND exited_at >= NOW() - ${interval}::interval
+      WHERE sequence_status = 'booked'
+        AND exited_at >= NOW() - ${interval}::interval
     `;
 
-    // Open & reply rates
+    // Open rate — requires Brevo webhook to be configured (/api/webhooks/brevo)
     const emailsSentCount = Number(emailsSent[0]?.count || 0);
     const opensResult = await sql`
       SELECT COUNT(*) as count FROM email_events
-      WHERE event_type = 'opened' AND created_at >= NOW() - ${interval}::interval
+      WHERE event_type = 'opened'
+        AND created_at >= NOW() - ${interval}::interval
     `;
-    const repliesCount = Number(replies[0]?.count || 0);
     const opensCount = Number(opensResult[0]?.count || 0);
     const openRate = emailsSentCount > 0 ? opensCount / emailsSentCount : 0;
-    const replyRate = emailsSentCount > 0 ? repliesCount / emailsSentCount : 0;
+
+    // Reply rate — calculated from leads table (accurate)
+    const repliedLeadsCount = Number(repliedLeadsResult[0]?.count || 0);
+    const replyRate = leadsContactedCount > 0 ? repliedLeadsCount / leadsContactedCount : 0;
 
     // Website clicks data
     const clicksToday = await sql`
-      SELECT COUNT(*) as count FROM website_clicks WHERE clicked_at >= CURRENT_DATE
+      SELECT COUNT(*) as count FROM website_clicks
+      WHERE clicked_at >= CURRENT_DATE
     `;
     const clicksThisWeek = await sql`
-      SELECT COUNT(*) as count FROM website_clicks WHERE clicked_at >= NOW() - INTERVAL '7 days'
+      SELECT COUNT(*) as count FROM website_clicks
+      WHERE clicked_at >= NOW() - INTERVAL '7 days'
     `;
     const clicksThisMonth = await sql`
-      SELECT COUNT(*) as count FROM website_clicks WHERE clicked_at >= NOW() - INTERVAL '30 days'
+      SELECT COUNT(*) as count FROM website_clicks
+      WHERE clicked_at >= NOW() - INTERVAL '30 days'
     `;
     const topButtons = await sql`
-      SELECT button_id, button_text, COUNT(*) as count FROM website_clicks
+      SELECT button_id, button_text, COUNT(*) as count
+      FROM website_clicks
       WHERE clicked_at >= NOW() - INTERVAL '7 days'
-      GROUP BY button_id, button_text ORDER BY count DESC LIMIT 5
+      GROUP BY button_id, button_text
+      ORDER BY count DESC
+      LIMIT 5
     `;
     const clicksByDay = await sql`
-      SELECT DATE(clicked_at) as date, COUNT(*) as count FROM website_clicks
+      SELECT DATE(clicked_at) as date, COUNT(*) as count
+      FROM website_clicks
       WHERE clicked_at >= NOW() - INTERVAL '7 days'
-      GROUP BY DATE(clicked_at) ORDER BY date
+      GROUP BY DATE(clicked_at)
+      ORDER BY date
     `;
     const recentClicks = await sql`
       SELECT wc.*, l.email as lead_email, l.first_name as lead_first_name, l.last_name as lead_last_name
-      FROM website_clicks wc LEFT JOIN leads l ON l.id = wc.lead_id
-      ORDER BY wc.clicked_at DESC LIMIT 10
+      FROM website_clicks wc
+      LEFT JOIN leads l ON l.id = wc.lead_id
+      ORDER BY wc.clicked_at DESC
+      LIMIT 10
     `;
 
     // Hot leads (high score, not yet booked)
@@ -235,7 +263,8 @@ export async function GET(request: NextRequest) {
       SELECT COUNT(*) as count FROM leads WHERE sequence_type = 'inbound'
     `;
     const outboundLeadsResult = await sql`
-      SELECT COUNT(*) as count FROM leads WHERE sequence_type IN ('immobilien', 'handwerk', 'bauunternehmen')
+      SELECT COUNT(*) as count FROM leads
+      WHERE sequence_type IN ('immobilien', 'handwerk', 'bauunternehmen')
     `;
 
     return NextResponse.json({
@@ -251,7 +280,7 @@ export async function GET(request: NextRequest) {
       emails_sent: emailsSentCount,
       emails_failed: Number(emailsFailed[0]?.count || 0),
       unsubscribes: Number(unsubscribes[0]?.count || 0),
-      replies: repliesCount,
+      replies: Number(replies[0]?.count || 0),
       by_sector: bySector,
       calls_total: Number(callStats[0]?.total || 0),
       calls_reached: Number(callStats[0]?.reached || 0),
@@ -259,7 +288,7 @@ export async function GET(request: NextRequest) {
       calls_voicemail: Number(callStats[0]?.voicemail || 0),
       calls_appointment: appointmentsCount,
       manual_stops: Number(manualStops[0]?.count || 0),
-      stop_reasons: stopReasonRows.map(r => ({ reason: r.reason, count: Number(r.count) })),
+      stop_reasons: stopReasonRows.map((r) => ({ reason: r.reason, count: Number(r.count) })),
       linkedin_connections: Number(linkedinConns[0]?.count || 0),
       linkedin_requests: Number(linkedinRequests[0]?.count || 0),
       linkedin_connected: Number(linkedinConnected[0]?.count || 0),
@@ -267,7 +296,7 @@ export async function GET(request: NextRequest) {
       linkedin_replies: Number(linkedinReplies[0]?.count || 0),
       linkedin_meetings: Number(linkedinMeetings[0]?.count || 0),
       linkedin_no_profile: Number(linkedinNoProfile[0]?.count || 0),
-      linkedin_by_sector: linkedinBySector.map(r => ({
+      linkedin_by_sector: linkedinBySector.map((r) => ({
         sector: r.industry,
         requests: Number(r.requests),
         connected: Number(r.connected),
@@ -281,11 +310,15 @@ export async function GET(request: NextRequest) {
         today: Number(clicksToday[0]?.count || 0),
         this_week: Number(clicksThisWeek[0]?.count || 0),
         this_month: Number(clicksThisMonth[0]?.count || 0),
-        top_buttons: topButtons.map(r => ({ button_id: r.button_id, button_text: r.button_text, count: Number(r.count) })),
-        by_day: clicksByDay.map(r => ({ date: r.date, count: Number(r.count) })),
+        top_buttons: topButtons.map((r) => ({
+          button_id: r.button_id,
+          button_text: r.button_text,
+          count: Number(r.count),
+        })),
+        by_day: clicksByDay.map((r) => ({ date: r.date, count: Number(r.count) })),
         recent: recentClicks,
       },
-      hot_leads: hotLeads.map(l => ({
+      hot_leads: hotLeads.map((l) => ({
         id: l.id,
         first_name: l.first_name,
         last_name: l.last_name,

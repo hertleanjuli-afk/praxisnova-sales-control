@@ -10,7 +10,7 @@ function verifyOptinToken(token: string): { valid: boolean; email: string | null
     if (!payload || !signature) return { valid: false, email: null };
 
     const decoded = Buffer.from(payload, 'base64').toString('utf-8');
-    const [email, expiryStr] = decoded.split(':');
+    const [email, expiryStr] = decoded.plit(':');
     const expiry = parseInt(expiryStr, 10);
 
     // Check expiry (24 hours)

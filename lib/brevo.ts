@@ -9,13 +9,13 @@ interface SendEmailInput {
   tags?: string[];
   senderEmail?: string;
   senderName?: string;
-
+}
 
 interface SendEmailResult {
   success: boolean;
   messageId: string | null;
   senderUsed: string | null;
-  error?: string
+  error?: string;
 }
 
 interface BrevoSuccessResponse {

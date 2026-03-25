@@ -9,13 +9,13 @@ interface SendEmailInput {
   tags?: string[];
   senderEmail?: string;
   senderName?: string;
-}
+
 
 interface SendEmailResult {
   success: boolean;
   messageId: string | null;
   senderUsed: string | null;
-  error?: string;
+  error?: string
 }
 
 interface BrevoSuccessResponse {
@@ -220,5 +220,5 @@ export function generateConfirmLink(email: string, expiryDays: number = 7): stri
   const token = `${payload}:${signature}`;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.praxisnovaai.com';
 
-  return `${baseUrl}/api/confirm?token=${encodeURIComponent(token)}`;
+  return `${baseUrl}/api/confirm-optin?token=${encodeURIComponent(token)}`;
 }

@@ -66,12 +66,23 @@ function getSenderForSequence(sequenceType: string, leadId?: number): { email: s
   }
 }
 
-function buildSignature(sender: { name: string; title: string }): string {
+// Calendly URL mapping per sender email
+function getCalendlyUrl(senderEmail: string): string {
+  const calendlyMap: Record<string, string> = {
+    'hertle.anjuli@praxisnovaai.com': 'https://calendly.com/hertle-anjuli-praxisnovaai/erstgesprach',
+    'info@praxisnovaai.com': 'https://calendly.com/hertle-anjuli-praxisnovaai/erstgesprach',
+    'meyer.samantha@praxisnovaai.com': 'https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach',
+  };
+  return calendlyMap[senderEmail] || 'https://calendly.com/hertle-anjuli-praxisnovaai/erstgesprach';
+}
+
+function buildSignature(sender: { name: string; title: string; email?: string }): string {
+  const calendlyUrl = getCalendlyUrl(sender.email || '');
   return `<p>Herzliche Gr&uuml;&szlig;e,<br>
 ${sender.name}<br>
 ${sender.title} | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-<a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>`;
+<a href="${calendlyUrl}">Termin buchen</a></p>`;
 }
 
 export async function GET(request: NextRequest) {
@@ -193,6 +204,7 @@ export async function GET(request: NextRequest) {
         .replace(/\{\{first_name\}\}/g, lead.first_name || '')
         .replace(/\{\{last_name\}\}/g, lead.last_name || '')
         .replace(/\{\{company_name\}\}/g, lead.company || 'Ihrem Unternehmen')
+        .replace(/\{\{CALENDLY_LINK\}\}/g, getCalendlyUrl(sender.email))
         .replace(/href="(https:\/\/(?:www\.)?praxisnovaai\.com[^"]*?)"/g, (_match, url) => {
           const separator = url.includes('?') ? '&' : '?';
           return `href="${url}${separator}vid=${lead.id}"`;

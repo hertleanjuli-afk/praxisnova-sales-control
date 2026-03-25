@@ -1,142 +1,56 @@
-export interface SequenceStep {
-  step: number;
-  dayOffset: number;
-  channel: 'email' | 'linkedin';
-  subject?: string;
-  bodyTemplate: string;
-}
+import { SequenceStep } from './allgemein';
 
 export const bauunternehmenSequence: SequenceStep[] = [
-  {
-    step: 1,
-    dayOffset: 0,
-    channel: 'email',
-    subject: 'Wie viel Zeit kostet Ihr Wochenbericht?',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>Bauleiter verbringen im Schnitt <strong>1,5 bis 3 Stunden pro Woche</strong> mit Wochenberichten, Fotos zuordnen, Texte formulieren, alles ins richtige Format bringen.</p>
-  <p>Was w&auml;re, wenn der Bericht sich <strong>automatisch aus Ihren Baudaten zusammenstellt</strong>, Fotos, Fortschritt, Wetter, Gewerke, und Sie nur noch freigeben m&uuml;ssen?</p>
-  <p>Genau das setzen wir mit Bauunternehmen wie {{company_name}} um. Keine Spielerei, sondern handfeste Zeitersparnis.</p>
-  <p>Wenn Sie sehen m&ouml;chten, wie das konkret funktioniert, lassen Sie uns sprechen.</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Samantha Meyer<br>
-  Head of Process Automation | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  <p style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; font-size: 13px; color: #666;"><strong>P.S.:</strong> Die Erstberatung ist 100% kostenlos und unverbindlich. Kein Vertrag, keine Verpflichtung. Wenn wir keinen konkreten Mehrwert f&uuml;r {{company_name}} sehen, sagen wir Ihnen das ehrlich.</p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 1, dayOffset: 0, channel: 'email',
+    subject: '{Spintax: Digitalisierung|KI-Potenzial|Effizienz} im Bauwesen',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>laut einer aktuellen KfW-Studie setzen bereits 28&nbsp;% der deutschen Unternehmen auf KI-gest&uuml;tzte Prozesse &ndash; Tendenz stark steigend. Gerade im Bauwesen liegen hier enorme Chancen.</p>
+<p>Viele Bauunternehmen verlieren t&auml;glich wertvolle Zeit mit manueller Kalkulation, Baustellenkoordination oder Dokumentation. Das sind Aufgaben, die sich hervorragend automatisieren lassen.</p>
+<p>Wir bei PraxisNova AI helfen Bauunternehmenn wie {{company_name}}, solche Prozesse mit KI zu optimieren. In unserem kostenlosen KI-Potenzialrechner k&ouml;nnen Sie in 2&nbsp;Minuten sehen, wo bei Ihnen das gr&ouml;&szlig;te Potenzial liegt.</p>
+<p>W&uuml;rde Sie das interessieren?</p>
+{{SIGNATURE}}
+{{FOOTER}}`
   },
-  {
-    step: 2,
-    dayOffset: 4,
-    channel: 'email',
-    subject: 'Was ein Bauunternehmen in Bayern automatisiert hat',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>ein Bauunternehmen in Bayern (18 Mitarbeiter) hat mit uns in 4 Wochen folgende Prozesse automatisiert:</p>
-  <ul>
-    <li><strong>Wochenberichte:</strong> Automatische Zusammenstellung aus Baudokumentation, Fotos, Gewerke, Fortschritt. Freigabe per Klick.</li>
-    <li><strong>M&auml;ngeldokumentation:</strong> Fotos per App, KI erkennt Gewerk und Kategorie, erstellt automatisch den Mangelbericht.</li>
-    <li><strong>Baustellenprotokoll:</strong> T&auml;gliche Eintr&auml;ge werden automatisch zusammengefasst und archiviert.</li>
-  </ul>
-  <p>Das Ergebnis: <strong>8 Stunden pro Woche pro Bauleiter eingespart</strong>, bei 3 Bauleitern sind das 24 Stunden pro Woche, die jetzt auf der Baustelle verbracht werden statt am Schreibtisch.</p>
-  <p>Anders gefragt: Was kostet es {{company_name}}, wenn jeder Bauleiter weiterhin <strong>8 Stunden pro Woche</strong> mit Verwaltung verbringt? Das sind 384 Stunden pro Bauleiter im Jahr. Bei 3 Bauleitern &uuml;ber <strong>1.100 Stunden j&auml;hrlich</strong>, fast 28 Arbeitswochen verloren.</p>
-  <p>W&auml;re so etwas auch f&uuml;r {{company_name}} relevant?</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Samantha Meyer<br>
-  Head of Process Automation | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 2, dayOffset: 0, channel: 'linkedin',
+    bodyTemplate: 'Hallo {{first_name}}, ich besch\u00e4ftige mich intensiv mit KI-Automatisierung im Bauwesen und bin auf {{company_name}} aufmerksam geworden. Ich w\u00fcrde mich freuen, uns zu vernetzen.'
   },
-  {
-    step: 3,
-    dayOffset: 9,
-    channel: 'email',
-    subject: 'Was Bauunternehmen in unserem Workshop konkret umsetzen',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>unser <strong>Workshop Starter</strong> ist speziell f&uuml;r Bauunternehmen wie {{company_name}} konzipiert, 4 Stunden, bis zu 12 Personen, <strong>&euro;4.900 Festpreis</strong>.</p>
-  <p>Was Ihr Team danach kann:</p>
-  <ul>
-    <li>Wochenberichte automatisch aus vorhandenen Daten generieren lassen</li>
-    <li>M&auml;ngel- und Baudokumentation per App erfassen und automatisch aufbereiten</li>
-    <li>Subunternehmer-Kommunikation und Terminkoordination automatisieren</li>
-    <li>Angebots- und Nachtragsmanagement beschleunigen</li>
-  </ul>
-  <p><em>Hinweis: Aktuell haben wir noch <strong>3 Workshop-Pl&auml;tze</strong> in diesem Quartal frei. Bei Interesse reserviere ich Ihnen gerne einen Platz.</em></p>
-  <p>Laut KfW-Mittelstandspanel verbringen Bau-KMU 8,1% ihrer Arbeitszeit mit B&uuml;rokratie, rund 8 Stunden pro Woche pro Mitarbeiter. Unser Workshop zeigt Ihnen, wo Sie in {{company_name}} am schnellsten ansetzen k&ouml;nnen.</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Samantha Meyer<br>
-  Head of Process Automation | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  <p style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; font-size: 13px; color: #666;"><strong>P.S.:</strong> Sollte der Workshop nicht die erwarteten Ergebnisse liefern, erstatten wir Ihnen den vollen Betrag. Ohne Wenn und Aber.</p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 3, dayOffset: 7, channel: 'email',
+    subject: 'Wie {Spintax: ein Bauunternehmen|ein Baubetrieb} mit KI Zeit spart',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>ein Bauunternehmen aus NRW hat mit unserer Hilfe die Angebotskalkulation um 50&nbsp;% beschleunigt &ndash; durch einen KI-gest&uuml;tzten Kalkulations-Assistenten.</p>
+<p>Das Ergebnis: Schnellere Angebote, weniger Fehler in der Kalkulation und mehr gewonnene Auftr&auml;ge.</p>
+<p>Falls Sie neugierig sind, wo bei {{company_name}} &auml;hnliches Potenzial steckt: Unser KI-Quickcheck (kompakter 2-Stunden-Audit) zeigt Ihnen genau das.</p>
+<p>Soll ich Ihnen mehr dazu schicken?</p>
+{{SIGNATURE}}
+{{FOOTER}}`
   },
-  {
-    step: 4,
-    dayOffset: 14,
-    channel: 'email',
-    subject: 'Was kostet bei {{company_name}} am meisten Zeit?',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>eine kurze, ehrliche Frage: Was kostet bei {{company_name}} aktuell am meisten Zeit?</p>
-  <ul>
-    <li>Wochenberichte und Baudokumentation?</li>
-    <li>M&auml;ngelmanagement und Nachtr&auml;ge?</li>
-    <li>Koordination mit Subunternehmern?</li>
-  </ul>
-  <p>Je nachdem, wo der gr&ouml;&szlig;te Hebel liegt, kann ich Ihnen eine konkrete Empfehlung geben, kein Verkaufsgespr&auml;ch, nur ein ehrlicher Blick auf die M&ouml;glichkeiten.</p>
-  <p>Einfach kurz antworten, ein Wort reicht.</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Samantha Meyer<br>
-  Head of Process Automation | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 4, dayOffset: 12, channel: 'email',
+    subject: 'KI-Quickcheck f\u00fcr {{company_name}}',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>ich m&ouml;chte Ihnen kurz unseren KI-Quickcheck vorstellen. In 2&nbsp;Stunden analysieren wir gemeinsam Ihre Prozesse und identifizieren die drei gr&ouml;&szlig;ten Automatisierungshebel f&uuml;r {{company_name}}.</p>
+<p>Sie erhalten einen personalisierten Report mit konkreten Handlungsempfehlungen &ndash; f&uuml;r einmalig 490&nbsp;&euro;.</p>
+<p>Hier k&ouml;nnen Sie direkt einen Termin buchen: {{CALENDLY_LINK}}</p>
+<p>Passt das f&uuml;r Sie?</p>
+{{SIGNATURE}}
+{{FOOTER}}`
   },
-  {
-    step: 5,
-    dayOffset: 20,
-    channel: 'email',
-    subject: 'Letzte Nachricht, zwei Optionen für {{company_name}}',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>ich m&ouml;chte Ihre Zeit respektieren, das ist meine letzte E-Mail zu diesem Thema.</p>
-  <p>Falls Automatisierung f&uuml;r {{company_name}} grunds&auml;tzlich interessant ist, hier zwei konkrete Optionen:</p>
-  <p><strong>Option 1: Workshop Starter (&euro;4.900)</strong><br>
-  4 Stunden, bis zu 12 Personen. Ihr Team lernt, welche Prozesse sich automatisieren lassen und wie man startet. Ergebnis: ein klarer Fahrplan.</p>
-  <p><strong>Option 2: Automatisierungsprojekt (&euro;1.800 Setup + &euro;500/Monat)</strong><br>
-  Wir setzen gemeinsam eine konkrete Automatisierung um, z.&nbsp;B. Wochenberichte, M&auml;ngeldokumentation oder Subunternehmer-Koordination. Innerhalb von 4 Wochen live.</p>
-  <p style="background-color: #f8f8f8; padding: 15px; border-left: 3px solid #E8472A;"><strong>Kurze Rechnung:</strong> Wenn {{company_name}} durch Automatisierung nur 8 Stunden pro Woche einspart (KfW-Durchschnitt f&uuml;r Bau-KMU), und der Stundensatz bei 60&euro; liegt, sind das <strong>&uuml;ber 25.000&euro; j&auml;hrliche Ersparnis</strong>. Bei einem Workshop-Invest von 4.900&euro; amortisiert sich das in weniger als 3 Monaten.</p>
-  <p>Ansonsten w&uuml;nsche ich Ihnen alles Gute!</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Samantha Meyer<br>
-  Head of Process Automation | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 5, dayOffset: 18, channel: 'email',
+    subject: 'Kurze Frage zu {{company_name}}',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>eine kurze Frage: Welcher Prozess auf Ihren Baustellen oder im B&uuml;ro kostet Sie aktuell am meisten Zeit?</p>
+<p>Ob Kalkulation, Baustellendokumentation oder Nachunternehmer-Koordination &ndash; oft gibt es einen Bereich, der sich mit KI besonders schnell optimieren l&auml;sst.</p>
+<p>Ich freue mich auf Ihre Antwort.</p>
+{{SIGNATURE}}
+{{FOOTER}}`
   },
-  {
-    step: 6,
-    dayOffset: 26,
-    channel: 'linkedin',
-    bodyTemplate: `LinkedIn-Aufgabe (manuell): Verbindungsanfrage an {{first_name}} von {{company_name}} senden. Nachricht: "Hallo {{first_name}}, ich besch&auml;ftige mich mit KI-Automatisierung f&uuml;r Bauunternehmen und bin auf {{company_name}} aufmerksam geworden. W&uuml;rde mich freuen, uns zu vernetzen, vielleicht ergibt sich ein spannender Austausch." Hinweis: Diese Nachricht wird NICHT automatisch versendet. Bitte manuell &uuml;ber LinkedIn versenden.`,
-  },
+  { step: 6, dayOffset: 24, channel: 'email',
+    subject: 'Letzte Nachricht von mir',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>ich m&ouml;chte Sie nicht weiter bel&auml;stigen und melde mich hiermit ein letztes Mal.</p>
+<p>Falls Sie in den n&auml;chsten Wochen doch noch herausfinden m&ouml;chten, wo KI bei {{company_name}} am meisten bringt: Unser KI-Quickcheck steht Ihnen jederzeit offen.</p>
+<p>Hier geht es zur Terminbuchung: {{CALENDLY_LINK}}</p>
+<p>Ich w&uuml;nsche Ihnen alles Gute!</p>
+{{SIGNATURE}}
+{{FOOTER}}`
+  }
 ];

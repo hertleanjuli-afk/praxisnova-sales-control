@@ -1,142 +1,56 @@
-export interface SequenceStep {
-  step: number;
-  dayOffset: number;
-  channel: 'email' | 'linkedin';
-  subject?: string;
-  bodyTemplate: string;
-}
+import { SequenceStep } from './allgemein';
 
 export const immobilienSequence: SequenceStep[] = [
-  {
-    step: 1,
-    dayOffset: 0,
-    channel: 'email',
-    subject: 'Wie lange dauert bei Ihnen eine Exposé-Anfrage?',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>die meisten Immobilienb&uuml;ros brauchen <strong>2 bis 4 Stunden</strong>, um auf eine Expos&eacute;-Anfrage zu reagieren. Manche sogar einen ganzen Tag.</p>
-  <p>Was w&auml;re, wenn Ihre Interessenten in <strong>unter 3 Minuten</strong> automatisch das passende Expos&eacute; erhalten, ohne dass jemand in Ihrem Team einen Finger r&uuml;hren muss?</p>
-  <p>Genau das zeigen wir in unserem <strong>Workshop f&uuml;r Immobilienprofis</strong>: Wie Sie Expos&eacute;-Versand, Besichtigungsbuchungen und Mieterkommunikation so automatisieren, dass Ihr Team sich auf Abschl&uuml;sse konzentrieren kann.</p>
-  <p>Wenn das f&uuml;r {{company_name}} interessant klingt, lassen Sie uns 15 Minuten sprechen.</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Anjuli Hertle<br>
-  CEO &amp; Head of Sales | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  <p style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; font-size: 13px; color: #666;"><strong>P.S.:</strong> Die Erstberatung ist 100% kostenlos und unverbindlich. Kein Vertrag, keine Verpflichtung. Wenn wir keinen konkreten Mehrwert f&uuml;r {{company_name}} sehen, sagen wir Ihnen das ehrlich.</p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 1, dayOffset: 0, channel: 'email',
+    subject: '{Spintax: Digitalisierung|KI-Potenzial|Effizienz} in der Immobilienbranche',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>laut einer aktuellen KfW-Studie setzen bereits 28&nbsp;% der deutschen Unternehmen auf KI-gest&uuml;tzte Prozesse &ndash; Tendenz stark steigend. Gerade in der Immobilienbranche liegen hier enorme Chancen.</p>
+<p>Viele Immobilienunternehmen verlieren t&auml;glich wertvolle Zeit mit manueller Mieterkorrespondenz, Expos&eacute;-Erstellung oder Objektverwaltung. Das sind Aufgaben, die sich hervorragend automatisieren lassen.</p>
+<p>Wir bei PraxisNova AI helfen Immobilienunternehmen wie {{company_name}}, solche Prozesse mit KI zu optimieren. In unserem kostenlosen KI-Potenzialrechner k&ouml;nnen Sie in 2&nbsp;Minuten sehen, wo bei Ihnen das gr&ouml;&szlig;te Potenzial liegt.</p>
+<p>W&uuml;rde Sie das interessieren?</p>
+{{SIGNATURE}}
+{{FOOTER}}`
   },
-  {
-    step: 2,
-    dayOffset: 4,
-    channel: 'email',
-    subject: 'Was ein Immobilienbüro in München in 4 Wochen automatisiert hat',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>ein Immobilienb&uuml;ro in M&uuml;nchen (11 Mitarbeiter) hat mit uns in nur 4 Wochen drei Dinge automatisiert:</p>
-  <ul>
-    <li><strong>Expos&eacute;-Autoantwort in unter 3 Minuten</strong>, Anfrage rein, Expos&eacute; raus, ohne manuelles Zutun.</li>
-    <li><strong>Selbstbuchung von Besichtigungsterminen</strong>, Interessenten w&auml;hlen freie Slots direkt im Kalender.</li>
-    <li><strong>Automatische Mieter-Erinnerungen</strong>, Vertragsverlängerungen, Nebenkostenabrechnungen, Wartungstermine.</li>
-  </ul>
-  <p>Das Ergebnis: <strong>8 Stunden pro Woche eingespart</strong>, Zeit, die jetzt in Akquise und Abschl&uuml;sse flie&szlig;t.</p>
-  <p>Anders gefragt: Was kostet es {{company_name}}, wenn diese Stunden <strong>weiterhin</strong> in Verwaltung statt in Abschl&uuml;sse flie&szlig;en? Bei 8 Stunden pro Woche und 48 Arbeitswochen sind das <strong>384 Stunden im Jahr</strong>, fast 10 volle Arbeitswochen.</p>
-  <p>W&auml;re so etwas auch f&uuml;r {{company_name}} denkbar? Ich zeige Ihnen gern, wie das konkret aussehen kann.</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Anjuli Hertle<br>
-  CEO &amp; Head of Sales | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 2, dayOffset: 0, channel: 'linkedin',
+    bodyTemplate: 'Hallo {{first_name}}, ich besch\u00e4ftige mich intensiv mit KI-Automatisierung in der Immobilienbranche und bin auf {{company_name}} aufmerksam geworden. Ich w\u00fcrde mich freuen, uns zu vernetzen.'
   },
-  {
-    step: 3,
-    dayOffset: 9,
-    channel: 'email',
-    subject: 'Unser Workshop, was Immobilienprofis in einem halben Tag lernen',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>unser <strong>Workshop Starter</strong> ist speziell f&uuml;r Teams wie Ihres gedacht, 4 Stunden, bis zu 12 Personen, <strong>&euro;4.900 Festpreis</strong>.</p>
-  <p>Was Ihr Team danach kann:</p>
-  <ul>
-    <li>Wiederkehrende Anfragen automatisch beantworten lassen</li>
-    <li>Besichtigungstermine ohne Telefon-Pingpong koordinieren</li>
-    <li>Expos&eacute;s und Dokumente in Sekunden statt Stunden versenden</li>
-    <li>Mieter-Kommunikation strukturiert und zeitsparend abwickeln</li>
-  </ul>
-  <p><em>Hinweis: Aktuell haben wir noch <strong>3 Workshop-Pl&auml;tze</strong> in diesem Quartal frei. Bei Interesse reserviere ich Ihnen gerne einen Platz.</em></p>
-  <p>Laut KfW-Mittelstandspanel verbringen KMU durchschnittlich 32 Stunden pro Monat mit B&uuml;rokratie. Unser Workshop zeigt Ihnen, wo Sie bei {{company_name}} am schnellsten Zeit zur&uuml;ckgewinnen.</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Anjuli Hertle<br>
-  CEO &amp; Head of Sales | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  <p style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; font-size: 13px; color: #666;"><strong>P.S.:</strong> Sollte der Workshop nicht die erwarteten Ergebnisse liefern, erstatten wir Ihnen den vollen Betrag. Ohne Wenn und Aber.</p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 3, dayOffset: 7, channel: 'email',
+    subject: 'Wie {Spintax: ein Immobilienb\u00fcro|eine Hausverwaltung} mit KI Zeit spart',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>ein Immobilienb&uuml;ro aus M&uuml;nchen hat mit unserer Hilfe die Bearbeitungszeit f&uuml;r Mieteranfragen um 60&nbsp;% reduziert &ndash; durch einen KI-gest&uuml;tzten Antwort-Assistenten.</p>
+<p>Das Ergebnis: Weniger Routinearbeit, schnellere R&uuml;ckmeldungen und zufriedenere Mieter.</p>
+<p>Falls Sie neugierig sind, wo bei {{company_name}} &auml;hnliches Potenzial steckt: Unser KI-Quickcheck (kompakter 2-Stunden-Audit) zeigt Ihnen genau das.</p>
+<p>Soll ich Ihnen mehr dazu schicken?</p>
+{{SIGNATURE}}
+{{FOOTER}}`
   },
-  {
-    step: 4,
-    dayOffset: 14,
-    channel: 'email',
-    subject: 'Kurze Frage für {{company_name}}',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>eine kurze, ehrliche Frage: Was kostet bei {{company_name}} aktuell am meisten Zeit?</p>
-  <ul>
-    <li>Anfragen beantworten und Expos&eacute;s verschicken?</li>
-    <li>Expos&eacute;s erstellen und aufbereiten?</li>
-    <li>Besichtigungstermine koordinieren?</li>
-  </ul>
-  <p>Je nachdem, wo der gr&ouml;&szlig;te Hebel liegt, kann ich Ihnen eine konkrete Empfehlung geben, kein Verkaufsgespr&auml;ch, nur ein ehrlicher Blick auf die M&ouml;glichkeiten.</p>
-  <p>Einfach kurz antworten, ein Wort reicht.</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Anjuli Hertle<br>
-  CEO &amp; Head of Sales | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 4, dayOffset: 12, channel: 'email',
+    subject: 'KI-Quickcheck f\u00fcr {{company_name}}',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>ich m&ouml;chte Ihnen kurz unseren KI-Quickcheck vorstellen. In 2&nbsp;Stunden analysieren wir gemeinsam Ihre Prozesse und identifizieren die drei gr&ouml;&szlig;ten Automatisierungshebel f&uuml;r {{company_name}}.</p>
+<p>Sie erhalten einen personalisierten Report mit konkreten Handlungsempfehlungen &ndash; f&uuml;r einmalig 490&nbsp;&euro;.</p>
+<p>Hier k&ouml;nnen Sie direkt einen Termin buchen: {{CALENDLY_LINK}}</p>
+<p>Passt das f&uuml;r Sie?</p>
+{{SIGNATURE}}
+{{FOOTER}}`
   },
-  {
-    step: 5,
-    dayOffset: 20,
-    channel: 'email',
-    subject: 'Letzte Nachricht von mir, zwei Optionen für {{company_name}}',
-    bodyTemplate: `<html>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #333; line-height: 1.6;">
-  <p>{{SALUTATION}}</p>
-  <p>ich m&ouml;chte Ihre Zeit respektieren, das ist meine letzte E-Mail zu diesem Thema.</p>
-  <p>Falls Automatisierung f&uuml;r {{company_name}} grunds&auml;tzlich interessant ist, hier zwei konkrete Optionen:</p>
-  <p><strong>Option 1: Workshop Starter (&euro;4.900)</strong><br>
-  4 Stunden, bis zu 12 Personen. Ihr Team lernt, welche Prozesse sich automatisieren lassen und wie man startet. Ergebnis: ein klarer Fahrplan.</p>
-  <p><strong>Option 2: Automatisierungsprojekt (&euro;1.800 Setup + &euro;500/Monat)</strong><br>
-  Wir setzen gemeinsam eine konkrete Automatisierung um, z.&nbsp;B. Expos&eacute;-Versand, Terminbuchung oder Mieterkommunikation. Innerhalb von 4 Wochen live.</p>
-  <p style="background-color: #f8f8f8; padding: 15px; border-left: 3px solid #E8472A;"><strong>Kurze Rechnung:</strong> Wenn {{company_name}} durch Automatisierung nur 8 Stunden pro Woche einspart (KfW-Durchschnitt f&uuml;r KMU), und der Stundensatz Ihrer Mitarbeiter bei 60&euro; liegt, sind das <strong>&uuml;ber 25.000&euro; j&auml;hrliche Ersparnis</strong>. Bei einem Workshop-Invest von 4.900&euro; amortisiert sich das in weniger als 3 Monaten.</p>
-  <p>Ansonsten w&uuml;nsche ich Ihnen alles Gute!</p>
-  <p>Herzliche Gr&uuml;&szlig;e,<br>
-  Anjuli Hertle<br>
-  CEO &amp; Head of Sales | PraxisNova AI<br>
-  <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
-  <a href="https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach">Termin buchen</a></p>
-  {{FOOTER}}
-</body>
-</html>`,
+  { step: 5, dayOffset: 18, channel: 'email',
+    subject: 'Kurze Frage zu {{company_name}}',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>eine kurze Frage: Welcher Prozess in Ihrem Immobilienalltag kostet Sie aktuell am meisten Zeit?</p>
+<p>Ob Mieterkorrespondenz, Expos&eacute;-Erstellung oder Objektverwaltung &ndash; oft gibt es einen Bereich, der sich mit KI besonders schnell optimieren l&auml;sst.</p>
+<p>Ich freue mich auf Ihre Antwort.</p>
+{{SIGNATURE}}
+{{FOOTER}}`
   },
-  {
-    step: 6,
-    dayOffset: 26,
-    channel: 'linkedin',
-    bodyTemplate: `LinkedIn-Aufgabe (manuell): Verbindungsanfrage an {{first_name}} von {{company_name}} senden. Nachricht: "Hallo {{first_name}}, ich besch&auml;ftige mich mit KI-Automatisierung f&uuml;r Immobilienunternehmen und bin auf {{company_name}} aufmerksam geworden. W&uuml;rde mich freuen, uns zu vernetzen, vielleicht ergibt sich ein spannender Austausch." Hinweis: Diese Nachricht wird NICHT automatisch versendet. Bitte manuell &uuml;ber LinkedIn versenden.`,
-  },
+  { step: 6, dayOffset: 24, channel: 'email',
+    subject: 'Letzte Nachricht von mir',
+    bodyTemplate: `<p>{{SALUTATION}},</p>
+<p>ich m&ouml;chte Sie nicht weiter bel&auml;stigen und melde mich hiermit ein letztes Mal.</p>
+<p>Falls Sie in den n&auml;chsten Wochen doch noch herausfinden m&ouml;chten, wo KI bei {{company_name}} am meisten bringt: Unser KI-Quickcheck steht Ihnen jederzeit offen.</p>
+<p>Hier geht es zur Terminbuchung: {{CALENDLY_LINK}}</p>
+<p>Ich w&uuml;nsche Ihnen alles Gute!</p>
+{{SIGNATURE}}
+{{FOOTER}}`
+  }
 ];

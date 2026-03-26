@@ -1,20 +1,30 @@
 import { SequenceStep } from './allgemein';
 
 export const handwerkSequence: SequenceStep[] = [
-  { step: 1, dayOffset: 0, channel: 'email',
-    subject: '{Spintax: Digitalisierung|KI-Potenzial|Effizienz} im Handwerk',
+  {
+    step: 1,
+    dayOffset: 0,
+    channel: 'email',
+    subject: 'Kostenlos f\u00fcr {{company_name}}: Automatische {Spintax: Zahlungserinnerungen|Mahnungen} f\u00fcr offene Rechnungen',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>laut einer aktuellen KfW-Studie setzen bereits 28&nbsp;% der deutschen Unternehmen auf KI-gest&uuml;tzte Prozesse &ndash; Tendenz stark steigend. Gerade im Handwerk liegen hier enorme Chancen.</p>
-<p>Viele Handwerksbetriebe verlieren t&auml;glich wertvolle Zeit mit manueller Angebotserstellung, Auftragsplanung oder Kundenkommunikation. Das sind Aufgaben, die sich hervorragend automatisieren lassen.</p>
-<p>Wir bei PraxisNova AI helfen Handwerksbetrieben wie {{company_name}}, solche Prozesse mit KI zu optimieren. In unserem kostenlosen KI-Potenzialrechner k&ouml;nnen Sie in 2&nbsp;Minuten sehen, wo bei Ihnen das gr&ouml;&szlig;te Potenzial liegt.</p>
-<p>W&uuml;rde Sie das interessieren?</p>
+<p>kurze Frage: Wie viele Rechnungen sind bei {{company_name}} gerade &uuml;berf&auml;llig?</p>
+<p>Bei den meisten Handwerksbetrieben stecken zwischen 10.000 und 50.000&nbsp;&euro; in offenen Forderungen. Nicht weil Kunden nicht zahlen wollen, sondern weil niemand Zeit hat, hinterherzutelefonieren.</p>
+<p>Wir haben ein System gebaut, das automatisch freundliche Zahlungserinnerungen verschickt: Stufe&nbsp;1 nach 3&nbsp;Tagen, Stufe&nbsp;2 nach 10&nbsp;Tagen, Stufe&nbsp;3 nach 21&nbsp;Tagen. Kein Aufwand f&uuml;r Sie.</p>
+<p>F&uuml;r 3 Handwerksbetriebe richten wir das komplett kostenlos ein. Im Gegenzug: Wenn es klappt, teilen Sie uns kurz Ihre Erfahrung mit.</p>
+<p>Interesse? Antworten Sie einfach auf diese E-Mail.</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   },
-  { step: 2, dayOffset: 0, channel: 'linkedin',
+  {
+    step: 2,
+    dayOffset: 0,
+    channel: 'linkedin',
     bodyTemplate: 'Hallo {{first_name}}, ich besch\u00e4ftige mich intensiv mit KI-Automatisierung im Handwerk und bin auf {{company_name}} aufmerksam geworden. Ich w\u00fcrde mich freuen, uns zu vernetzen.'
   },
-  { step: 3, dayOffset: 7, channel: 'email',
+  {
+    step: 3,
+    dayOffset: 7,
+    channel: 'email',
     subject: 'Wie {Spintax: ein Handwerksbetrieb|ein Meisterbetrieb} mit KI Zeit spart',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ein Handwerksbetrieb aus Bayern hat mit unserer Hilfe die Angebotserstellung um 70&nbsp;% beschleunigt &ndash; durch einen KI-gest&uuml;tzten Angebots-Assistenten.</p>
@@ -24,7 +34,10 @@ export const handwerkSequence: SequenceStep[] = [
 {{SIGNATURE}}
 {{FOOTER}}`
   },
-  { step: 4, dayOffset: 12, channel: 'email',
+  {
+    step: 4,
+    dayOffset: 12,
+    channel: 'email',
     subject: 'KI-Quickcheck f\u00fcr {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ich m&ouml;chte Ihnen kurz unseren KI-Quickcheck vorstellen. In 2&nbsp;Stunden analysieren wir gemeinsam Ihre Prozesse und identifizieren die drei gr&ouml;&szlig;ten Automatisierungshebel f&uuml;r {{company_name}}.</p>
@@ -34,7 +47,10 @@ export const handwerkSequence: SequenceStep[] = [
 {{SIGNATURE}}
 {{FOOTER}}`
   },
-  { step: 5, dayOffset: 18, channel: 'email',
+  {
+    step: 5,
+    dayOffset: 18,
+    channel: 'email',
     subject: 'Kurze Frage zu {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>eine kurze Frage: Welcher Prozess in Ihrem Betriebsalltag kostet Sie aktuell am meisten Zeit?</p>
@@ -43,7 +59,10 @@ export const handwerkSequence: SequenceStep[] = [
 {{SIGNATURE}}
 {{FOOTER}}`
   },
-  { step: 6, dayOffset: 24, channel: 'email',
+  {
+    step: 6,
+    dayOffset: 24,
+    channel: 'email',
     subject: 'Letzte Nachricht von mir',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ich m&ouml;chte Sie nicht weiter bel&auml;stigen und melde mich hiermit ein letztes Mal.</p>

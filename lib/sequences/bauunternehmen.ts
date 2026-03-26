@@ -1,20 +1,30 @@
 import { SequenceStep } from './allgemein';
 
 export const bauunternehmenSequence: SequenceStep[] = [
-  { step: 1, dayOffset: 0, channel: 'email',
-    subject: '{Spintax: Digitalisierung|KI-Potenzial|Effizienz} im Bauwesen',
+  {
+    step: 1,
+    dayOffset: 0,
+    channel: 'email',
+    subject: 'Kostenlos f\u00fcr {{company_name}}: Automatisches {Spintax: Forderungsmanagement|Mahnsystem} f\u00fcr offene Rechnungen',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>laut einer aktuellen KfW-Studie setzen bereits 28&nbsp;% der deutschen Unternehmen auf KI-gest&uuml;tzte Prozesse &ndash; Tendenz stark steigend. Gerade im Bauwesen liegen hier enorme Chancen.</p>
-<p>Viele Bauunternehmen verlieren t&auml;glich wertvolle Zeit mit manueller Kalkulation, Baustellenkoordination oder Dokumentation. Das sind Aufgaben, die sich hervorragend automatisieren lassen.</p>
-<p>Wir bei PraxisNova AI helfen Bauunternehmenn wie {{company_name}}, solche Prozesse mit KI zu optimieren. In unserem kostenlosen KI-Potenzialrechner k&ouml;nnen Sie in 2&nbsp;Minuten sehen, wo bei Ihnen das gr&ouml;&szlig;te Potenzial liegt.</p>
-<p>W&uuml;rde Sie das interessieren?</p>
+<p>kurze Frage: Wie viel Geld steckt bei {{company_name}} gerade in &uuml;berf&auml;lligen Rechnungen?</p>
+<p>Bei vielen Bauunternehmen summieren sich offene Forderungen schnell auf 20.000 bis 150.000&nbsp;&euro;. Zahlungsziele von 30 bis 60&nbsp;Tagen, Nachunternehmer die sp&auml;t zahlen, und keiner im B&uuml;ro hat Zeit f&uuml;r konsequentes Mahnwesen.</p>
+<p>Wir haben ein automatisches Mahnsystem gebaut: 3 Stufen, von freundlicher Erinnerung bis f&ouml;rmlicher Mahnung. L&auml;uft im Hintergrund, ohne Aufwand f&uuml;r Ihr Team.</p>
+<p>F&uuml;r 3 Bauunternehmen richten wir das komplett kostenlos ein. Einzige Bedingung: Wenn es funktioniert, d&uuml;rfen wir die Ergebnisse anonym als Fallstudie nutzen.</p>
+<p>H&auml;tten Sie 10 Minuten diese Woche f&uuml;r einen kurzen Austausch?</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   },
-  { step: 2, dayOffset: 0, channel: 'linkedin',
+  {
+    step: 2,
+    dayOffset: 0,
+    channel: 'linkedin',
     bodyTemplate: 'Hallo {{first_name}}, ich besch\u00e4ftige mich intensiv mit KI-Automatisierung im Bauwesen und bin auf {{company_name}} aufmerksam geworden. Ich w\u00fcrde mich freuen, uns zu vernetzen.'
   },
-  { step: 3, dayOffset: 7, channel: 'email',
+  {
+    step: 3,
+    dayOffset: 7,
+    channel: 'email',
     subject: 'Wie {Spintax: ein Bauunternehmen|ein Baubetrieb} mit KI Zeit spart',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ein Bauunternehmen aus NRW hat mit unserer Hilfe die Angebotskalkulation um 50&nbsp;% beschleunigt &ndash; durch einen KI-gest&uuml;tzten Kalkulations-Assistenten.</p>
@@ -24,7 +34,10 @@ export const bauunternehmenSequence: SequenceStep[] = [
 {{SIGNATURE}}
 {{FOOTER}}`
   },
-  { step: 4, dayOffset: 12, channel: 'email',
+  {
+    step: 4,
+    dayOffset: 12,
+    channel: 'email',
     subject: 'KI-Quickcheck f\u00fcr {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ich m&ouml;chte Ihnen kurz unseren KI-Quickcheck vorstellen. In 2&nbsp;Stunden analysieren wir gemeinsam Ihre Prozesse und identifizieren die drei gr&ouml;&szlig;ten Automatisierungshebel f&uuml;r {{company_name}}.</p>
@@ -34,7 +47,10 @@ export const bauunternehmenSequence: SequenceStep[] = [
 {{SIGNATURE}}
 {{FOOTER}}`
   },
-  { step: 5, dayOffset: 18, channel: 'email',
+  {
+    step: 5,
+    dayOffset: 18,
+    channel: 'email',
     subject: 'Kurze Frage zu {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>eine kurze Frage: Welcher Prozess auf Ihren Baustellen oder im B&uuml;ro kostet Sie aktuell am meisten Zeit?</p>
@@ -43,7 +59,10 @@ export const bauunternehmenSequence: SequenceStep[] = [
 {{SIGNATURE}}
 {{FOOTER}}`
   },
-  { step: 6, dayOffset: 24, channel: 'email',
+  {
+    step: 6,
+    dayOffset: 24,
+    channel: 'email',
     subject: 'Letzte Nachricht von mir',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ich m&ouml;chte Sie nicht weiter bel&auml;stigen und melde mich hiermit ein letztes Mal.</p>

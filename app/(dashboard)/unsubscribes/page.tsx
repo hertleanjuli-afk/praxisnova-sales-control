@@ -222,7 +222,7 @@ export default function UnsubscribesPage() {
                   <tr key={d.domain} className="border-t border-gray-100">
                     <td className="p-2 font-mono text-xs text-gray-700">{d.domain}</td>
                     <td className="p-2 text-gray-500 text-xs">
-                      {[...new Set(d.companies.filter(Boolean))].slice(0, 3).join(', ')}
+                      {Array.from(new Set(d.companies.filter(Boolean))).slice(0, 3).join(', ')}
                     </td>
                     <td className="p-2 text-right">
                       <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">

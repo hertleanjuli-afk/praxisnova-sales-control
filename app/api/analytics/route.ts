@@ -288,7 +288,7 @@ export async function GET(request: NextRequest) {
     // Individual lead engagement: recent website clicks (from email links)
     const recentLeadClicks = await sql`
       SELECT DISTINCT ON (wc.lead_id)
-        wc.lead_id, wc.button_id, wc.button_text, wc.page_url, wc.clicked_at,
+        wc.lead_id, wc.button_id, wc.button_text, wc.page as page_url, wc.clicked_at,
         l.first_name, l.last_name, l.email, l.company, l.sequence_type
       FROM website_clicks wc
       JOIN leads l ON l.id = wc.lead_id

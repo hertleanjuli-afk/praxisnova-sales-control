@@ -258,6 +258,54 @@ export async function GET(request: NextRequest) {
       LIMIT 10
     `;
 
+    // Per-sector active lead counts
+    const sectorActiveCounts = await sql`
+      SELECT
+        sequence_type as sector,
+        COUNT(*) as active_count
+      FROM leads
+      WHERE sequence_status = 'active'
+        AND sequence_type IN ('immobilien', 'handwerk', 'bauunternehmen')
+      GROUP BY sequence_type
+    `;
+    const activePerSector: Record<string, number> = {};
+    for (const row of sectorActiveCounts) {
+      activePerSector[row.sector] = Number(row.active_count);
+    }
+
+    // Individual lead engagement: recent opens
+    const recentOpens = await sql`
+      SELECT DISTINCT ON (e.lead_id)
+        e.lead_id, e.step_number, e.created_at as opened_at,
+        l.first_name, l.last_name, l.email, l.company, l.sequence_type
+      FROM email_events e
+      JOIN leads l ON l.id = e.lead_id
+      WHERE e.event_type = 'opened'
+        AND e.created_at >= NOW() - ${interval}::interval
+      ORDER BY e.lead_id, e.created_at DESC
+    `;
+
+    // Individual lead engagement: recent website clicks (from email links)
+    const recentLeadClicks = await sql`
+      SELECT DISTINCT ON (wc.lead_id)
+        wc.lead_id, wc.button_id, wc.button_text, wc.page_url, wc.clicked_at,
+        l.first_name, l.last_name, l.email, l.company, l.sequence_type
+      FROM website_clicks wc
+      JOIN leads l ON l.id = wc.lead_id
+      WHERE wc.clicked_at >= NOW() - ${interval}::interval
+        AND wc.lead_id IS NOT NULL
+      ORDER BY wc.lead_id, wc.clicked_at DESC
+    `;
+
+    // Unsubscribed leads list
+    const unsubscribedLeads = await sql`
+      SELECT id, first_name, last_name, email, company, sequence_type, exited_at
+      FROM leads
+      WHERE sequence_status = 'unsubscribed'
+      ORDER BY exited_at DESC
+      LIMIT 20
+    `;
+
     // Inbound vs Outbound lead counts
     const inboundLeadsResult = await sql`
       SELECT COUNT(*) as count FROM leads WHERE sequence_type = 'inbound'
@@ -328,6 +376,40 @@ export async function GET(request: NextRequest) {
       })),
       inbound_leads: Number(inboundLeadsResult[0]?.count || 0),
       outbound_leads: Number(outboundLeadsResult[0]?.count || 0),
+      active_per_sector: activePerSector,
+      failRate: emailsSentCount > 0 ? Number(emailsFailed[0]?.count || 0) / emailsSentCount : 0,
+      lead_engagement: {
+        recent_opens: recentOpens.map((r) => ({
+          lead_id: r.lead_id,
+          first_name: r.first_name,
+          last_name: r.last_name,
+          email: r.email,
+          company: r.company,
+          sequence_type: r.sequence_type,
+          step_number: r.step_number,
+          opened_at: r.opened_at,
+        })),
+        recent_clicks: recentLeadClicks.map((r) => ({
+          lead_id: r.lead_id,
+          first_name: r.first_name,
+          last_name: r.last_name,
+          email: r.email,
+          company: r.company,
+          sequence_type: r.sequence_type,
+          button_text: r.button_text,
+          page_url: r.page_url,
+          clicked_at: r.clicked_at,
+        })),
+      },
+      unsubscribed_leads: unsubscribedLeads.map((l) => ({
+        id: l.id,
+        first_name: l.first_name,
+        last_name: l.last_name,
+        email: l.email,
+        company: l.company,
+        sequence_type: l.sequence_type,
+        exited_at: l.exited_at,
+      })),
       period,
     });
   } catch (error) {

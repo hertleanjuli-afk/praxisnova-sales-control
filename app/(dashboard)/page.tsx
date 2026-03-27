@@ -5,11 +5,38 @@ import FeedbackBanner from '@/components/FeedbackBanner';
 
 type Period = 'week' | 'month' | 'all';
 
+interface LeadEngagementEntry {
+  lead_id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  company: string;
+  sequence_type: string;
+  step_number?: number;
+  opened_at?: string;
+  button_text?: string;
+  page_url?: string;
+  clicked_at?: string;
+}
+
+interface UnsubscribedLead {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  company: string;
+  sequence_type: string;
+  exited_at: string;
+}
+
 interface Analytics {
   totalLeads: number;
   activeSequences: number;
   emailsSent: number;
+  emails_failed: number;
+  unsubscribes: number;
   openRate: number;
+  failRate: number;
   replyRate: number;
   meetingsBooked: number;
   calls_total: number;
@@ -27,12 +54,8 @@ interface Analytics {
   linkedin_no_profile?: number;
   linkedin_by_sector?: { sector: string; requests: number; connected: number; messages: number; replied: number; meetings: number; no_linkedin: number }[];
   conversion_rate: number;
-  bySector: {
-    sector: string;
-    leads: number;
-    active: number;
-    emails: number;
-  }[];
+  by_sector: Record<string, { leads: number; sent: number; failed: number; unsubscribes: number; replies: number }>;
+  active_per_sector?: Record<string, number>;
   website_clicks?: {
     today: number;
     this_week: number;
@@ -44,6 +67,11 @@ interface Analytics {
   inbound_leads?: number;
   outbound_leads?: number;
   hot_leads?: { id: number; first_name: string; last_name: string; company: string; lead_score: number; sequence_type: string }[];
+  lead_engagement?: {
+    recent_opens: LeadEngagementEntry[];
+    recent_clicks: LeadEngagementEntry[];
+  };
+  unsubscribed_leads?: UnsubscribedLead[];
 }
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -122,7 +150,17 @@ export default function DashboardPage() {
         {
           label: 'Öffnungsrate',
           value: `${(analytics.openRate * 100).toFixed(1)}%`,
-          color: 'text-[#1E3A5F]',
+          color: analytics.openRate > 0.2 ? 'text-green-600' : 'text-[#1E3A5F]',
+        },
+        {
+          label: 'Fehlerrate',
+          value: `${((analytics.failRate ?? 0) * 100).toFixed(1)}%`,
+          color: (analytics.failRate ?? 0) > 0.05 ? 'text-red-600' : 'text-green-600',
+        },
+        {
+          label: 'Abmeldungen',
+          value: analytics.unsubscribes ?? 0,
+          color: (analytics.unsubscribes ?? 0) > 0 ? 'text-amber-600' : 'text-green-600',
         },
         {
           label: 'Antwortrate',
@@ -392,7 +430,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Sector breakdown */}
-            {analytics.bySector && analytics.bySector.length > 0 && (
+            {analytics.by_sector && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-base font-semibold text-[#1E3A5F] mb-4">
                   Nach Sektor
@@ -402,18 +440,108 @@ export default function DashboardPage() {
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="pb-2 font-medium text-gray-500">Sektor</th>
-                        <th className="pb-2 font-medium text-gray-500 text-right">Leads</th>
                         <th className="pb-2 font-medium text-gray-500 text-right">Aktiv</th>
+                        <th className="pb-2 font-medium text-gray-500 text-right">Leads kontaktiert</th>
                         <th className="pb-2 font-medium text-gray-500 text-right">E-Mails</th>
+                        <th className="pb-2 font-medium text-gray-500 text-right">Fehlgeschlagen</th>
+                        <th className="pb-2 font-medium text-gray-500 text-right">Abmeldungen</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {analytics.bySector.map((row) => (
-                        <tr key={row.sector} className="border-b border-gray-100 last:border-0">
-                          <td className="py-2 font-medium text-gray-900">{row.sector}</td>
-                          <td className="py-2 text-right text-gray-700">{row.leads}</td>
-                          <td className="py-2 text-right text-gray-700">{row.active}</td>
-                          <td className="py-2 text-right text-gray-700">{row.emails}</td>
+                      {['immobilien', 'handwerk', 'bauunternehmen'].map((sector) => {
+                        const row = analytics.by_sector[sector] || { leads: 0, sent: 0, failed: 0, unsubscribes: 0 };
+                        const activeCount = analytics.active_per_sector?.[sector] ?? 0;
+                        return (
+                          <tr key={sector} className="border-b border-gray-100 last:border-0">
+                            <td className="py-2 font-medium text-gray-900 capitalize">{sector}</td>
+                            <td className="py-2 text-right"><span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">{activeCount}</span></td>
+                            <td className="py-2 text-right text-gray-700">{row.leads}</td>
+                            <td className="py-2 text-right text-gray-700">{row.sent}</td>
+                            <td className="py-2 text-right">{row.failed > 0 ? <span className="text-red-600 font-medium">{row.failed}</span> : <span className="text-gray-400">0</span>}</td>
+                            <td className="py-2 text-right">{row.unsubscribes > 0 ? <span className="text-amber-600 font-medium">{row.unsubscribes}</span> : <span className="text-gray-400">0</span>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Lead Engagement Tracking */}
+            {analytics.lead_engagement && (analytics.lead_engagement.recent_opens.length > 0 || analytics.lead_engagement.recent_clicks.length > 0) && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-[#1E3A5F]">Lead Engagement</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Who opened emails */}
+                  {analytics.lead_engagement.recent_opens.length > 0 && (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                      <h4 className="text-sm font-semibold text-[#1E3A5F] mb-3">E-Mail ge&ouml;ffnet</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {analytics.lead_engagement.recent_opens.map((lead) => (
+                          <div key={lead.lead_id} className="flex items-center justify-between text-sm border-b border-gray-50 pb-1.5">
+                            <div>
+                              <span className="font-medium text-gray-900">{lead.first_name} {lead.last_name}</span>
+                              <span className="text-gray-400 mx-1">&middot;</span>
+                              <span className="text-gray-500 text-xs">{lead.company}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs bg-gray-100 rounded px-1.5 py-0.5 text-gray-500 capitalize">{lead.sequence_type}</span>
+                              <span className="text-xs text-gray-400">Step {lead.step_number}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Who clicked to website */}
+                  {analytics.lead_engagement.recent_clicks.length > 0 && (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                      <h4 className="text-sm font-semibold text-[#1E3A5F] mb-3">Website besucht</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {analytics.lead_engagement.recent_clicks.map((lead) => (
+                          <div key={lead.lead_id} className="flex items-center justify-between text-sm border-b border-gray-50 pb-1.5">
+                            <div>
+                              <span className="font-medium text-gray-900">{lead.first_name} {lead.last_name}</span>
+                              <span className="text-gray-400 mx-1">&middot;</span>
+                              <span className="text-gray-500 text-xs">{lead.company}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs bg-green-100 rounded px-1.5 py-0.5 text-green-700 capitalize">{lead.sequence_type}</span>
+                              <span className="text-xs text-gray-400">{lead.clicked_at ? new Date(lead.clicked_at).toLocaleDateString('de-DE') : ''}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Unsubscribed leads */}
+            {analytics.unsubscribed_leads && analytics.unsubscribed_leads.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-[#1E3A5F] mb-3">Abgemeldete Leads</h3>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left p-3">Name</th>
+                        <th className="text-left p-3">Firma</th>
+                        <th className="text-left p-3">E-Mail</th>
+                        <th className="text-left p-3">Sequenz</th>
+                        <th className="text-left p-3">Abgemeldet am</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.unsubscribed_leads.map(lead => (
+                        <tr key={lead.id} className="border-t border-gray-100">
+                          <td className="p-3 font-medium">{lead.first_name} {lead.last_name}</td>
+                          <td className="p-3 text-gray-600">{lead.company}</td>
+                          <td className="p-3 text-gray-500 text-xs">{lead.email}</td>
+                          <td className="p-3 text-gray-500 capitalize">{lead.sequence_type}</td>
+                          <td className="p-3 text-gray-400 text-xs">{lead.exited_at ? new Date(lead.exited_at).toLocaleDateString('de-DE') : '-'}</td>
                         </tr>
                       ))}
                     </tbody>

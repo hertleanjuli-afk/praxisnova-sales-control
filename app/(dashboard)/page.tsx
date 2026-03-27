@@ -504,8 +504,8 @@ export default function DashboardPage() {
                     <thead>
                       <tr className="border-b text-left text-gray-500">
                         <th className="py-2 pr-4">Sektor</th>
-                        {[1, 2, 3, 4, 5, 6].map((step) => (
-                          <th key={step} className="py-2 px-3 text-center">Schritt {step}</th>
+                        {[1, 2, 3, 4, 5, 6].map((email) => (
+                          <th key={email} className="py-2 px-3 text-center">Email {email}</th>
                         ))}
                         <th className="py-2 px-3 text-center font-semibold">Gesamt</th>
                       </tr>
@@ -517,17 +517,21 @@ export default function DashboardPage() {
                         return (
                           <tr key={sector} className="border-b hover:bg-gray-50">
                             <td className="py-3 pr-4 font-medium capitalize">{sector}</td>
-                            {[1, 2, 3, 4, 5, 6].map((step) => (
-                              <td key={step} className="py-3 px-3 text-center">
-                                {steps[step] ? (
-                                  <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {steps[step]}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-300">0</span>
-                                )}
-                              </td>
-                            ))}
+                            {[1, 2, 3, 4, 5, 6].map((email) => {
+                              // sequence_step value = email number (step 1 = Email 1 sent, waiting for Email 2)
+                              const count = (steps[email] || 0) + (email === 1 ? (steps[0] || 0) : 0);
+                              return (
+                                <td key={email} className="py-3 px-3 text-center">
+                                  {count > 0 ? (
+                                    <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      {count}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-300">0</span>
+                                  )}
+                                </td>
+                              );
+                            })}
                             <td className="py-3 px-3 text-center font-semibold text-[#1E3A5F]">{total}</td>
                           </tr>
                         );

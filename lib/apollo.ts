@@ -1,5 +1,4 @@
-const APOLLO_API_URL = 'https://api.apollo.io/v1/people/search';
-
+const APOLLO_API_URL = 'https://api.apollo.io/v1/mixed_people/api_search';
 export interface ApolloLead {
   id: string;
   email: string | null;

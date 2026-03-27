@@ -42,6 +42,11 @@ export async function POST(request: NextRequest) {
 
       if (existing.length > 0) {
         const ex = existing[0];
+        // DSGVO: permanently blocked leads must NEVER be re-enrolled
+        if (ex.permanently_blocked) {
+          results.push({ email: lead.email, status: 'skipped', reason: 'permanently_blocked' });
+          continue;
+        }
         if (ex.sequence_status === 'active' || ex.sequence_status === 'pending_optin') {
           results.push({ email: lead.email, status: 'skipped', reason: 'already_active_or_pending' });
           continue;

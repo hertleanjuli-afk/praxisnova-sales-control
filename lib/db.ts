@@ -162,6 +162,13 @@ export async function initializeDatabase(): Promise<void> {
     )
   `;
 
+  // Unsubscribe / permanent block tracking
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS permanently_blocked BOOLEAN DEFAULT FALSE`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS unsubscribed_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE email_events ADD COLUMN IF NOT EXISTS sentiment TEXT`;
+  await sql`ALTER TABLE email_events ADD COLUMN IF NOT EXISTS sentiment_confidence REAL`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS reply_sentiment TEXT`;
+
   // Add columns if they don't exist (for existing databases)
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_score INTEGER DEFAULT 0`;
   await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_source TEXT`;

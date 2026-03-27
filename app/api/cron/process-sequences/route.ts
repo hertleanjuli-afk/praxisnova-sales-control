@@ -111,12 +111,13 @@ export async function GET(request: NextRequest) {
   const stats = { processed: 0, sent: 0, failed: 0, completed: 0, linkedin_tasks: 0 };
 
   try {
-    // Get all active leads
+    // Get all active leads (exclude permanently blocked — DSGVO safety check)
     const activeLeads = await sql`
       SELECT * FROM leads
       WHERE sequence_status = 'active'
       AND sequence_type IS NOT NULL
       AND enrolled_at IS NOT NULL
+      AND (permanently_blocked IS NULL OR permanently_blocked = FALSE)
       ORDER BY enrolled_at ASC
     `;
 

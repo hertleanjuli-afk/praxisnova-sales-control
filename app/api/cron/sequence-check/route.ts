@@ -75,13 +75,13 @@ export async function GET(request: NextRequest) {
         `ABMELDUNG NICHT ERKANNT: ${lead.first_name || ''} ${lead.last_name || ''} (${lead.email}) - ` +
         `Sequenz "${lead.sequence_type}" ist noch aktiv trotz Abmeldung`
       );
-      const cooldownUntil = new Date();
-      cooldownUntil.setDate(cooldownUntil.getDate() + 90);
       await sql`
         UPDATE leads SET
           sequence_status = 'unsubscribed',
+          permanently_blocked = TRUE,
+          unsubscribed_at = COALESCE(unsubscribed_at, NOW()),
           exited_at = COALESCE(exited_at, NOW()),
-          cooldown_until = ${cooldownUntil.toISOString()}
+          cooldown_until = NULL
         WHERE id = ${lead.id}
       `;
     }

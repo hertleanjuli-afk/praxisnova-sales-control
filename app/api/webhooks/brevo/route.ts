@@ -125,8 +125,18 @@ export async function POST(request: NextRequest) {
       const cooldownUntil = new Date();
       cooldownUntil.setDate(cooldownUntil.getDate() + 90);
 
-      // Include sentiment in lead update for replied leads
-      if (eventType === 'replied' && sentiment) {
+      // Unsubscribes are PERMANENT — no cooldown, permanently blocked (DSGVO)
+      if (eventType === 'unsubscribed') {
+        await sql`
+          UPDATE leads
+          SET sequence_status = 'unsubscribed',
+              exited_at = COALESCE(exited_at, NOW()),
+              unsubscribed_at = COALESCE(unsubscribed_at, NOW()),
+              permanently_blocked = TRUE,
+              cooldown_until = NULL
+          WHERE id = ${lead.id}
+        `;
+      } else if (eventType === 'replied' && sentiment) {
         await sql`
           UPDATE leads
           SET sequence_status = ${newStatus},

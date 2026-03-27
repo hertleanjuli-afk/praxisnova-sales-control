@@ -596,7 +596,15 @@ export default function DashboardPage() {
             {/* Unsubscribed leads */}
             {analytics.unsubscribed_leads && analytics.unsubscribed_leads.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-[#1E3A5F] mb-3">Abgemeldete Leads</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-[#1E3A5F]">Abgemeldete Leads</h3>
+                  <a
+                    href="/unsubscribes"
+                    className="text-sm font-medium text-[#2563EB] hover:underline"
+                  >
+                    Alle Details ansehen &rarr;
+                  </a>
+                </div>
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">

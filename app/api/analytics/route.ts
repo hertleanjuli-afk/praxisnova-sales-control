@@ -199,15 +199,47 @@ export async function GET(request: NextRequest) {
         AND exited_at >= NOW() - ${interval}::interval
     `;
 
-    // Open rate — requires Brevo webhook to be configured (/api/webhooks/brevo)
+    // Open rate — fetched from Brevo aggregated statistics API for accuracy
     const emailsSentCount = Number(emailsSent[0]?.count || 0);
-    const opensResult = await sql`
-      SELECT COUNT(*) as count FROM email_events
-      WHERE event_type = 'opened'
-        AND created_at >= NOW() - ${interval}::interval
-    `;
-    const opensCount = Number(opensResult[0]?.count || 0);
-    const openRate = emailsSentCount > 0 ? opensCount / emailsSentCount : 0;
+    let openRate = 0;
+    try {
+      const brevoApiKey = process.env.BREVO_API_KEY;
+      if (brevoApiKey) {
+        // Calculate date range based on period
+        const now = new Date();
+        let startDate: string;
+        if (period === 'month') {
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        } else if (period === 'all') {
+          startDate = '2024-01-01';
+        } else {
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        }
+        const endDate = now.toISOString().split('T')[0];
+
+        const brevoResp = await fetch(
+          `https://api.brevo.com/v3/smtp/statistics/aggregatedReport?startDate=${startDate}&endDate=${endDate}`,
+          { headers: { 'api-key': brevoApiKey, 'Accept': 'application/json' } }
+        );
+        if (brevoResp.ok) {
+          const brevoStats = await brevoResp.json();
+          // Brevo returns: requests, delivered, opens, clicks, unsubscribed, etc.
+          const delivered = brevoStats.delivered || brevoStats.requests || 0;
+          const uniqueOpens = brevoStats.uniqueOpens || brevoStats.opens || 0;
+          openRate = delivered > 0 ? uniqueOpens / delivered : 0;
+        }
+      }
+    } catch (brevoErr) {
+      console.error('Brevo stats fetch error:', brevoErr);
+      // Fallback to local DB calculation
+      const opensResult = await sql`
+        SELECT COUNT(*) as count FROM email_events
+        WHERE event_type = 'opened'
+          AND created_at >= NOW() - ${interval}::interval
+      `;
+      const opensCount = Number(opensResult[0]?.count || 0);
+      openRate = emailsSentCount > 0 ? opensCount / emailsSentCount : 0;
+    }
 
     // Reply rate — calculated from leads table (accurate)
     const repliedLeadsCount = Number(repliedLeadsResult[0]?.count || 0);
@@ -306,6 +338,40 @@ export async function GET(request: NextRequest) {
       LIMIT 20
     `;
 
+    // Leads per sequence step (active leads only)
+    const leadsPerStep = await sql`
+      SELECT
+        sequence_type as sector,
+        sequence_step as step,
+        COUNT(*) as count
+      FROM leads
+      WHERE sequence_status = 'active'
+        AND sequence_type IN ('immobilien', 'handwerk', 'bauunternehmen')
+      GROUP BY sequence_type, sequence_step
+      ORDER BY sequence_type, sequence_step
+    `;
+    const stepBreakdown: Record<string, Record<number, number>> = {};
+    for (const row of leadsPerStep) {
+      if (!stepBreakdown[row.sector]) stepBreakdown[row.sector] = {};
+      stepBreakdown[row.sector][Number(row.step)] = Number(row.count);
+    }
+
+    // Leads added timeline
+    const leadsAddedToday = await sql`
+      SELECT COUNT(*) as count FROM leads WHERE created_at >= CURRENT_DATE
+    `;
+    const leadsAddedThisWeek = await sql`
+      SELECT COUNT(*) as count FROM leads WHERE created_at >= date_trunc('week', CURRENT_DATE)
+    `;
+    const leadsAddedLastWeek = await sql`
+      SELECT COUNT(*) as count FROM leads
+      WHERE created_at >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
+        AND created_at < date_trunc('week', CURRENT_DATE)
+    `;
+    const leadsAddedThisMonth = await sql`
+      SELECT COUNT(*) as count FROM leads WHERE created_at >= date_trunc('month', CURRENT_DATE)
+    `;
+
     // Inbound vs Outbound lead counts
     const inboundLeadsResult = await sql`
       SELECT COUNT(*) as count FROM leads WHERE sequence_type = 'inbound'
@@ -377,6 +443,13 @@ export async function GET(request: NextRequest) {
       inbound_leads: Number(inboundLeadsResult[0]?.count || 0),
       outbound_leads: Number(outboundLeadsResult[0]?.count || 0),
       active_per_sector: activePerSector,
+      leads_per_step: stepBreakdown,
+      leads_added: {
+        today: Number(leadsAddedToday[0]?.count || 0),
+        this_week: Number(leadsAddedThisWeek[0]?.count || 0),
+        last_week: Number(leadsAddedLastWeek[0]?.count || 0),
+        this_month: Number(leadsAddedThisMonth[0]?.count || 0),
+      },
       failRate: emailsSentCount > 0 ? Number(emailsFailed[0]?.count || 0) / emailsSentCount : 0,
       lead_engagement: {
         recent_opens: recentOpens.map((r) => ({

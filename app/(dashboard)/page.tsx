@@ -72,6 +72,13 @@ interface Analytics {
     recent_clicks: LeadEngagementEntry[];
   };
   unsubscribed_leads?: UnsubscribedLead[];
+  leads_per_step?: Record<string, Record<number, number>>;
+  leads_added?: {
+    today: number;
+    this_week: number;
+    last_week: number;
+    this_month: number;
+  };
 }
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -459,6 +466,69 @@ export default function DashboardPage() {
                             <td className="py-2 text-right text-gray-700">{row.sent}</td>
                             <td className="py-2 text-right">{row.failed > 0 ? <span className="text-red-600 font-medium">{row.failed}</span> : <span className="text-gray-400">0</span>}</td>
                             <td className="py-2 text-right">{row.unsubscribes > 0 ? <span className="text-amber-600 font-medium">{row.unsubscribes}</span> : <span className="text-gray-400">0</span>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Leads Added Timeline */}
+            {analytics.leads_added && (
+              <div className="bg-white rounded-lg border p-5">
+                <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">Leads hinzugefügt</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Heute', value: analytics.leads_added.today },
+                    { label: 'Diese Woche', value: analytics.leads_added.this_week },
+                    { label: 'Letzte Woche', value: analytics.leads_added.last_week },
+                    { label: 'Dieser Monat', value: analytics.leads_added.this_month },
+                  ].map((item) => (
+                    <div key={item.label} className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-2xl font-bold text-[#1E3A5F]">{item.value}</div>
+                      <div className="text-sm text-gray-500">{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Leads per Sequence Step */}
+            {analytics.leads_per_step && Object.keys(analytics.leads_per_step).length > 0 && (
+              <div className="bg-white rounded-lg border p-5">
+                <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">Leads pro Sequenz-Schritt</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-gray-500">
+                        <th className="py-2 pr-4">Sektor</th>
+                        {[1, 2, 3, 4, 5, 6].map((step) => (
+                          <th key={step} className="py-2 px-3 text-center">Schritt {step}</th>
+                        ))}
+                        <th className="py-2 px-3 text-center font-semibold">Gesamt</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {['immobilien', 'handwerk', 'bauunternehmen'].map((sector) => {
+                        const steps = analytics.leads_per_step?.[sector] || {};
+                        const total = Object.values(steps).reduce((a, b) => a + b, 0);
+                        return (
+                          <tr key={sector} className="border-b hover:bg-gray-50">
+                            <td className="py-3 pr-4 font-medium capitalize">{sector}</td>
+                            {[1, 2, 3, 4, 5, 6].map((step) => (
+                              <td key={step} className="py-3 px-3 text-center">
+                                {steps[step] ? (
+                                  <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {steps[step]}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">0</span>
+                                )}
+                              </td>
+                            ))}
+                            <td className="py-3 px-3 text-center font-semibold text-[#1E3A5F]">{total}</td>
                           </tr>
                         );
                       })}

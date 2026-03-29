@@ -45,8 +45,13 @@ export async function POST(request: NextRequest) {
     res.headers.set('Access-Control-Allow-Origin', '*');
     return res;
   } catch (error) {
-    console.error('Track click error:', error);
-    const res = NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const isTimeout = error instanceof Error && (error.message.includes('timeout') || error.message.includes('abort'));
+    console.error('Track click error:', isTimeout ? 'DB timeout after retries' : error);
+    const status = isTimeout ? 504 : 500;
+    const res = NextResponse.json(
+      { error: isTimeout ? 'Database timeout' : 'Internal error', retryable: isTimeout },
+      { status }
+    );
     res.headers.set('Access-Control-Allow-Origin', '*');
     return res;
   }

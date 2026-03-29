@@ -1,12 +1,75 @@
-import { neon } from '@neondatabase/serverless';
+import { neon, NeonQueryFunction } from '@neondatabase/serverless';
 
-let _sql: ReturnType<typeof neon> | null = null;
+const DB_TIMEOUT_MS = 30_000;
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 500;
+
+let _sql: NeonQueryFunction<false, false> | null = null;
+
+function getNeon(): NeonQueryFunction<false, false> {
+  if (!_sql) {
+    _sql = neon(process.env.DATABASE_URL!, {
+      fetchOptions: { signal: AbortSignal.timeout(DB_TIMEOUT_MS) },
+    });
+  }
+  return _sql;
+}
+
+function isRetryable(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return (
+      msg.includes('timeout') ||
+      msg.includes('abort') ||
+      msg.includes('econnreset') ||
+      msg.includes('econnrefused') ||
+      msg.includes('fetch failed') ||
+      msg.includes('network') ||
+      msg.includes('socket hang up') ||
+      msg.includes('could not connect') ||
+      msg.includes('too many clients') ||
+      msg.includes('connection terminated')
+    );
+  }
+  return false;
+}
+
+async function withRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < retries && isRetryable(error)) {
+        const delay = RETRY_BASE_MS * Math.pow(2, attempt);
+        await new Promise((r) => setTimeout(r, delay));
+        // Reset the client so the next attempt creates a fresh connection
+        _sql = null;
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
 
 export default function sql(strings: TemplateStringsArray, ...values: any[]): Promise<Record<string, any>[]> {
-  if (!_sql) {
-    _sql = neon(process.env.DATABASE_URL!);
+  return withRetry(() => getNeon()(strings, ...values) as Promise<Record<string, any>[]>);
+}
+
+export async function checkConnection(): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+  const start = Date.now();
+  try {
+    await withRetry(() => getNeon()`SELECT 1 AS ok`, 1);
+    return { ok: true, latencyMs: Date.now() - start };
+  } catch (error) {
+    return {
+      ok: false,
+      latencyMs: Date.now() - start,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
-  return _sql(strings, ...values) as Promise<Record<string, any>[]>;
 }
 
 export async function initializeDatabase(): Promise<void> {

@@ -1,11 +1,19 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface ApiStatus {
   apollo: boolean;
   hubspot: boolean;
   brevo: boolean;
   database: boolean;
+}
+
+interface DbHealth {
+  connected: boolean;
+  latencyMs: number;
+  error?: string;
+  lastChecked: string;
+  retryCount: number;
 }
 
 function StatusDot({ ok, pulsing }: { ok: boolean; pulsing?: boolean }) {
@@ -16,85 +24,94 @@ function StatusDot({ ok, pulsing }: { ok: boolean; pulsing?: boolean }) {
 
 export default function SettingsPage() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>({ apollo: false, hubspot: false, brevo: false, database: false });
+  const [dbHealth, setDbHealth] = useState<DbHealth>({ connected: false, latencyMs: 0, lastChecked: '', retryCount: 0 });
   const [loading, setLoading] = useState(true);
   const [initLoading, setInitLoading] = useState(false);
   const [processLoading, setProcessLoading] = useState(false);
   const [processMessage, setProcessMessage] = useState('');
   const [initMessage, setInitMessage] = useState('');
-  const [reconnecting, setReconnecting] = useState(false);
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectingRef = useRef(false);
+  const retryCountRef = useRef(0);
 
   const tiktokEnabled = process.env.NEXT_PUBLIC_TIKTOK_MODULE_ENABLED === 'true';
 
-  const checkDatabaseStatus = async (): Promise<boolean> => {
+  const checkHealth = useCallback(async (): Promise<DbHealth> => {
     try {
-      const res = await fetch('/api/analytics?period=week');
-      return res.ok;
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      return {
+        connected: data.database?.connected ?? false,
+        latencyMs: data.database?.latencyMs ?? 0,
+        error: data.database?.error,
+        lastChecked: new Date().toLocaleTimeString('de-DE'),
+        retryCount: retryCountRef.current,
+      };
     } catch {
-      return false;
+      return {
+        connected: false,
+        latencyMs: 0,
+        error: 'Netzwerkfehler',
+        lastChecked: new Date().toLocaleTimeString('de-DE'),
+        retryCount: retryCountRef.current,
+      };
     }
-  };
+  }, []);
 
-  const attemptReconnect = async () => {
+  const attemptReconnect = useCallback(async () => {
     if (reconnectingRef.current) return;
     reconnectingRef.current = true;
-    setReconnecting(true);
-    try {
-      await fetch('/api/settings/init-db', { method: 'POST' });
-      const ok = await checkDatabaseStatus();
-      setApiStatus((prev) => ({ ...prev, database: ok }));
-      if (!ok) {
-        reconnectTimerRef.current = setTimeout(() => {
-          reconnectingRef.current = false;
-          attemptReconnect();
-        }, 15000);
-      } else {
-        reconnectingRef.current = false;
-        setReconnecting(false);
-      }
-    } catch {
+    retryCountRef.current++;
+
+    const health = await checkHealth();
+    setDbHealth(health);
+    setApiStatus((prev) => ({ ...prev, database: health.connected }));
+
+    if (!health.connected) {
+      const delay = Math.min(15000, 3000 * retryCountRef.current);
       reconnectTimerRef.current = setTimeout(() => {
         reconnectingRef.current = false;
         attemptReconnect();
-      }, 15000);
+      }, delay);
+    } else {
+      reconnectingRef.current = false;
+      retryCountRef.current = 0;
     }
-  };
+  }, [checkHealth]);
 
   useEffect(() => {
     async function initialCheck() {
-      const dbOk = await checkDatabaseStatus();
+      const health = await checkHealth();
+      setDbHealth(health);
       setApiStatus({
-        database: dbOk,
+        database: health.connected,
         apollo: !!process.env.NEXT_PUBLIC_APOLLO_CONFIGURED || true,
         hubspot: !!process.env.NEXT_PUBLIC_HUBSPOT_CONFIGURED || true,
         brevo: !!process.env.NEXT_PUBLIC_BREVO_CONFIGURED || true,
       });
       setLoading(false);
-      if (!dbOk) {
+      if (!health.connected) {
         reconnectTimerRef.current = setTimeout(attemptReconnect, 3000);
       }
     }
 
     initialCheck();
 
-    // Poll DB status every 30s; auto-reconnect on disconnect
     pollIntervalRef.current = setInterval(async () => {
-      const dbOk = await checkDatabaseStatus();
+      const health = await checkHealth();
+      setDbHealth(health);
       setApiStatus((prev) => {
-        if (!prev.database && dbOk) {
-          // Reconnected
+        if (!prev.database && health.connected) {
           reconnectingRef.current = false;
-          setReconnecting(false);
+          retryCountRef.current = 0;
           if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
         }
-        if (prev.database && !dbOk && !reconnectingRef.current) {
-          // Just lost connection
+        if (prev.database && !health.connected && !reconnectingRef.current) {
           setTimeout(attemptReconnect, 2000);
         }
-        return { ...prev, database: dbOk };
+        return { ...prev, database: health.connected };
       });
     }, 30000);
 
@@ -102,8 +119,7 @@ export default function SettingsPage() {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [checkHealth, attemptReconnect]);
 
   const handleInitDb = async () => {
     setInitLoading(true);
@@ -113,9 +129,11 @@ export default function SettingsPage() {
       const data = await res.json();
       if (res.ok) {
         setInitMessage(data.message ?? 'Datenbank erfolgreich initialisiert.');
-        setApiStatus((prev) => ({ ...prev, database: true }));
+        const health = await checkHealth();
+        setDbHealth(health);
+        setApiStatus((prev) => ({ ...prev, database: health.connected }));
         reconnectingRef.current = false;
-        setReconnecting(false);
+        retryCountRef.current = 0;
       } else {
         setInitMessage(`Fehler: ${data.error ?? 'Unbekannter Fehler'}`);
       }
@@ -125,6 +143,8 @@ export default function SettingsPage() {
       setInitLoading(false);
     }
   };
+
+  const isReconnecting = reconnectingRef.current || (!apiStatus.database && dbHealth.retryCount > 0);
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -169,24 +189,76 @@ export default function SettingsPage() {
       {/* Database */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-base font-semibold text-[#1E3A5F] mb-4">Datenbank</h3>
-        <div className="flex items-center gap-3 mb-2">
-          <StatusDot ok={apiStatus.database} pulsing={reconnecting} />
+
+        <div className="flex items-center gap-3 mb-3">
+          <StatusDot ok={apiStatus.database} pulsing={isReconnecting} />
           <span className="text-sm text-gray-700">
-            {apiStatus.database ? 'Verbunden' : reconnecting ? 'Verbindet automatisch...' : 'Nicht verbunden'}
+            {apiStatus.database ? 'Verbunden' : isReconnecting ? 'Verbindet automatisch...' : 'Nicht verbunden'}
           </span>
+          {apiStatus.database && dbHealth.latencyMs > 0 && (
+            <span className={`text-xs font-mono px-2 py-0.5 rounded ${dbHealth.latencyMs < 500 ? 'bg-green-50 text-green-700' : dbHealth.latencyMs < 2000 ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'}`}>
+              {dbHealth.latencyMs} ms
+            </span>
+          )}
         </div>
-        {!apiStatus.database && !reconnecting && (
+
+        {/* Detailed status info */}
+        <div className="bg-gray-50 rounded-md p-3 mb-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Letzte Prüfung</span>
+            <span className="font-mono">{dbHealth.lastChecked || '–'}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Latenz</span>
+            <span className="font-mono">{dbHealth.latencyMs > 0 ? `${dbHealth.latencyMs} ms` : '–'}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Timeout</span>
+            <span className="font-mono">30 s</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Wiederholungsversuche</span>
+            <span className="font-mono">3× mit Backoff</span>
+          </div>
+          {dbHealth.error && (
+            <div className="flex items-center justify-between text-xs text-red-500">
+              <span>Fehler</span>
+              <span className="font-mono truncate max-w-[200px]" title={dbHealth.error}>{dbHealth.error}</span>
+            </div>
+          )}
+          {isReconnecting && dbHealth.retryCount > 0 && (
+            <div className="flex items-center justify-between text-xs text-yellow-600">
+              <span>Wiederverbindungsversuch</span>
+              <span className="font-mono">#{dbHealth.retryCount}</span>
+            </div>
+          )}
+        </div>
+
+        {!apiStatus.database && !isReconnecting && (
           <p className="text-xs text-gray-400 mb-4">Verbindung wird automatisch alle 15 Sekunden erneut versucht.</p>
         )}
-        {reconnecting && (
+        {isReconnecting && (
           <p className="text-xs text-gray-400 mb-4">Automatische Wiederverbindung läuft – bitte warten.</p>
         )}
         {apiStatus.database && (
-          <p className="text-xs text-gray-400 mb-4">Status wird alle 30 Sekunden geprüft.</p>
+          <p className="text-xs text-gray-400 mb-4">Status wird alle 30 Sekunden geprüft. Abfragen werden bei Fehlern automatisch 3× wiederholt.</p>
         )}
-        <button onClick={handleInitDb} disabled={initLoading} className="rounded-md bg-[#1E3A5F] px-4 py-2 text-sm font-medium text-white hover:bg-[#162d4a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-          {initLoading ? 'Initialisiere...' : 'Datenbank initialisieren'}
-        </button>
+
+        <div className="flex gap-3">
+          <button onClick={handleInitDb} disabled={initLoading} className="rounded-md bg-[#1E3A5F] px-4 py-2 text-sm font-medium text-white hover:bg-[#162d4a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            {initLoading ? 'Initialisiere...' : 'Datenbank initialisieren'}
+          </button>
+          <button
+            onClick={async () => {
+              const health = await checkHealth();
+              setDbHealth(health);
+              setApiStatus((prev) => ({ ...prev, database: health.connected }));
+            }}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Jetzt prüfen
+          </button>
+        </div>
         {initMessage && (
           <p className={`mt-3 text-sm ${initMessage.startsWith('Fehler') || initMessage.startsWith('Verbindungs') ? 'text-red-600' : 'text-green-600'}`}>{initMessage}</p>
         )}

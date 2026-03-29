@@ -42,8 +42,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, clickId });
   } catch (error) {
-    console.error('Website click webhook error:', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const isTimeout = error instanceof Error && (error.message.includes('timeout') || error.message.includes('abort'));
+    console.error('Website click webhook error:', isTimeout ? 'DB timeout after retries' : error);
+    return NextResponse.json(
+      { error: isTimeout ? 'Database timeout' : 'Internal error', retryable: isTimeout },
+      { status: isTimeout ? 504 : 500 }
+    );
   }
 }
 

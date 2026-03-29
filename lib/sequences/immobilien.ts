@@ -5,12 +5,12 @@ export const immobilienSequence: SequenceStep[] = [
     step: 1,
     dayOffset: 0,
     channel: 'email',
-    subject: 'Kostenlos f\u00fcr {{company_name}}: Automatische {Spintax: Zahlungserinnerungen|Mietmahnung} bei offenen Forderungen',
+    subject: 'Kostenlos f\u00fcr {{company_name}}: Automatisches {Spintax: Forderungsmanagement|Mahnsystem} bei offenen Mieten',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>kurze Frage: Wie viele Mieter oder Gesch&auml;ftspartner bei {{company_name}} zahlen gerade versp&auml;tet?</p>
-<p>Mietausf&auml;lle, versp&auml;tete Nebenkostennachzahlungen, offene Maklerprovisionen: In vielen Immobilienunternehmen summiert sich das schnell auf f&uuml;nfstellige Betr&auml;ge. Manuelles Nachfassen kostet Zeit und Nerven.</p>
-<p>Wir haben ein automatisches Mahnsystem gebaut: 3 Stufen, von freundlicher Erinnerung bis f&ouml;rmlicher Mahnung mit Fristsetzung. L&auml;uft im Hintergrund, professionell formuliert.</p>
-<p>F&uuml;r 3 Immobilienunternehmen richten wir das komplett kostenlos ein. Im Gegenzug: Wenn es klappt, teilen Sie uns kurz Ihre Erfahrung mit.</p>
+<p>Mietausf&auml;lle, versp&auml;tete Nebenkostennachzahlungen, offene Maklerprovisionen &ndash; in vielen Immobilienunternehmen summiert sich das schnell auf f&uuml;nfstellige Betr&auml;ge. Manuelles Nachfassen kostet Zeit und Nerven.</p>
+<p>Wir haben ein automatisches Mahnsystem gebaut: 3&nbsp;Stufen, von freundlicher Erinnerung bis f&ouml;rmlicher Mahnung mit Fristsetzung. L&auml;uft im Hintergrund, professionell formuliert, DSGVO-konform.</p>
+<p>F&uuml;r 3&nbsp;Immobilienunternehmen richten wir das komplett kostenlos ein. Im Gegenzug: Wenn es klappt, teilen Sie uns kurz Ihre Erfahrung mit.</p>
 <p>Interesse? Antworten Sie einfach auf diese E-Mail.</p>
 {{SIGNATURE}}
 {{FOOTER}}`
@@ -23,52 +23,59 @@ export const immobilienSequence: SequenceStep[] = [
   },
   {
     step: 3,
-    dayOffset: 7,
+    dayOffset: 6,
     channel: 'email',
-    subject: 'Wie {Spintax: ein Immobilienb\u00fcro|eine Hausverwaltung} mit KI Zeit spart',
+    subject: '{Spintax: Lead-Nachverfolgung|Mieteranfragen} bei {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>ein Immobilienb&uuml;ro aus M&uuml;nchen hat mit unserer Hilfe die Bearbeitungszeit f&uuml;r Mieteranfragen um 60&nbsp;% reduziert &ndash; durch einen KI-gest&uuml;tzten Antwort-Assistenten.</p>
-<p>Das Ergebnis: Weniger Routinearbeit, schnellere R&uuml;ckmeldungen und zufriedenere Mieter.</p>
-<p>Falls Sie neugierig sind, wo bei {{company_name}} &auml;hnliches Potenzial steckt: Unser KI-Quickcheck (kompakter 2-Stunden-Audit) zeigt Ihnen genau das.</p>
-<p>Soll ich Ihnen mehr dazu schicken?</p>
+<p>eine Zahl, die viele Immobilienprofis &uuml;berrascht: Laut einer Studie von ImmobilienScout24 beantworten 43&nbsp;% der Maklerb&uuml;ros Anfragen erst nach mehr als 24&nbsp;Stunden. Bis dahin hat der Interessent l&auml;ngst woanders angefragt.</p>
+<p>Was w&auml;re, wenn jede Anfrage &ndash; egal ob von ImmoScout, Website oder E-Mail &ndash; innerhalb von 2&nbsp;Minuten eine professionelle Antwort bekommt? Automatisch, rund um die Uhr.</p>
+<p>Das ist einer der Prozesse, die sich mit KI am schnellsten automatisieren lassen. Ohne IT-Aufwand, ohne Systemwechsel.</p>
+<p>W&uuml;rde Sie das f&uuml;r {{company_name}} interessieren?</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   },
   {
     step: 4,
-    dayOffset: 12,
+    dayOffset: 14,
     channel: 'email',
-    subject: 'KI-Quickcheck f\u00fcr {{company_name}}',
+    subject: 'Wie {Spintax: eine Hausverwaltung|ein Maklerb\u00fcro} 60\u00a0% weniger Routinearbeit hat',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>ich m&ouml;chte Ihnen kurz unseren KI-Quickcheck vorstellen. In 2&nbsp;Stunden analysieren wir gemeinsam Ihre Prozesse und identifizieren die drei gr&ouml;&szlig;ten Automatisierungshebel f&uuml;r {{company_name}}.</p>
-<p>Sie erhalten einen personalisierten Report mit konkreten Handlungsempfehlungen &ndash; f&uuml;r einmalig 490&nbsp;&euro;.</p>
+<p>ein Immobilienb&uuml;ro aus S&uuml;ddeutschland hat mit unserer Hilfe die Bearbeitungszeit f&uuml;r Mieteranfragen um 60&nbsp;% reduziert &ndash; durch einen KI-gest&uuml;tzten Antwort-Assistenten.</p>
+<p>Der Ablauf:</p>
+<ul>
+<li>Anfrage kommt rein (E-Mail, Portal, Website)</li>
+<li>KI erkennt Anliegen und erstellt passende Antwort</li>
+<li>Makler pr&uuml;ft kurz und sendet ab &ndash; oder es geht vollautomatisch</li>
+</ul>
+<p>Das Ergebnis: Weniger Routinearbeit, schnellere R&uuml;ckmeldungen, zufriedenere Mieter und Interessenten.</p>
+<p>Unser <strong>KI-Quickcheck</strong> zeigt Ihnen in 2&nbsp;Stunden, wo bei {{company_name}} das gr&ouml;&szlig;te Potenzial liegt. F&uuml;r einmalig 490&nbsp;&euro; erhalten Sie einen personalisierten Report mit konkreten Handlungsempfehlungen.</p>
 <p>Hier k&ouml;nnen Sie direkt einen Termin buchen: {{CALENDLY_LINK}}</p>
-<p>Passt das f&uuml;r Sie?</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   },
   {
     step: 5,
-    dayOffset: 18,
+    dayOffset: 22,
     channel: 'email',
-    subject: 'Kurze Frage zu {{company_name}}',
+    subject: 'Expos\u00e9-Erstellung bei {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>eine kurze Frage: Welcher Prozess in Ihrem Immobilienalltag kostet Sie aktuell am meisten Zeit?</p>
-<p>Ob Mieterkorrespondenz, Expos&eacute;-Erstellung oder Objektverwaltung &ndash; oft gibt es einen Bereich, der sich mit KI besonders schnell optimieren l&auml;sst.</p>
-<p>Ich freue mich auf Ihre Antwort.</p>
+<p>eine kurze Frage: Wie lange braucht Ihr Team aktuell f&uuml;r ein vollst&auml;ndiges Expos&eacute;?</p>
+<p>Viele Maklerb&uuml;ros investieren 45&nbsp;Minuten bis 2&nbsp;Stunden pro Objekt &ndash; f&uuml;r Texte, Fotos sortieren, Grundrissbeschreibungen und Formatierung. Mit KI l&auml;sst sich das auf unter 10&nbsp;Minuten reduzieren.</p>
+<p>Ob Expos&eacute;-Erstellung, Lead-Scoring oder Mieterkommunikation &ndash; oft gibt es einen Bereich, der sich mit KI besonders schnell optimieren l&auml;sst.</p>
+<p>Was w&auml;re f&uuml;r {{company_name}} aktuell am relevantesten?</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   },
   {
     step: 6,
-    dayOffset: 24,
+    dayOffset: 30,
     channel: 'email',
     subject: 'Letzte Nachricht von mir',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>ich m&ouml;chte Sie nicht weiter bel&auml;stigen und melde mich hiermit ein letztes Mal.</p>
-<p>Falls Sie in den n&auml;chsten Wochen doch noch herausfinden m&ouml;chten, wo KI bei {{company_name}} am meisten bringt: Unser KI-Quickcheck steht Ihnen jederzeit offen.</p>
+<p>ich m&ouml;chte Ihre Zeit respektieren und melde mich hiermit ein letztes Mal.</p>
+<p>Falls Sie in den kommenden Wochen doch herausfinden m&ouml;chten, wo KI bei {{company_name}} am meisten bringt &ndash; unser KI-Quickcheck steht Ihnen jederzeit offen. 2&nbsp;Stunden, 490&nbsp;&euro;, konkreter Report.</p>
 <p>Hier geht es zur Terminbuchung: {{CALENDLY_LINK}}</p>
-<p>Ich w&uuml;nsche Ihnen alles Gute!</p>
+<p>Ich w&uuml;nsche Ihnen weiterhin viel Erfolg!</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   }

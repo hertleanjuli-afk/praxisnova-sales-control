@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
+import { logAndNotifyError } from '@/lib/error-notify';
 
 export async function GET(request: NextRequest) {
   // Verify cron secret
@@ -50,6 +51,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Weekly LinkedIn cron error:', error);
+    await logAndNotifyError({
+      errorType: 'cron_linkedin',
+      errorMessage: error instanceof Error ? error.message : String(error),
+    }).catch(() => {});
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

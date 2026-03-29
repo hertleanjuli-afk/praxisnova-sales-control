@@ -1,17 +1,24 @@
 import { SequenceStep } from './allgemein';
 
+// A/B Subject Line Varianten:
+// Step 1: A) "Offene Forderungen bei {{company_name}}?" B) "Automatisches Mahnsystem für Bauunternehmen"
+// Step 3: A) "8,3 Stunden pro Woche für Verwaltung" B) "Wochenberichte schreiben sich selbst"
+// Step 4: A) "Kalkulation 50 % schneller" B) "Angebote in der halben Zeit"
+// Step 5: A) "Kurze Frage an Sie" B) "Mängelmanagement bei {{company_name}}"
+// Step 6: A) "Mein letzter Hinweis" B) "Letzte Nachricht von mir"
+
 export const bauunternehmenSequence: SequenceStep[] = [
   {
     step: 1,
     dayOffset: 0,
     channel: 'email',
-    subject: 'Kostenlos für {{company_name}}: Automatisches {Spintax: Forderungsmanagement|Mahnsystem} für offene Rechnungen',
+    subject: '{Spintax: Offene Forderungen bei|Automatisches Mahnsystem für} {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>kurze Frage: Wie viel Geld steckt bei {{company_name}} gerade in &uuml;berf&auml;lligen Rechnungen?</p>
-<p>Bei vielen Bauunternehmen summieren sich offene Forderungen auf 20.000 bis 150.000&nbsp;&euro;. Zahlungsziele von 30 bis 60&nbsp;Tagen, Nachunternehmer die sp&auml;t zahlen &ndash; und keiner im B&uuml;ro hat Zeit f&uuml;r konsequentes Mahnwesen.</p>
-<p>Wir haben ein automatisches Mahnsystem gebaut: 3&nbsp;Stufen, von freundlicher Erinnerung bis f&ouml;rmlicher Mahnung. L&auml;uft im Hintergrund, ohne Aufwand f&uuml;r Ihr Team.</p>
-<p>F&uuml;r 3&nbsp;Bauunternehmen richten wir das komplett kostenlos ein. Einzige Bedingung: Wenn es funktioniert, d&uuml;rfen wir die Ergebnisse anonym als Fallstudie nutzen.</p>
-<p>H&auml;tten Sie 10&nbsp;Minuten diese Woche f&uuml;r einen kurzen Austausch?</p>
+<p>wie viel Geld steckt bei {{company_name}} gerade in &uuml;berf&auml;lligen Rechnungen?</p>
+<p>Bei vielen Bauunternehmen sind es 20.000 bis 150.000&nbsp;&euro;. Zahlungsziele von 30 bis 60&nbsp;Tagen, Nachunternehmer die sp&auml;t zahlen &ndash; und keiner hat Zeit f&uuml;r konsequentes Mahnwesen.</p>
+<p>Wir haben ein automatisches 3-Stufen-Mahnsystem gebaut. L&auml;uft im Hintergrund, ohne Aufwand f&uuml;r Ihr Team.</p>
+<p>F&uuml;r 3&nbsp;Bauunternehmen richten wir das kostenlos ein. Einzige Bedingung: anonyme Fallstudie bei Erfolg.</p>
+<p>10&nbsp;Minuten diese Woche f&uuml;r einen kurzen Austausch?</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   },
@@ -19,18 +26,18 @@ export const bauunternehmenSequence: SequenceStep[] = [
     step: 2,
     dayOffset: 0,
     channel: 'linkedin',
-    bodyTemplate: 'Hallo {{first_name}}, ich beschäftige mich intensiv mit KI-Automatisierung im Bauwesen und bin auf {{company_name}} aufmerksam geworden. Ich würde mich freuen, uns zu vernetzen.'
+    bodyTemplate: 'Hallo {{first_name}}, ich beschäftige mich mit KI-Automatisierung im Bauwesen und bin auf {{company_name}} aufmerksam geworden. Würde mich freuen, uns zu vernetzen.'
   },
   {
     step: 3,
-    dayOffset: 6,
+    dayOffset: 7,
     channel: 'email',
-    subject: '{Spintax: Baustellendokumentation|Wochenberichte} bei {{company_name}}',
+    subject: '{Spintax: 8,3 Stunden pro Woche für Verwaltung|Wochenberichte schreiben sich selbst}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>eine Zahl aus der Branche: Laut der Capmo-Effizienzstudie verbringen Bauleiter im Schnitt 8,3&nbsp;Stunden pro Woche mit Verwaltungsaufgaben &ndash; Dokumentation, Berichte, Abstimmung. Das sind &uuml;ber 400&nbsp;Stunden pro Jahr, die auf der Baustelle fehlen.</p>
-<p>Was w&auml;re, wenn der Wochenbericht sich selbst schreibt? Automatisch aus Bautagesberichten, Fotos und Statusmeldungen &ndash; fertig formatiert, jeden Freitag um 16:00&nbsp;Uhr.</p>
-<p>Das ist einer der Prozesse, die sich mit KI besonders schnell einrichten lassen. Ohne IT-Abteilung, ohne Systemwechsel.</p>
-<p>W&uuml;rde Sie das f&uuml;r {{company_name}} interessieren?</p>
+<p>Bauleiter verbringen im Schnitt 8,3&nbsp;Stunden pro Woche mit Verwaltungsaufgaben (Capmo-Studie). Das sind &uuml;ber 400&nbsp;Stunden pro Jahr, die auf der Baustelle fehlen.</p>
+<p>Was w&auml;re, wenn der Wochenbericht sich selbst schreibt? Automatisch aus Bautagesberichten und Statusmeldungen &ndash; fertig formatiert, jeden Freitag.</p>
+<p>Kein IT-Aufwand. Kein Systemwechsel.</p>
+<p>Interessant f&uuml;r {{company_name}}?</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   },
@@ -38,18 +45,17 @@ export const bauunternehmenSequence: SequenceStep[] = [
     step: 4,
     dayOffset: 14,
     channel: 'email',
-    subject: 'Wie {Spintax: ein Bauunternehmen|ein GU} die Kalkulation um 50 % beschleunigt hat',
+    subject: '{Spintax: Kalkulation 50 % schneller|Angebote in der halben Zeit}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>ein Bauunternehmen aus NRW hat mit unserer Hilfe die Angebotskalkulation um 50&nbsp;% beschleunigt &ndash; durch einen KI-gest&uuml;tzten Kalkulations-Assistenten.</p>
-<p>Der Ablauf:</p>
+<p>ein Bauunternehmen aus NRW hat die Angebotskalkulation um 50&nbsp;% beschleunigt. Der Ablauf:</p>
 <ul>
-<li>Ausschreibungsunterlagen werden hochgeladen</li>
-<li>KI extrahiert Positionen, Mengen und Anforderungen</li>
+<li>Ausschreibungsunterlagen hochladen</li>
+<li>KI extrahiert Positionen, Mengen, Anforderungen</li>
 <li>Kalkulator erh&auml;lt vorbereitete Kalkulation zur Pr&uuml;fung</li>
 </ul>
-<p>Das Ergebnis: Schnellere Angebote, weniger Fehler in der Kalkulation und mehr gewonnene Auftr&auml;ge.</p>
-<p>Unser <strong>KI-Quickcheck</strong> zeigt Ihnen in 2&nbsp;Stunden, wo bei {{company_name}} das gr&ouml;&szlig;te Potenzial liegt. F&uuml;r einmalig 490&nbsp;&euro; erhalten Sie einen personalisierten Report mit konkreten Handlungsempfehlungen.</p>
-<p>Hier k&ouml;nnen Sie direkt einen Termin buchen: {{CALENDLY_LINK}}</p>
+<p>Schnellere Angebote. Weniger Fehler. Mehr gewonnene Auftr&auml;ge.</p>
+<p>Unser KI-Quickcheck zeigt in 2&nbsp;Stunden, wo bei {{company_name}} das gr&ouml;&szlig;te Potenzial liegt. 490&nbsp;&euro;, konkreter Report.</p>
+<p>Termin buchen: {{CALENDLY_LINK}}</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   },
@@ -57,12 +63,12 @@ export const bauunternehmenSequence: SequenceStep[] = [
     step: 5,
     dayOffset: 22,
     channel: 'email',
-    subject: 'Mängelmanagement bei {{company_name}}',
+    subject: '{Spintax: Kurze Frage an Sie|Mängelmanagement bei {{company_name}}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>eine kurze Frage: Wie l&auml;uft bei {{company_name}} aktuell das M&auml;ngelmanagement auf der Baustelle?</p>
-<p>Bei vielen Bauunternehmen sieht es so aus: Mangel entdeckt, Foto mit dem Handy, WhatsApp an den Nachunternehmer &ndash; und dann hinterherrennen, ob es erledigt wurde. Keine &Uuml;bersicht, keine Fristen, keine Eskalation.</p>
-<p>Ob M&auml;ngelmanagement, Nachunternehmer-Koordination oder Baustellendokumentation &ndash; meistens gibt es einen Bereich, der sich mit KI besonders schnell optimieren l&auml;sst.</p>
-<p>Welcher Prozess kostet Sie bei {{company_name}} aktuell am meisten Zeit?</p>
+<p>wie l&auml;uft bei {{company_name}} aktuell das M&auml;ngelmanagement?</p>
+<p>Bei vielen Bauunternehmen: Mangel entdeckt, Foto mit dem Handy, WhatsApp an den Nachunternehmer. Keine &Uuml;bersicht, keine Fristen, keine Eskalation.</p>
+<p>Ob M&auml;ngelmanagement, Dokumentation oder Subunternehmer-Koordination &ndash; meistens gibt es einen Bereich, der sich mit KI sofort optimieren l&auml;sst.</p>
+<p>Welcher Prozess kostet Sie am meisten Zeit?</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   },
@@ -70,12 +76,12 @@ export const bauunternehmenSequence: SequenceStep[] = [
     step: 6,
     dayOffset: 30,
     channel: 'email',
-    subject: 'Letzte Nachricht von mir',
+    subject: '{Spintax: Mein letzter Hinweis|Letzte Nachricht von mir}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
-<p>ich m&ouml;chte Ihre Zeit respektieren und melde mich hiermit ein letztes Mal.</p>
-<p>Falls Sie in den kommenden Wochen doch herausfinden m&ouml;chten, wo KI bei {{company_name}} am meisten bringt &ndash; unser KI-Quickcheck steht Ihnen jederzeit offen. 2&nbsp;Stunden, 490&nbsp;&euro;, konkreter Report.</p>
-<p>Oder testen Sie unseren kostenlosen <a href="https://praxisnovaai.com/potenzialrechner">KI-Potenzialrechner</a> &ndash; dauert nur 2&nbsp;Minuten.</p>
-<p>Ich w&uuml;nsche Ihnen weiterhin viel Erfolg!</p>
+<p>ich respektiere Ihre Zeit und melde mich ein letztes Mal.</p>
+<p>Falls Sie sp&auml;ter herausfinden m&ouml;chten, wo KI bei {{company_name}} am meisten bringt: Unser KI-Quickcheck steht Ihnen jederzeit offen.</p>
+<p>Oder testen Sie unseren kostenlosen <a href="https://praxisnovaai.com/potenzialrechner">KI-Potenzialrechner</a> &ndash; dauert 2&nbsp;Minuten.</p>
+<p>Alles Gute!</p>
 {{SIGNATURE}}
 {{FOOTER}}`
   }

@@ -85,7 +85,7 @@ export function classifyReply(text: string): { sentiment: Sentiment; confidence:
     return { sentiment: 'neutral', confidence: 0.5, matchedPattern: null };
   }
 
-  // Check neutral (auto-reply) first — these override everything
+  // Check neutral (auto-reply) first – these override everything
   for (const pattern of NEUTRAL_PATTERNS) {
     const match = text.match(pattern);
     if (match) {

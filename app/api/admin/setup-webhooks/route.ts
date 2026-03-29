@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
           url: webhookUrl,
           events: REQUIRED_EVENTS,
           type: 'transactional',
-          description: 'PraxisNova Sales Control — all transactional events',
+          description: 'PraxisNova Sales Control – all transactional events',
         }),
       });
 

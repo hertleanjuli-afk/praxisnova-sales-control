@@ -108,7 +108,7 @@ export default function FeedbackBanner() {
         className="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left text-amber-800 transition hover:bg-amber-100"
       >
         <span className="font-semibold">Wochenfeedback ausstehend</span>
-        {' — '}
+        {' – '}
         Bitte Feedback für KW {getCurrentKW()} ausfüllen
         <span className="float-right text-amber-600">{showForm ? '▲' : '▼'}</span>
       </button>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
 /**
- * HubSpot Webhook — Contact Created
+ * HubSpot Webhook – Contact Created
  *
  * HubSpot sends webhook events when contacts are created.
  * We import the contact into our DB and start the appropriate sequence.

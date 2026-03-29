@@ -110,7 +110,7 @@ export default function LeadSearchPanel({ onSearch, loading }: LeadSearchPanelPr
           </select>
         </div>
 
-        {/* Hide already contacted toggle — always on */}
+        {/* Hide already contacted toggle – always on */}
         <div className="flex items-center gap-2">
           <input
             type="checkbox"

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true, action: 'sequence_stopped' });
       }
 
-      // Lead exists but sequence not active — still log the booking
+      // Lead exists but sequence not active – still log the booking
       await sql`
         INSERT INTO email_events (lead_id, sequence_type, step_number, event_type)
         VALUES (${lead.id}, ${lead.sequence_type}, ${lead.sequence_step}, 'booked')

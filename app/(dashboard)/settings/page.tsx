@@ -179,7 +179,7 @@ export default function SettingsPage() {
           <p className="text-xs text-gray-400 mb-4">Verbindung wird automatisch alle 15 Sekunden erneut versucht.</p>
         )}
         {reconnecting && (
-          <p className="text-xs text-gray-400 mb-4">Automatische Wiederverbindung läuft — bitte warten.</p>
+          <p className="text-xs text-gray-400 mb-4">Automatische Wiederverbindung läuft – bitte warten.</p>
         )}
         {apiStatus.database && (
           <p className="text-xs text-gray-400 mb-4">Status wird alle 30 Sekunden geprüft.</p>

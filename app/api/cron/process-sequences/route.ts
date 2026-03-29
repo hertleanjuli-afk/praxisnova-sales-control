@@ -53,7 +53,7 @@ function getSenderForSequence(sequenceType: string, leadId?: number): { email: s
         title: 'CEO &amp; Head of Sales',
       };
     case 'allgemein': {
-      // Rotate based on lead ID (deterministic â same lead always gets same sender)
+      // Rotate based on lead ID (deterministic – same lead always gets same sender)
       const idx = (leadId || 0) % ALLGEMEIN_SENDERS.length;
       return ALLGEMEIN_SENDERS[idx];
     }
@@ -104,14 +104,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Step send windows â ready for Vercel Pro plan (multiple cron runs per day)
+  // Step send windows – ready for Vercel Pro plan (multiple cron runs per day)
   // STEP_SEND_HOURS: { 1: 8, 2: 10, 3: 14, 4: 9, 5: 11 } (MEZ)
   // Enable by upgrading to Pro and setting cron to "30 7,8,9,10,12,13 * * 1-4"
 
   const stats = { processed: 0, sent: 0, failed: 0, completed: 0, linkedin_tasks: 0 };
 
   try {
-    // Get all active leads (exclude permanently blocked — DSGVO safety check)
+    // Get all active leads (exclude permanently blocked – DSGVO safety check)
     const activeLeads = await sql`
       SELECT * FROM leads
       WHERE sequence_status = 'active'
@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (step.channel === 'linkedin') {
-        // LinkedIn steps are manual tasks â just log and advance
+        // LinkedIn steps are manual tasks – just log and advance
         await sql`
           INSERT INTO email_events (lead_id, sequence_type, step_number, event_type)
           VALUES (${lead.id}, ${lead.sequence_type}, ${currentStep}, 'sent')
@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Send email â get sender config (with rotation for allgemein)
+      // Send email – get sender config (with rotation for allgemein)
       const senderConfig = getSenderForSequence(lead.sequence_type, lead.id);
       const signature = buildSignature(senderConfig);
       const salutation = formatSalutation(lead.first_name, lead.last_name);
@@ -289,16 +289,16 @@ export async function GET(request: NextRequest) {
 
         await sendTransactionalEmail({
           to: lead.email,
-          subject: 'Haben Sie unsere BestÃ¤tigung verpasst?',
+          subject: 'Haben Sie unsere Bestätigung verpasst?',
           htmlContent: `<html><body style="font-family:Arial,sans-serif;font-size:15px;color:#333;line-height:1.6;">
 <p>${salutation}</p>
-<p>wir haben bemerkt, dass Sie Ihre E-Mail-Adresse noch nicht bestÃ¤tigt haben.</p>
-<p>Klicken Sie einfach auf den folgenden Link, um die BestÃ¤tigung abzuschlieÃen:</p>
+<p>wir haben bemerkt, dass Sie Ihre E-Mail-Adresse noch nicht bestätigt haben.</p>
+<p>Klicken Sie einfach auf den folgenden Link, um die Bestätigung abzuschließen:</p>
 <p style="text-align:center;margin:30px 0;">
-  <a href="${confirmLink}" style="background-color:#2563eb;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;">Jetzt bestÃ¤tigen</a>
+  <a href="${confirmLink}" style="background-color:#2563eb;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;">Jetzt bestätigen</a>
 </p>
-<p>Der Link ist noch 24 Stunden gÃ¼ltig.</p>
-<p>Herzliche GrÃ¼Ãe,<br>Anjuli Hertle<br>CEO &amp; Head of Sales<br>PraxisNova AI</p>
+<p>Der Link ist noch 24 Stunden gültig.</p>
+<p>Herzliche Grüße,<br>Anjuli Hertle<br>CEO &amp; Head of Sales<br>PraxisNova AI</p>
 {{FOOTER}}
 </body></html>`,
           tags: ['inbound', 'optin-reminder'],

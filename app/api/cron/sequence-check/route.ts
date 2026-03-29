@@ -153,7 +153,7 @@ async function sendConsistencyAlert(issues: string[]): Promise<void> {
   const htmlContent = `<html>
 <body style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">
 <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:16px;margin-bottom:16px;">
-  <h2 style="margin:0 0 8px;color:#92400e;font-size:16px;">Sequenz-Konsistenzprüfung — ${issues.length} Problem${issues.length !== 1 ? 'e' : ''} gefunden</h2>
+  <h2 style="margin:0 0 8px;color:#92400e;font-size:16px;">Sequenz-Konsistenzprüfung – ${issues.length} Problem${issues.length !== 1 ? 'e' : ''} gefunden</h2>
   <p style="margin:0;font-size:13px;color:#666;">${timestamp}</p>
 </div>
 

@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     `;
 
     if (leads.length === 0) {
-      console.log(`No lead found for ${guestEmail} — may be a new contact`);
+      console.log(`No lead found for ${guestEmail} – may be a new contact`);
       return NextResponse.json({
         ok: true,
         message: 'No matching lead found',

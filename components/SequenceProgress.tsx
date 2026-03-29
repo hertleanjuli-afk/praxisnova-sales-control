@@ -70,7 +70,7 @@ export default function SequenceProgress({ lead, onStop, onBooked }: SequencePro
       {/* Current step label */}
       <p className="text-center text-sm font-medium text-[#1E3A5F]">
         Schritt {currentStep} von {TOTAL_STEPS}
-        {lead.current_step_label && ` — ${lead.current_step_label}`}
+        {lead.current_step_label && ` – ${lead.current_step_label}`}
       </p>
 
       {/* Meta info */}

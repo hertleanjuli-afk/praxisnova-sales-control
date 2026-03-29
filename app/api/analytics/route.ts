@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         AND created_at >= NOW() - ${interval}::interval
     `;
 
-    // Count replied leads from leads table (accurate — email_events has no 'replied' events)
+    // Count replied leads from leads table (accurate – email_events has no 'replied' events)
     const repliedLeadsResult = await sql`
       SELECT COUNT(*) as count FROM leads
       WHERE sequence_status = 'replied'
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       WHERE connected_at >= NOW() - ${interval}::interval
     `;
 
-    // LinkedIn status KPIs — cumulative funnel:
+    // LinkedIn status KPIs – cumulative funnel:
     // Each stage counts everyone who REACHED that stage (even if they progressed further)
     const linkedinRequests = await sql`
       SELECT COUNT(*) as count FROM leads
@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
         AND exited_at >= NOW() - ${interval}::interval
     `;
 
-    // Open rate — fetched from Brevo aggregated statistics API for accuracy
+    // Open rate – fetched from Brevo aggregated statistics API for accuracy
     const emailsSentCount = Number(emailsSent[0]?.count || 0);
     let openRate = 0;
     try {
@@ -241,7 +241,7 @@ export async function GET(request: NextRequest) {
       openRate = emailsSentCount > 0 ? opensCount / emailsSentCount : 0;
     }
 
-    // Reply rate — calculated from leads table (accurate)
+    // Reply rate – calculated from leads table (accurate)
     const repliedLeadsCount = Number(repliedLeadsResult[0]?.count || 0);
     const replyRate = leadsContactedCount > 0 ? repliedLeadsCount / leadsContactedCount : 0;
 

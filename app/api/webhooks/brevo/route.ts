@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       )
     `;
 
-    // Auto-stop rules — also update if lead already completed (reply can come after sequence ends)
+    // Auto-stop rules – also update if lead already completed (reply can come after sequence ends)
     if (eventType === 'unsubscribed' || eventType === 'replied' || eventType === 'bounced') {
       const newStatus =
         eventType === 'bounced'
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       const cooldownUntil = new Date();
       cooldownUntil.setDate(cooldownUntil.getDate() + 90);
 
-      // Unsubscribes are PERMANENT — no cooldown, permanently blocked (DSGVO)
+      // Unsubscribes are PERMANENT – no cooldown, permanently blocked (DSGVO)
       if (eventType === 'unsubscribed') {
         await sql`
           UPDATE leads

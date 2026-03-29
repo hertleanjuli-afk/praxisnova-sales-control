@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc; padding: 24px;">
   <div style="background: #1E3A5F; color: white; padding: 24px; border-radius: 8px 8px 0 0; text-align: center;">
     <h1 style="margin: 0; font-size: 22px;">PraxisNova Weekly Report</h1>
-    <p style="margin: 8px 0 0; opacity: 0.85; font-size: 14px;">KW ${kw} &mdash; ${formatDate(weekStart)} bis ${formatDate(weekEnd)}</p>
+    <p style="margin: 8px 0 0; opacity: 0.85; font-size: 14px;">KW ${kw} – ${formatDate(weekStart)} bis ${formatDate(weekEnd)}</p>
   </div>
 
   <div style="background: white; padding: 24px; border: 1px solid #e2e8f0;">
@@ -343,12 +343,12 @@ export async function GET(request: NextRequest) {
   </div>
 
   <div style="background: #1E3A5F; color: white; padding: 16px; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; opacity: 0.9;">
-    PraxisNova AI Sales Control &mdash; Automatisch generiert
+    PraxisNova AI Sales Control – Automatisch generiert
   </div>
 </div>`;
 
     // Send to both recipients
-    const subject = `PraxisNova Weekly Report KW ${kw} — ${formatDate(weekStart)}`;
+    const subject = `PraxisNova Weekly Report KW ${kw} – ${formatDate(weekStart)}`;
     const recipients = ['hertle.anjuli@praxisnovaai.com', 'meyer.samantha@praxisnovaai.com'];
     for (const to of recipients) {
       await sendTransactionalEmail({

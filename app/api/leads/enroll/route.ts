@@ -93,18 +93,18 @@ export async function POST(request: NextRequest) {
 
           await sendTransactionalEmail({
             to: lead.email,
-            subject: 'D\u00fcrfen wir Ihnen zeigen, wo bei ' + (lead.company || 'Ihrem Unternehmen') + ' der gr\u00f6\u00dfte Hebel liegt?',
+            subject: 'Dürfen wir Ihnen zeigen, wo bei ' + (lead.company || 'Ihrem Unternehmen') + ' der größte Hebel liegt?',
             htmlContent: `<html>
 <body style="font-family:Arial,sans-serif;font-size:15px;color:#333;line-height:1.6;">
 <p>${salutation}</p>
-<p>wir sind PraxisNova AI und helfen Unternehmen wie ${lead.company || 'Ihrem'}, wiederkehrende Aufgaben mit KI zu automatisieren \u2014 von der Angebotserstellung bis zur Kundenkommunikation.</p>
-<p>Laut KfW-Mittelstandspanel verlieren KMU im Schnitt <strong>8 Stunden pro Woche</strong> an solche Aufgaben. Wir w\u00fcrden Ihnen gerne zeigen, wo bei ${lead.company || 'Ihnen'} der gr\u00f6\u00dfte Hebel liegt.</p>
-<p><strong>D\u00fcrfen wir Ihnen dazu eine kurze E-Mail-Serie mit konkreten Tipps und Beispielen senden?</strong></p>
+<p>wir sind PraxisNova AI und helfen Unternehmen wie ${lead.company || 'Ihrem'}, wiederkehrende Aufgaben mit KI zu automatisieren – von der Angebotserstellung bis zur Kundenkommunikation.</p>
+<p>Laut KfW-Mittelstandspanel verlieren KMU im Schnitt <strong>8 Stunden pro Woche</strong> an solche Aufgaben. Wir würden Ihnen gerne zeigen, wo bei ${lead.company || 'Ihnen'} der größte Hebel liegt.</p>
+<p><strong>Dürfen wir Ihnen dazu eine kurze E-Mail-Serie mit konkreten Tipps und Beispielen senden?</strong></p>
 <p style="text-align:center;margin:30px 0;">
-  <a href="${confirmLink}" style="background-color:#2563eb;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;">Ja, gerne \u2014 Tipps zusenden</a>
+  <a href="${confirmLink}" style="background-color:#2563eb;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;">Ja, gerne – Tipps zusenden</a>
 </p>
-<p style="font-size:13px;color:#666;">Wenn Sie kein Interesse haben, m\u00fcssen Sie nichts tun \u2014 Sie erhalten dann keine weiteren E-Mails von uns.</p>
-<p>Herzliche Gr\u00fc\u00dfe,<br>Anjuli Hertle<br>CEO & Head of Sales<br>PraxisNova AI</p>
+<p style="font-size:13px;color:#666;">Wenn Sie kein Interesse haben, müssen Sie nichts tun – Sie erhalten dann keine weiteren E-Mails von uns.</p>
+<p>Herzliche Grüße,<br>Anjuli Hertle<br>CEO & Head of Sales<br>PraxisNova AI</p>
 </body>
 </html>`,
             tags: [lead.industry, 'optin-request'],

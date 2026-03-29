@@ -5,7 +5,7 @@ export const bauunternehmenSequence: SequenceStep[] = [
     step: 1,
     dayOffset: 0,
     channel: 'email',
-    subject: 'Kostenlos f\u00fcr {{company_name}}: Automatisches {Spintax: Forderungsmanagement|Mahnsystem} f\u00fcr offene Rechnungen',
+    subject: 'Kostenlos für {{company_name}}: Automatisches {Spintax: Forderungsmanagement|Mahnsystem} für offene Rechnungen',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>kurze Frage: Wie viel Geld steckt bei {{company_name}} gerade in &uuml;berf&auml;lligen Rechnungen?</p>
 <p>Bei vielen Bauunternehmen summieren sich offene Forderungen auf 20.000 bis 150.000&nbsp;&euro;. Zahlungsziele von 30 bis 60&nbsp;Tagen, Nachunternehmer die sp&auml;t zahlen &ndash; und keiner im B&uuml;ro hat Zeit f&uuml;r konsequentes Mahnwesen.</p>
@@ -19,7 +19,7 @@ export const bauunternehmenSequence: SequenceStep[] = [
     step: 2,
     dayOffset: 0,
     channel: 'linkedin',
-    bodyTemplate: 'Hallo {{first_name}}, ich besch\u00e4ftige mich intensiv mit KI-Automatisierung im Bauwesen und bin auf {{company_name}} aufmerksam geworden. Ich w\u00fcrde mich freuen, uns zu vernetzen.'
+    bodyTemplate: 'Hallo {{first_name}}, ich beschäftige mich intensiv mit KI-Automatisierung im Bauwesen und bin auf {{company_name}} aufmerksam geworden. Ich würde mich freuen, uns zu vernetzen.'
   },
   {
     step: 3,
@@ -38,7 +38,7 @@ export const bauunternehmenSequence: SequenceStep[] = [
     step: 4,
     dayOffset: 14,
     channel: 'email',
-    subject: 'Wie {Spintax: ein Bauunternehmen|ein GU} die Kalkulation um 50\u00a0% beschleunigt hat',
+    subject: 'Wie {Spintax: ein Bauunternehmen|ein GU} die Kalkulation um 50 % beschleunigt hat',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ein Bauunternehmen aus NRW hat mit unserer Hilfe die Angebotskalkulation um 50&nbsp;% beschleunigt &ndash; durch einen KI-gest&uuml;tzten Kalkulations-Assistenten.</p>
 <p>Der Ablauf:</p>
@@ -57,7 +57,7 @@ export const bauunternehmenSequence: SequenceStep[] = [
     step: 5,
     dayOffset: 22,
     channel: 'email',
-    subject: 'M\u00e4ngelmanagement bei {{company_name}}',
+    subject: 'Mängelmanagement bei {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>eine kurze Frage: Wie l&auml;uft bei {{company_name}} aktuell das M&auml;ngelmanagement auf der Baustelle?</p>
 <p>Bei vielen Bauunternehmen sieht es so aus: Mangel entdeckt, Foto mit dem Handy, WhatsApp an den Nachunternehmer &ndash; und dann hinterherrennen, ob es erledigt wurde. Keine &Uuml;bersicht, keine Fristen, keine Eskalation.</p>

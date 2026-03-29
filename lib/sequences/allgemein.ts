@@ -11,7 +11,7 @@ export const allgemeinSequence: SequenceStep[] = [
     step: 1,
     dayOffset: 0,
     channel: 'email',
-    subject: '{Spintax: Digitalisierung|KI-Potenzial|Effizienz} f\u00fcr {{company_name}}',
+    subject: '{Spintax: Digitalisierung|KI-Potenzial|Effizienz} für {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>laut einer aktuellen KfW-Studie setzen bereits 28&nbsp;% der deutschen Unternehmen auf KI-gest&uuml;tzte Prozesse &ndash; Tendenz stark steigend.</p>
 <p>Viele Unternehmen verlieren t&auml;glich wertvolle Zeit mit Aufgaben, die sich leicht automatisieren lassen: Angebote schreiben, Anfragen beantworten, Berichte erstellen oder Termine koordinieren.</p>
@@ -24,13 +24,13 @@ export const allgemeinSequence: SequenceStep[] = [
     step: 2,
     dayOffset: 0,
     channel: 'linkedin',
-    bodyTemplate: 'Hallo {{first_name}}, ich besch\u00e4ftige mich intensiv mit KI-Automatisierung f\u00fcr den Mittelstand und bin auf {{company_name}} aufmerksam geworden. Ich w\u00fcrde mich freuen, uns zu vernetzen.'
+    bodyTemplate: 'Hallo {{first_name}}, ich beschäftige mich intensiv mit KI-Automatisierung für den Mittelstand und bin auf {{company_name}} aufmerksam geworden. Ich würde mich freuen, uns zu vernetzen.'
   },
   {
     step: 3,
     dayOffset: 6,
     channel: 'email',
-    subject: '{Spintax: Routineaufgaben|B\u00fcroarbeit} bei {{company_name}}',
+    subject: '{Spintax: Routineaufgaben|Büroarbeit} bei {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>eine Zahl, die viele &uuml;berrascht: Laut einer Capmo-Studie verbringen Mitarbeiter im Durchschnitt 8,3&nbsp;Stunden pro Woche mit Verwaltungsaufgaben. Das sind &uuml;ber 400&nbsp;Stunden pro Jahr &ndash; pro Person.</p>
 <p>Die h&auml;ufigsten Zeitfresser: Angebote manuell erstellen, Anfragen beantworten, Berichte zusammenstellen und Rechnungen pr&uuml;fen.</p>
@@ -43,7 +43,7 @@ export const allgemeinSequence: SequenceStep[] = [
     step: 4,
     dayOffset: 14,
     channel: 'email',
-    subject: 'Wie {Spintax: ein Unternehmen|ein Mittelst\u00e4ndler} mit KI 15 Stunden pro Woche spart',
+    subject: 'Wie {Spintax: ein Unternehmen|ein Mittelständler} mit KI 15 Stunden pro Woche spart',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ein mittelst&auml;ndisches Unternehmen hat mit unserer Hilfe 15&nbsp;Stunden pro Woche an manueller Arbeit eingespart &ndash; durch KI-gest&uuml;tzte Automatisierung von Routineaufgaben.</p>
 <p>Der Ablauf war einfach:</p>

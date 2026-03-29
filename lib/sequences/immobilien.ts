@@ -5,7 +5,7 @@ export const immobilienSequence: SequenceStep[] = [
     step: 1,
     dayOffset: 0,
     channel: 'email',
-    subject: 'Kostenlos f\u00fcr {{company_name}}: Automatisches {Spintax: Forderungsmanagement|Mahnsystem} bei offenen Mieten',
+    subject: 'Kostenlos für {{company_name}}: Automatisches {Spintax: Forderungsmanagement|Mahnsystem} bei offenen Mieten',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>kurze Frage: Wie viele Mieter oder Gesch&auml;ftspartner bei {{company_name}} zahlen gerade versp&auml;tet?</p>
 <p>Mietausf&auml;lle, versp&auml;tete Nebenkostennachzahlungen, offene Maklerprovisionen &ndash; in vielen Immobilienunternehmen summiert sich das schnell auf f&uuml;nfstellige Betr&auml;ge. Manuelles Nachfassen kostet Zeit und Nerven.</p>
@@ -19,7 +19,7 @@ export const immobilienSequence: SequenceStep[] = [
     step: 2,
     dayOffset: 0,
     channel: 'linkedin',
-    bodyTemplate: 'Hallo {{first_name}}, ich besch\u00e4ftige mich intensiv mit KI-Automatisierung in der Immobilienbranche und bin auf {{company_name}} aufmerksam geworden. Ich w\u00fcrde mich freuen, uns zu vernetzen.'
+    bodyTemplate: 'Hallo {{first_name}}, ich beschäftige mich intensiv mit KI-Automatisierung in der Immobilienbranche und bin auf {{company_name}} aufmerksam geworden. Ich würde mich freuen, uns zu vernetzen.'
   },
   {
     step: 3,
@@ -38,7 +38,7 @@ export const immobilienSequence: SequenceStep[] = [
     step: 4,
     dayOffset: 14,
     channel: 'email',
-    subject: 'Wie {Spintax: eine Hausverwaltung|ein Maklerb\u00fcro} 60\u00a0% weniger Routinearbeit hat',
+    subject: 'Wie {Spintax: eine Hausverwaltung|ein Maklerbüro} 60 % weniger Routinearbeit hat',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ein Immobilienb&uuml;ro aus S&uuml;ddeutschland hat mit unserer Hilfe die Bearbeitungszeit f&uuml;r Mieteranfragen um 60&nbsp;% reduziert &ndash; durch einen KI-gest&uuml;tzten Antwort-Assistenten.</p>
 <p>Der Ablauf:</p>
@@ -57,7 +57,7 @@ export const immobilienSequence: SequenceStep[] = [
     step: 5,
     dayOffset: 22,
     channel: 'email',
-    subject: 'Expos\u00e9-Erstellung bei {{company_name}}',
+    subject: 'Exposé-Erstellung bei {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>eine kurze Frage: Wie lange braucht Ihr Team aktuell f&uuml;r ein vollst&auml;ndiges Expos&eacute;?</p>
 <p>Viele Maklerb&uuml;ros investieren 45&nbsp;Minuten bis 2&nbsp;Stunden pro Objekt &ndash; f&uuml;r Texte, Fotos sortieren, Grundrissbeschreibungen und Formatierung. Mit KI l&auml;sst sich das auf unter 10&nbsp;Minuten reduzieren.</p>

@@ -149,7 +149,7 @@ export default function DashboardPage() {
     ? [
         { label: 'Leads', value: a.totalLeads ?? 0 },
         { label: 'Gesendet', value: a.emailsSent ?? 0 },
-        { label: 'Ge\u00f6ffnet', value: funnelOpened },
+        { label: 'Geöffnet', value: funnelOpened },
         { label: 'Geantwortet', value: funnelReplied },
         { label: 'Termin', value: a.meetingsBooked ?? 0 },
       ]
@@ -211,7 +211,7 @@ export default function DashboardPage() {
               { label: 'Inbound Leads', value: a.inbound_leads ?? 0, color: '#22C55E' },
               { label: 'Outbound Leads', value: a.outbound_leads ?? 0, color: '#3B82F6' },
               { label: 'E-Mails gesendet', value: a.emailsSent ?? 0, color: '#E8472A' },
-              { label: '\u00d6ffnungsrate', value: a.openRate ?? 0, color: '#EAB308', suffix: '%', decimals: 1 },
+              { label: 'Öffnungsrate', value: a.openRate ?? 0, color: '#EAB308', suffix: '%', decimals: 1 },
               { label: 'Meetings gebucht', value: a.meetingsBooked ?? 0, color: '#22C55E' },
             ].map((kpi) => (
               <div
@@ -234,9 +234,9 @@ export default function DashboardPage() {
 
           {/* Row 2: Website Activity + Hot Leads */}
           <div style={{ display: 'grid', gridTemplateColumns: '55fr 45fr', gap: 16 }}>
-            {/* Website-Aktivit\u00e4t */}
+            {/* Website-Aktivität */}
             <Card>
-              <CardTitle>Website-Aktivit\u00e4t</CardTitle>
+              <CardTitle>Website-Aktivität</CardTitle>
               {/* Mini stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
                 {[
@@ -294,10 +294,10 @@ export default function DashboardPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {leads.map((lead) => {
                       const score = lead.lead_score;
-                      let badgeLabel = 'K\u00fchl';
+                      let badgeLabel = 'Kühl';
                       let badgeBg = '#1e3a5f';
                       let badgeColor = '#3B82F6';
-                      if (score >= 60) { badgeLabel = 'Hei\u00df'; badgeBg = '#3a1515'; badgeColor = '#E8472A'; }
+                      if (score >= 60) { badgeLabel = 'Heiß'; badgeBg = '#3a1515'; badgeColor = '#E8472A'; }
                       else if (score >= 30) { badgeLabel = 'Warm'; badgeBg = '#3a3515'; badgeColor = '#EAB308'; }
                       return (
                         <div key={lead.id} style={{ background: '#1a1a1a', borderRadius: 8, padding: '12px 16px' }}>
@@ -401,9 +401,9 @@ export default function DashboardPage() {
 
           {/* Row 4: LinkedIn + Anrufe */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {/* LinkedIn-Aktivit\u00e4t */}
+            {/* LinkedIn-Aktivität */}
             <Card>
-              <CardTitle>LinkedIn-Aktivit\u00e4t</CardTitle>
+              <CardTitle>LinkedIn-Aktivität</CardTitle>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
                 {[
                   { label: 'Anfragen', value: a.linkedin_requests ?? 0, color: '#3B82F6' },
@@ -473,11 +473,11 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* Row 5: Leads Hinzugef\u00fcgt + Abmeldungen */}
+          {/* Row 5: Leads Hinzugefügt + Abmeldungen */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {/* Leads hinzugef\u00fcgt */}
+            {/* Leads hinzugefügt */}
             <Card>
-              <CardTitle>Leads hinzugef\u00fcgt</CardTitle>
+              <CardTitle>Leads hinzugefügt</CardTitle>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
                 {[
                   { label: 'Heute', value: a.leads_added?.today ?? 0 },

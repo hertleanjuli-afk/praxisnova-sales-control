@@ -5,7 +5,7 @@ export const handwerkSequence: SequenceStep[] = [
     step: 1,
     dayOffset: 0,
     channel: 'email',
-    subject: 'Kostenlos f\u00fcr {{company_name}}: Automatische {Spintax: Zahlungserinnerungen|Mahnungen} f\u00fcr offene Rechnungen',
+    subject: 'Kostenlos für {{company_name}}: Automatische {Spintax: Zahlungserinnerungen|Mahnungen} für offene Rechnungen',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>kurze Frage: Wie viele Rechnungen sind bei {{company_name}} gerade &uuml;berf&auml;llig?</p>
 <p>Bei den meisten Handwerksbetrieben stecken zwischen 10.000 und 50.000&nbsp;&euro; in offenen Forderungen. Nicht weil Kunden nicht zahlen wollen &ndash; sondern weil niemand Zeit hat, hinterherzutelefonieren.</p>
@@ -19,7 +19,7 @@ export const handwerkSequence: SequenceStep[] = [
     step: 2,
     dayOffset: 0,
     channel: 'linkedin',
-    bodyTemplate: 'Hallo {{first_name}}, ich besch\u00e4ftige mich intensiv mit KI-Automatisierung im Handwerk und bin auf {{company_name}} aufmerksam geworden. Ich w\u00fcrde mich freuen, uns zu vernetzen.'
+    bodyTemplate: 'Hallo {{first_name}}, ich beschäftige mich intensiv mit KI-Automatisierung im Handwerk und bin auf {{company_name}} aufmerksam geworden. Ich würde mich freuen, uns zu vernetzen.'
   },
   {
     step: 3,
@@ -38,7 +38,7 @@ export const handwerkSequence: SequenceStep[] = [
     step: 4,
     dayOffset: 14,
     channel: 'email',
-    subject: 'Wie {Spintax: ein Meisterbetrieb|ein Handwerksbetrieb} Angebote 70\u00a0% schneller erstellt',
+    subject: 'Wie {Spintax: ein Meisterbetrieb|ein Handwerksbetrieb} Angebote 70 % schneller erstellt',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ein SHK-Betrieb aus Bayern hat mit unserer Hilfe die Angebotserstellung um 70&nbsp;% beschleunigt &ndash; von durchschnittlich 45&nbsp;Minuten auf unter 10&nbsp;Minuten pro Angebot.</p>
 <p>Der Ablauf:</p>
@@ -57,7 +57,7 @@ export const handwerkSequence: SequenceStep[] = [
     step: 5,
     dayOffset: 22,
     channel: 'email',
-    subject: 'B\u00fcroarbeit bei {{company_name}}',
+    subject: 'Büroarbeit bei {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>eine kurze Frage: Wie viele Stunden pro Woche verbringen Sie oder Ihr Team mit B&uuml;roarbeit &ndash; Angebote, Rechnungen, E-Mails, Dokumentation?</p>
 <p>Laut einer Capmo-Studie sind es im Durchschnitt 8,3&nbsp;Stunden pro Woche. Stunden, die auf der Baustelle fehlen.</p>

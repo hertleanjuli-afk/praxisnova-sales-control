@@ -5,7 +5,7 @@ export const inboundSequence: SequenceStep[] = [
     step: 1,
     dayOffset: 0,
     channel: 'email',
-    subject: 'Bitte best\u00e4tigen Sie Ihre Anmeldung',
+    subject: 'Bitte bestätigen Sie Ihre Anmeldung',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>vielen Dank f&uuml;r Ihr Interesse an PraxisNova AI! Bevor wir Ihnen weitere Informationen zusenden, bitten wir Sie, Ihre E-Mail-Adresse zu best&auml;tigen.</p>
 <p>Bitte klicken Sie auf den folgenden Link, um Ihre Anmeldung abzuschlie&szlig;en:</p>
@@ -18,7 +18,7 @@ export const inboundSequence: SequenceStep[] = [
     step: 2,
     dayOffset: 1,
     channel: 'email',
-    subject: 'Erinnerung: Bitte best\u00e4tigen Sie Ihre Anmeldung',
+    subject: 'Erinnerung: Bitte bestätigen Sie Ihre Anmeldung',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>wir haben gestern eine Best&auml;tigungsmail an Sie gesendet. Falls Sie diese &uuml;bersehen haben &ndash; bitte klicken Sie auf den folgenden Link, um Ihre Anmeldung abzuschlie&szlig;en:</p>
 <p><a href="{{OPT_IN_LINK}}">Jetzt E-Mail-Adresse best&auml;tigen</a></p>
@@ -70,7 +70,7 @@ export const inboundSequence: SequenceStep[] = [
     step: 6,
     dayOffset: 30,
     channel: 'email',
-    subject: 'Noch Fragen zu KI f\u00fcr {{company_name}}?',
+    subject: 'Noch Fragen zu KI für {{company_name}}?',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>ich wollte mich kurz melden und fragen, ob Sie noch Fragen zu KI-Automatisierung f&uuml;r {{company_name}} haben.</p>
 <p>Falls Sie unsicher sind, wo Sie anfangen sollen &ndash; genau daf&uuml;r gibt es unseren KI-Quickcheck. In 2&nbsp;Stunden bekommen Sie Klarheit &uuml;ber Ihre wichtigsten Automatisierungspotenziale.</p>

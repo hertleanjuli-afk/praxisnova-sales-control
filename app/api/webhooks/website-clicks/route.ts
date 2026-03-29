@@ -61,7 +61,7 @@ export async function GET() {
     const clicks = await sql`
       SELECT
         wc.id, wc.visitor_id, wc.lead_id, wc.page, wc.button_id, wc.button_text,
-        wc.referrer, wc.clicked_at,
+        wc.referrer, wc.clicked_at, wc.utm_source, wc.utm_medium, wc.utm_campaign, wc.utm_content,
         l.email as lead_email,
         CONCAT(l.first_name, ' ', l.last_name) as lead_name,
         l.company as lead_company

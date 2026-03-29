@@ -8,12 +8,17 @@ interface ClickEntry {
   id?: number;
   button_id: string;
   button_text?: string | null;
-  page_url: string;
-  referrer?: string;
+  page: string;
+  referrer?: string | null;
   visitor_id: string;
   lead_id?: number;
   lead_name?: string;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
   created_at: string;
+  clicked_at?: string;
 }
 
 interface Stats {
@@ -364,19 +369,19 @@ export default function ClicksPage() {
           {/* ── Stats Cards ──────────────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-sm text-gray-500 mb-1">Total Clicks</p>
+              <p className="text-sm text-gray-500 mb-1">Klicks gesamt</p>
               <p className="text-2xl font-bold text-[#1E3A5F]">
                 {totalClicks}
               </p>
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-sm text-gray-500 mb-1">Unique Visitors</p>
+              <p className="text-sm text-gray-500 mb-1">Eindeutige Besucher</p>
               <p className="text-2xl font-bold text-[#2563EB]">
                 {uniqueVisitors}
               </p>
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-sm text-gray-500 mb-1">Identified Visitors</p>
+              <p className="text-sm text-gray-500 mb-1">Identifizierte Besucher</p>
               <p className="text-2xl font-bold text-emerald-600">
                 {identifiedVisitors}
               </p>
@@ -481,6 +486,12 @@ export default function ClicksPage() {
                       Seite
                     </th>
                     <th className="px-6 py-3 font-medium text-gray-500">
+                      Referrer
+                    </th>
+                    <th className="px-6 py-3 font-medium text-gray-500">
+                      UTM
+                    </th>
+                    <th className="px-6 py-3 font-medium text-gray-500">
                       Besucher
                     </th>
                     <th className="px-6 py-3 font-medium text-gray-500">
@@ -492,7 +503,7 @@ export default function ClicksPage() {
                   {categorizedClicks.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={8}
                         className="px-6 py-8 text-center text-gray-400"
                       >
                         Keine Klicks vorhanden.
@@ -524,9 +535,21 @@ export default function ClicksPage() {
                         </td>
                         <td
                           className="px-6 py-3 text-gray-700 max-w-[200px] truncate"
-                          title={click.page_url}
+                          title={click.page}
                         >
-                          {click.page_url}
+                          {click.page}
+                        </td>
+                        <td className="px-6 py-3 text-gray-500 text-xs max-w-[150px] truncate" title={click.referrer || ''}>
+                          {click.referrer ? (() => { try { return new URL(click.referrer!).hostname; } catch { return click.referrer; } })() : '-'}
+                        </td>
+                        <td className="px-6 py-3 text-xs">
+                          {click.utm_source ? (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 bg-blue-50 text-blue-600 font-medium">
+                              {click.utm_source}{click.utm_medium ? ` / ${click.utm_medium}` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
                         </td>
                         <td className="px-6 py-3 text-gray-500 font-mono text-xs">
                           {click.visitor_id?.slice(0, 12)}...

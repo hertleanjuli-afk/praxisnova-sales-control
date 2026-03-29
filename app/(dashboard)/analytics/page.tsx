@@ -372,7 +372,7 @@ export default function AnalyticsPage() {
               </ResponsiveContainer>
             </ChartCard>
 
-            {/* Leads nach Sektor — Donut */}
+            {/* Leads nach Sektor – Donut */}
             <ChartCard title="Leads nach Sektor">
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
@@ -514,7 +514,7 @@ export default function AnalyticsPage() {
               </ResponsiveContainer>
             </ChartCard>
 
-            {/* Beste E-Mail-Zeiten — Heatmap */}
+            {/* Beste E-Mail-Zeiten – Heatmap */}
             <ChartCard title="Beste E-Mail-Zeiten">
               <div
                 style={{

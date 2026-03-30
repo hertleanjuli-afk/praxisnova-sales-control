@@ -27,7 +27,7 @@ Technische Feldnamen in der Datenbank bleiben auf Englisch.
 
 ```
 BASE_URL: https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: <CRON_SECRET>
+AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ```
 
 ### Lese-Endpunkte (GET /api/agent)
@@ -48,24 +48,24 @@ AUTH_HEADER: x-agent-secret: <CRON_SECRET>
 
 **Schritt 1 — Letzte 24h Entscheidungen:**
 ```bash
-curl -s -H 'x-agent-secret: <CRON_SECRET>' \
+curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=24'
 ```
 
 **Schritt 2 — Letzte 24h Berichte:**
 ```bash
-curl -s -H 'x-agent-secret: <CRON_SECRET>' \
+curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent?action=reports&hours=24'
 ```
 
 **Schritt 3 — Pipeline-Gesundheit (7 Tage für Prospects, 30 Tage für Partner):**
 ```bash
 # Prospect-Pipeline: Score 8+ Leads diese Woche
-curl -s -H 'x-agent-secret: <CRON_SECRET>' \
+curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=prospect_researcher'
 
 # Partner-Pipeline: Tier-1 Partner diesen Monat
-curl -s -H 'x-agent-secret: <CRON_SECRET>' \
+curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=720&agent=partner_researcher'
 ```
 
@@ -120,7 +120,7 @@ Partner-KPI:
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: <CRON_SECRET>' \
+  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent/send-briefing' \
   -d '{
     "subject": "🤖 Guten Morgen, Angie – Tagesbericht [DATUM]",
@@ -248,7 +248,7 @@ curl -s -X POST -H 'Content-Type: application/json' \
 Nutze den Brevo-Endpunkt `POST /api/agent/send-briefing` mit dem befüllten HTML:
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: <CRON_SECRET>' \
+  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent/send-briefing' \
   -d '{"subject": "🤖 Guten Morgen, Angie – Tagesbericht [DATUM]", "html": "<BEFÜLLTES HTML>"}'
 ```
@@ -261,7 +261,7 @@ curl -s -X POST -H 'Content-Type: application/json' \
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: <CRON_SECRET>' \
+  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent' \
   -d '{
     "type": "report",
@@ -295,7 +295,7 @@ curl -s -X POST -H 'Content-Type: application/json' \
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: <CRON_SECRET>' \
+  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent' \
   -d '{
     "type": "log",

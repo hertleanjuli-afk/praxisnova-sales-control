@@ -22,7 +22,7 @@ Technische Feldnamen in der Datenbank bleiben auf Englisch.
 
 ```
 BASE_URL: Umgebungsvariable NEXT_PUBLIC_APP_URL oder https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: <CRON_SECRET>
+AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ```
 
 ### Lese-Endpunkte (GET /api/agent)

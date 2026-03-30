@@ -2,532 +2,400 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line,
 } from 'recharts';
 
-type Period = 'week' | 'month' | 'all';
-
-interface Analytics {
-  totalLeads: number; activeSequences: number; emailsSent: number; emails_failed: number;
-  unsubscribes: number; openRate: number; failRate: number; replyRate: number;
-  meetingsBooked: number; calls_total: number; calls_reached: number; calls_not_reached: number;
-  calls_voicemail: number; calls_appointment: number; manual_stops: number;
-  linkedin_connections: number; linkedin_requests?: number; linkedin_connected?: number;
-  linkedin_messages?: number; linkedin_replies?: number; linkedin_meetings?: number;
-  linkedin_no_profile?: number;
-  linkedin_by_sector?: { sector: string; requests: number; connected: number; messages: number; replied: number; meetings: number; no_linkedin: number }[];
-  conversion_rate: number;
-  by_sector: Record<string, { leads: number; sent: number; failed: number; unsubscribes: number; replies: number }>;
-  active_per_sector?: Record<string, number>;
-  website_clicks?: {
-    today: number; this_week: number; this_month: number;
-    top_buttons: { button_id: string; button_text: string; count: number }[];
-    by_day: { date: string; count: number }[];
-    recent: any[];
-  };
-  inbound_leads?: number; outbound_leads?: number;
-  hot_leads?: { id: number; first_name: string; last_name: string; company: string; lead_score: number; sequence_type: string }[];
-  lead_engagement?: { recent_opens: any[]; recent_clicks: any[] };
-  unsubscribed_leads?: { id: number; email: string; company: string | null; unsubscribed_at: string; sequence_type: string | null }[];
-  leads_per_step?: Record<string, Record<number, number>>;
-  leads_added?: { today: number; this_week: number; last_week: number; this_month: number };
-}
-
-const PERIOD_LABELS: Record<Period, string> = { week: 'Woche', month: 'Monat', all: 'Gesamt' };
-const SECTOR_LABELS: Record<string, string> = { immobilien: 'Immobilien', handwerk: 'Handwerk', bauunternehmen: 'Bau', inbound: 'Inbound', allgemein: 'Allgemein' };
-const SECTOR_COLORS: Record<string, string> = { immobilien: '#E8472A', handwerk: '#3B82F6', bauunternehmen: '#22C55E', inbound: '#EAB308', allgemein: '#8B5CF6' };
-
+// ── Design Tokens ─────────────────────────────────────────────────────────
+const CORAL = '#E8472A';
+const SECTOR_COLORS: Record<string, string> = {
+  immobilien: '#E8472A', handwerk: '#3B82F6', bauunternehmen: '#22C55E',
+  inbound: '#EAB308', allgemein: '#8B5CF6',
+};
+const SECTOR_LABELS: Record<string, string> = {
+  immobilien: 'Immobilien', handwerk: 'Handwerk', bauunternehmen: 'Bau',
+  inbound: 'Inbound', allgemein: 'Allgemein',
+};
 const TOOLTIP_STYLE = { background: '#1a1a1a', border: '1px solid #333', borderRadius: 8, color: '#fff' };
 const AXIS_TICK = { fill: '#888', fontSize: 12 };
-const AXIS_LINE = { stroke: '#333' };
-const GRID_PROPS = { stroke: '#222', strokeDasharray: '3 3' } as const;
 
-function AnimatedNumber({ value, suffix = '', decimals = 0 }: { value: number; suffix?: string; decimals?: number }) {
-  const [display, setDisplay] = useState(0);
+// ── Types ─────────────────────────────────────────────────────────────────
+interface KpiValue { value: number; trend: { delta: number; direction: 'up' | 'down' | 'flat' } }
+interface DashboardData {
+  kpis: { newLeads: KpiValue; emailsSent: KpiValue; openRate: KpiValue; replyRate: KpiValue; meetingsBooked: KpiValue };
+  sparkline: { day: string; count: number }[];
+  hotLeads: any[]; recentClicks: any[]; inboundLeads: any[];
+  meetings: any[]; sequenceProgress: any[]; linkedinTasks: any[];
+  activity: any[];
+  funnel: { totalLeads: number; contacted: number; opened: number; replied: number; meetings: number; appointments: number };
+  emailPerformance: { week: string; sent: number; opened: number; replied: number }[];
+  sectorBreakdown: { sector: string; count: number }[];
+  timestamp: string;
+}
+
+// ── Animated Number ───────────────────────────────────────────────────────
+function AnimNum({ value, suffix = '', decimals = 0 }: { value: number; suffix?: string; decimals?: number }) {
+  const [d, setD] = useState(0);
   useEffect(() => {
-    let start = 0;
-    const steps = 40;
-    const inc = value / steps;
-    const timer = setInterval(() => {
-      start += inc;
-      if (start >= value) { setDisplay(value); clearInterval(timer); }
-      else setDisplay(decimals > 0 ? parseFloat(start.toFixed(decimals)) : Math.round(start));
-    }, 30);
-    return () => clearInterval(timer);
+    let s = 0; const steps = 30; const inc = value / steps;
+    const t = setInterval(() => { s += inc; if (s >= value) { setD(value); clearInterval(t); } else setD(decimals > 0 ? parseFloat(s.toFixed(decimals)) : Math.round(s)); }, 25);
+    return () => clearInterval(t);
   }, [value, decimals]);
-  return <span>{display.toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}</span>;
+  return <>{d.toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}</>;
 }
 
-function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+// ── Trend Arrow ───────────────────────────────────────────────────────────
+function Trend({ delta, direction }: { delta: number; direction: string }) {
+  if (direction === 'flat') return <span style={{ fontSize: 12, color: '#555' }}>—</span>;
+  const up = direction === 'up';
   return (
-    <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 24, ...style }}>
-      {children}
-    </div>
+    <span style={{ fontSize: 12, fontWeight: 600, color: up ? '#22C55E' : '#EF4444' }}>
+      {up ? '↑' : '↓'} {delta}%
+    </span>
   );
 }
 
-function CardTitle({ children }: { children: React.ReactNode }) {
-  return <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', marginBottom: 16 }}>{children}</h3>;
+// ── Card Wrapper ──────────────────────────────────────────────────────────
+function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={className} style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20 }}>{children}</div>;
 }
 
-function SkeletonCard() {
-  return (
-    <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 24 }}>
-      <div style={{ height: 12, width: 80, background: '#222', borderRadius: 4, marginBottom: 12 }} />
-      <div style={{ height: 32, width: 60, background: '#222', borderRadius: 4 }} />
-    </div>
-  );
+// ── Time Ago ──────────────────────────────────────────────────────────────
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'gerade eben';
+  if (min < 60) return `vor ${min} Min.`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `vor ${h} Std.`;
+  const d = Math.floor(h / 24);
+  return `vor ${d} Tag${d > 1 ? 'en' : ''}`;
 }
 
-function SkeletonRow({ count }: { count: number }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${count}, 1fr)`, gap: 16 }}>
-      {Array.from({ length: count }).map((_, i) => <SkeletonCard key={i} />)}
-    </div>
-  );
-}
+// ── Activity Type Config ──────────────────────────────────────────────────
+const ACTIVITY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  email_opened: { label: 'Email geöffnet', color: '#22C55E', bg: '#22C55E20' },
+  email_replied: { label: 'Email beantwortet', color: '#8B5CF6', bg: '#8B5CF620' },
+  website_click: { label: 'Website Klick', color: '#3B82F6', bg: '#3B82F620' },
+  new_lead: { label: 'Neue Anfrage', color: '#EAB308', bg: '#EAB30820' },
+};
 
+// ── Main Dashboard ────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const [period, setPeriod] = useState<Period>('week');
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [period, setPeriod] = useState('week');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [lastUpdate, setLastUpdate] = useState('');
 
-  const fetchAnalytics = useCallback(async (p: Period) => {
-    setLoading(true);
-    setError('');
+  const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/analytics?period=${p}`);
-      if (!res.ok) throw new Error('Fehler beim Laden');
-      const data = await res.json();
-      setAnalytics(data);
-      setLastUpdated(new Date());
-    } catch {
-      setError('Analysedaten konnten nicht geladen werden.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      const res = await fetch(`/api/dashboard?period=${period}`);
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      setData(json);
+      setLastUpdate(new Date().toLocaleTimeString('de-DE'));
+    } catch { /* silently fail */ }
+    setLoading(false);
+  }, [period]);
 
-  useEffect(() => {
-    fetchAnalytics(period);
-    const interval = setInterval(() => fetchAnalytics(period), 60000);
-    return () => clearInterval(interval);
-  }, [period, fetchAnalytics]);
+  useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
+  useEffect(() => { const i = setInterval(fetchData, 60000); return () => clearInterval(i); }, [fetchData]);
 
-  const a = analytics;
+  const greeting = new Date().getHours() < 12 ? 'Guten Morgen' : new Date().getHours() < 18 ? 'Guten Tag' : 'Guten Abend';
+  const dateStr = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-  // Funnel calculations
-  const funnelOpened = a ? Math.round((a.emailsSent ?? 0) * (a.openRate ?? 0) / 100) : 0;
-  const funnelReplied = a ? Math.round((a.emailsSent ?? 0) * (a.replyRate ?? 0) / 100) : 0;
+  if (loading && !data) {
+    return (
+      <div style={{ padding: 24 }}>
+        <div className="animate-pulse" style={{ display: 'grid', gap: 16 }}>
+          {[1,2,3].map(i => <div key={i} style={{ height: 120, background: '#111', borderRadius: 12 }} />)}
+        </div>
+      </div>
+    );
+  }
 
-  // Sector chart data
-  const sectorChartData = a
-    ? Object.entries(a.by_sector || {}).map(([key, val]) => ({
-        sector: SECTOR_LABELS[key] || key,
-        leads: val.leads,
-        sent: val.sent,
-        replies: val.replies,
-        color: SECTOR_COLORS[key] || '#888',
-      }))
-    : [];
+  if (!data) return <div style={{ padding: 24, color: '#888' }}>Dashboard konnte nicht geladen werden.</div>;
 
-  // Calls donut data
-  const callsData = a
-    ? [
-        { name: 'Erreicht', value: a.calls_reached ?? 0, color: '#22C55E' },
-        { name: 'Nicht erreicht', value: a.calls_not_reached ?? 0, color: '#EF4444' },
-        { name: 'Mailbox', value: a.calls_voicemail ?? 0, color: '#EAB308' },
-        { name: 'Termin', value: a.calls_appointment ?? 0, color: '#E8472A' },
-      ].filter(d => d.value > 0)
-    : [];
+  const periods = [
+    { key: 'today', label: 'Heute' }, { key: 'week', label: 'Diese Woche' },
+    { key: 'month', label: 'Dieser Monat' }, { key: 'all', label: 'Gesamt' },
+  ];
 
-  // Funnel data
-  const funnelStages = a
-    ? [
-        { label: 'Leads', value: a.totalLeads ?? 0 },
-        { label: 'Gesendet', value: a.emailsSent ?? 0 },
-        { label: 'Geöffnet', value: funnelOpened },
-        { label: 'Geantwortet', value: funnelReplied },
-        { label: 'Termin', value: a.meetingsBooked ?? 0 },
-      ]
-    : [];
+  // Process sequence progress for chart
+  const seqMap: Record<string, Record<number, number>> = {};
+  for (const row of data.sequenceProgress) {
+    if (!seqMap[row.sequence_type]) seqMap[row.sequence_type] = {};
+    seqMap[row.sequence_type][row.sequence_step] = Number(row.count);
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F5', padding: '24px 24px 48px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+    <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+      {/* ── SECTION 1: Top Bar ────────────────────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>Dashboard</h1>
-          {lastUpdated && (
-            <p style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
-              Zuletzt aktualisiert: {lastUpdated.toLocaleTimeString('de-DE')}
-            </p>
-          )}
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>{greeting}, Anjuli</h1>
+          <p style={{ fontSize: 14, color: '#888', margin: '4px 0 0' }}>{dateStr}</p>
+          {lastUpdate && <p style={{ fontSize: 11, color: '#555', margin: '2px 0 0' }}>Aktualisiert: {lastUpdate}</p>}
         </div>
-        <div style={{ display: 'flex', gap: 0, background: '#1a1a1a', borderRadius: 8, overflow: 'hidden', border: '1px solid #1E1E1E' }}>
-          {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              style={{
-                padding: '8px 20px',
-                fontSize: 13,
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                background: period === p ? '#E8472A' : 'transparent',
-                color: period === p ? '#fff' : '#888',
-                transition: 'all 0.2s',
-              }}
-            >
-              {PERIOD_LABELS[p]}
+        <div style={{ display: 'flex', gap: 4, background: '#111', borderRadius: 8, padding: 3, border: '1px solid #1E1E1E' }}>
+          {periods.map(p => (
+            <button key={p.key} onClick={() => setPeriod(p.key)}
+              style={{ padding: '6px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer',
+                background: period === p.key ? CORAL : 'transparent', color: period === p.key ? '#fff' : '#888' }}>
+              {p.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div style={{ background: '#2a1515', border: '1px solid #E8472A', borderRadius: 8, padding: 16, marginBottom: 24 }}>
-          <p style={{ color: '#E8472A', fontSize: 14, margin: 0 }}>{error}</p>
-        </div>
-      )}
+      {/* ── SECTION 2: KPI Row ────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }} className="kpi-grid">
+        {([
+          { label: 'Neue Leads', kpi: data.kpis.newLeads, color: '#3B82F6', suffix: '', decimals: 0 },
+          { label: 'Emails gesendet', kpi: data.kpis.emailsSent, color: CORAL, suffix: '', decimals: 0 },
+          { label: 'Öffnungsrate', kpi: data.kpis.openRate, color: '#EAB308', suffix: '%', decimals: 1 },
+          { label: 'Antwortrate', kpi: data.kpis.replyRate, color: '#8B5CF6', suffix: '%', decimals: 1 },
+          { label: 'Meetings gebucht', kpi: data.kpis.meetingsBooked, color: '#22C55E', suffix: '', decimals: 0 },
+        ]).map((item, i) => (
+          <Card key={i}>
+            <div style={{ borderTop: `3px solid ${item.color}`, margin: '-20px -20px 16px', borderRadius: '12px 12px 0 0' }} />
+            <p style={{ fontSize: 12, color: '#888', margin: '0 0 6px' }}>{item.label}</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontSize: 28, fontWeight: 700, color: '#F0F0F5' }}>
+                <AnimNum value={item.kpi.value} suffix={item.suffix || ''} decimals={item.decimals || 0} />
+              </span>
+              <Trend delta={item.kpi.trend.delta} direction={item.kpi.trend.direction} />
+            </div>
+            {data.sparkline.length > 0 && i === 1 && (
+              <div style={{ marginTop: 8 }}>
+                <ResponsiveContainer width="100%" height={30}>
+                  <LineChart data={data.sparkline}>
+                    <Line type="monotone" dataKey="count" stroke={item.color} strokeWidth={1.5} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
 
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <SkeletonRow count={5} />
-          <SkeletonRow count={2} />
-          <SkeletonRow count={2} />
-        </div>
-      ) : a && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* ── SECTION 3: Action Center (Hot Leads + This Week) ──────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }} className="action-grid">
+        {/* Left: Hot Leads */}
+        <Card>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#F0F0F5', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 18 }}>🔥</span> Heiße Leads
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
+            {data.hotLeads.length === 0 && data.recentClicks.length === 0 && data.inboundLeads.length === 0 && (
+              <p style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: 24 }}>Keine heißen Leads im gewählten Zeitraum.</p>
+            )}
 
-          {/* Row 1: Hero KPI Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
-            {[
-              { label: 'Inbound Leads', value: a.inbound_leads ?? 0, color: '#22C55E' },
-              { label: 'Outbound Leads', value: a.outbound_leads ?? 0, color: '#3B82F6' },
-              { label: 'E-Mails gesendet', value: a.emailsSent ?? 0, color: '#E8472A' },
-              { label: 'Öffnungsrate', value: a.openRate ?? 0, color: '#EAB308', suffix: '%', decimals: 1 },
-              { label: 'Meetings gebucht', value: a.meetingsBooked ?? 0, color: '#22C55E' },
-            ].map((kpi) => (
-              <div
-                key={kpi.label}
-                style={{
-                  background: '#111',
-                  border: '1px solid #1E1E1E',
-                  borderTop: `3px solid ${kpi.color}`,
-                  borderRadius: 12,
-                  padding: 24,
-                }}
-              >
-                <p style={{ fontSize: 12, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>{kpi.label}</p>
-                <p style={{ fontSize: 32, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>
-                  <AnimatedNumber value={kpi.value} suffix={kpi.suffix} decimals={kpi.decimals} />
+            {/* Email opens */}
+            {data.hotLeads.map((lead: any, i: number) => (
+              <div key={`open-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E' }}>
+                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#22C55E20', color: '#22C55E', fontWeight: 600, whiteSpace: 'nowrap' }}>Email geöffnet</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#F0F0F5', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {lead.first_name} {lead.last_name} {lead.company && <span style={{ color: '#888', fontWeight: 400 }}>· {lead.company}</span>}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#555', margin: '2px 0 0' }}>
+                    Step {lead.step_number} · {SECTOR_LABELS[lead.sequence_type] || lead.sequence_type} · {timeAgo(lead.opened_at)}
+                  </p>
+                </div>
+                {lead.lead_score > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: lead.lead_score >= 60 ? CORAL : lead.lead_score >= 30 ? '#EAB308' : '#3B82F6', whiteSpace: 'nowrap' }}>
+                    {lead.lead_score} Pkt.
+                  </span>
+                )}
+              </div>
+            ))}
+
+            {/* Website clicks */}
+            {data.recentClicks.filter((c: any) => c.lead_id).map((click: any, i: number) => (
+              <div key={`click-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E' }}>
+                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#3B82F620', color: '#3B82F6', fontWeight: 600, whiteSpace: 'nowrap' }}>Website Klick</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#F0F0F5', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {click.first_name || 'Besucher'} {click.last_name || ''} {click.company && <span style={{ color: '#888', fontWeight: 400 }}>· {click.company}</span>}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#555', margin: '2px 0 0' }}>
+                    {click.button_text || click.page} · {timeAgo(click.clicked_at)}
+                  </p>
+                </div>
+              </div>
+            ))}
+
+            {/* Inbound */}
+            {data.inboundLeads.slice(0, 5).map((lead: any, i: number) => (
+              <div key={`inbound-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E' }}>
+                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#EAB30820', color: '#EAB308', fontWeight: 600, whiteSpace: 'nowrap' }}>Neue Anfrage</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#F0F0F5', margin: 0 }}>
+                    {lead.first_name || lead.email} {lead.last_name || ''} {lead.company && <span style={{ color: '#888', fontWeight: 400 }}>· {lead.company}</span>}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#555', margin: '2px 0 0' }}>{lead.source || 'Website'} · {timeAgo(lead.created_at)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Right: This Week */}
+        <Card>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#F0F0F5', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 18 }}>📅</span> Diese Woche
+          </h2>
+
+          {/* Meetings */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>Meetings</p>
+            {data.meetings.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#555' }}>Keine Meetings geplant.</p>
+            ) : data.meetings.slice(0, 4).map((m: any, i: number) => (
+              <div key={i} style={{ padding: '8px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E', marginBottom: 6 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#F0F0F5', margin: 0 }}>
+                  {m.first_name} {m.last_name} <span style={{ color: '#888', fontWeight: 400 }}>· {m.company || SECTOR_LABELS[m.sequence_type] || ''}</span>
                 </p>
               </div>
             ))}
           </div>
 
-          {/* Row 2: Website Activity + Hot Leads */}
-          <div style={{ display: 'grid', gridTemplateColumns: '55fr 45fr', gap: 16 }}>
-            {/* Website-Aktivität */}
-            <Card>
-              <CardTitle>Website-Aktivität</CardTitle>
-              {/* Mini stats */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-                {[
-                  { label: 'Heute', value: a.website_clicks?.today ?? 0 },
-                  { label: 'Diese Woche', value: a.website_clicks?.this_week ?? 0 },
-                  { label: 'Dieser Monat', value: a.website_clicks?.this_month ?? 0 },
-                ].map((s) => (
-                  <div key={s.label} style={{ background: '#1a1a1a', borderRadius: 8, padding: '12px 16px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 22, fontWeight: 700, color: '#E8472A', margin: 0 }}>
-                      <AnimatedNumber value={s.value} />
-                    </p>
-                    <p style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{s.label}</p>
+          {/* Sequence Progress */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>Sequenz-Fortschritt</p>
+            {Object.entries(seqMap).map(([sector, steps]) => {
+              const total = Object.values(steps).reduce((a, b) => a + b, 0);
+              return (
+                <div key={sector} style={{ marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                    <span style={{ color: SECTOR_COLORS[sector] || '#888', fontWeight: 600 }}>{SECTOR_LABELS[sector] || sector}</span>
+                    <span style={{ color: '#555' }}>{total} aktiv</span>
                   </div>
-                ))}
-              </div>
-              {/* Area Chart */}
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={a.website_clicks?.by_day ?? []}>
-                  <defs>
-                    <linearGradient id="coralGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#E8472A" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#E8472A" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid {...GRID_PROPS} />
-                  <XAxis dataKey="date" tick={AXIS_TICK} axisLine={AXIS_LINE} tickFormatter={(v) => { const d = new Date(v); return `${d.getDate()}.${d.getMonth() + 1}.`; }} />
-                  <YAxis tick={AXIS_TICK} axisLine={AXIS_LINE} allowDecimals={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(v) => new Date(v).toLocaleDateString('de-DE')} />
-                  <Area type="monotone" dataKey="count" stroke="#E8472A" strokeWidth={2} fill="url(#coralGradient)" name="Klicks" />
-                </AreaChart>
-              </ResponsiveContainer>
-              {/* Top buttons */}
-              {(a.website_clicks?.top_buttons?.length ?? 0) > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <p style={{ fontSize: 12, color: '#888', marginBottom: 8, fontWeight: 600 }}>Top Buttons</p>
-                  {a.website_clicks!.top_buttons.slice(0, 5).map((btn, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #1E1E1E' }}>
-                      <span style={{ fontSize: 13, color: '#ccc' }}>{btn.button_text || btn.button_id}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#E8472A' }}>{btn.count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            {/* Hot Leads */}
-            <Card>
-              <CardTitle>Hot Leads</CardTitle>
-              {(() => {
-                const leads = (a.hot_leads ?? []).filter(l => l.lead_score > 0).sort((x, y) => y.lead_score - x.lead_score);
-                if (leads.length === 0) {
-                  return <p style={{ color: '#555', fontSize: 14 }}>Keine Hot Leads vorhanden.</p>;
-                }
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {leads.map((lead) => {
-                      const score = lead.lead_score;
-                      let badgeLabel = 'Kühl';
-                      let badgeBg = '#1e3a5f';
-                      let badgeColor = '#3B82F6';
-                      if (score >= 60) { badgeLabel = 'Heiß'; badgeBg = '#3a1515'; badgeColor = '#E8472A'; }
-                      else if (score >= 30) { badgeLabel = 'Warm'; badgeBg = '#3a3515'; badgeColor = '#EAB308'; }
-                      return (
-                        <div key={lead.id} style={{ background: '#1a1a1a', borderRadius: 8, padding: '12px 16px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <div>
-                              <span style={{ fontWeight: 600, fontSize: 14, color: '#F0F0F5' }}>{lead.first_name} {lead.last_name}</span>
-                              {lead.company && <span style={{ color: '#888', fontSize: 12, marginLeft: 8 }}>{lead.company}</span>}
-                            </div>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: '#222', color: '#888' }}>{lead.sequence_type}</span>
-                              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: badgeBg, color: badgeColor, fontWeight: 600 }}>{badgeLabel}</span>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ flex: 1, height: 6, background: '#222', borderRadius: 3, overflow: 'hidden' }}>
-                              <div style={{ width: `${Math.min(100, score)}%`, height: '100%', background: '#E8472A', borderRadius: 3, transition: 'width 0.5s ease' }} />
-                            </div>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: '#F0F0F5', minWidth: 28, textAlign: 'right' }}>{score}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </Card>
-          </div>
-
-          {/* Row 3: Sector Breakdown + Conversion Funnel */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {/* Nach Sektor */}
-            <Card>
-              <CardTitle>Nach Sektor</CardTitle>
-              <ResponsiveContainer width="100%" height={Math.max(200, sectorChartData.length * 50)}>
-                <BarChart data={sectorChartData} layout="vertical" margin={{ left: 20, right: 20 }}>
-                  <CartesianGrid {...GRID_PROPS} horizontal={false} />
-                  <XAxis type="number" tick={AXIS_TICK} axisLine={AXIS_LINE} allowDecimals={false} />
-                  <YAxis type="category" dataKey="sector" tick={AXIS_TICK} axisLine={AXIS_LINE} width={90} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value: any, name: any) => [value, name === 'leads' ? 'Leads' : name]} />
-                  <Bar dataKey="leads" name="Leads" radius={[0, 4, 4, 0]}>
-                    {sectorChartData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-              {sectorChartData.length > 0 && (
-                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {sectorChartData.map((s) => (
-                    <div key={s.sector} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#888', padding: '4px 0', borderBottom: '1px solid #1E1E1E' }}>
-                      <span>{s.sector}</span>
-                      <span>Gesendet: {s.sent} | Antworten: {s.replies}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            {/* Conversion-Trichter */}
-            <Card>
-              <CardTitle>Conversion-Trichter</CardTitle>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                {funnelStages.map((stage, i) => {
-                  const maxVal = funnelStages[0]?.value || 1;
-                  const widthPct = maxVal > 0 ? Math.max(8, (stage.value / maxVal) * 100) : 8;
-                  const nextStage = funnelStages[i + 1];
-                  const dropPct = nextStage && stage.value > 0
-                    ? ((nextStage.value / stage.value) * 100).toFixed(1)
-                    : null;
-                  return (
-                    <div key={stage.label}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, color: '#888', width: 80, textAlign: 'right' }}>{stage.label}</span>
-                        <div style={{ flex: 1, position: 'relative' }}>
-                          <div style={{
-                            width: `${widthPct}%`,
-                            height: 32,
-                            background: `linear-gradient(90deg, #E8472A${i === 0 ? '' : Math.max(30, 100 - i * 20).toString(16)}, #E8472A${Math.max(20, 80 - i * 15).toString(16)})`,
-                            borderRadius: 4,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'width 0.5s ease',
-                          }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{stage.value.toLocaleString('de-DE')}</span>
-                          </div>
-                        </div>
-                      </div>
-                      {dropPct && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                          <span style={{ width: 80 }} />
-                          <span style={{ fontSize: 11, color: '#555', paddingLeft: 8 }}>{dropPct}% &#x2192;</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          </div>
-
-          {/* Row 4: LinkedIn + Anrufe */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {/* LinkedIn-Aktivität */}
-            <Card>
-              <CardTitle>LinkedIn-Aktivität</CardTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
-                {[
-                  { label: 'Anfragen', value: a.linkedin_requests ?? 0, color: '#3B82F6' },
-                  { label: 'Vernetzt', value: a.linkedin_connected ?? 0, color: '#22C55E' },
-                  { label: 'Nachrichten', value: a.linkedin_messages ?? 0, color: '#8B5CF6' },
-                  { label: 'Antworten', value: a.linkedin_replies ?? 0, color: '#EAB308' },
-                ].map((s) => (
-                  <div key={s.label} style={{ background: '#1a1a1a', borderRadius: 8, padding: '12px 16px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 24, fontWeight: 700, color: s.color, margin: 0 }}>
-                      <AnimatedNumber value={s.value} />
-                    </p>
-                    <p style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{s.label}</p>
-                  </div>
-                ))}
-              </div>
-              <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '12px 16px', textAlign: 'center' }}>
-                <p style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>Meetings via LinkedIn</p>
-                <p style={{ fontSize: 28, fontWeight: 700, color: '#22C55E', margin: 0 }}>
-                  <AnimatedNumber value={a.linkedin_meetings ?? 0} />
-                </p>
-              </div>
-            </Card>
-
-            {/* Telefonkontakte */}
-            <Card>
-              <CardTitle>Telefonkontakte</CardTitle>
-              {(a.calls_total ?? 0) === 0 ? (
-                <p style={{ color: '#555', fontSize: 14 }}>Keine Anrufdaten vorhanden.</p>
-              ) : (
-                <>
-                  <div style={{ position: 'relative' }}>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie
-                          data={callsData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={90}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          {callsData.map((entry, i) => (
-                            <Cell key={i} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip contentStyle={TOOLTIP_STYLE} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    {/* Center text */}
-                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                      <p style={{ fontSize: 28, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>{a.calls_total ?? 0}</p>
-                      <p style={{ fontSize: 11, color: '#888' }}>Gesamt</p>
-                    </div>
-                  </div>
-                  {/* Legend */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
-                    {callsData.map((d) => (
-                      <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
-                        <span style={{ fontSize: 12, color: '#888' }}>{d.name}: {d.value}</span>
-                      </div>
+                  <div style={{ display: 'flex', gap: 2, height: 6 }}>
+                    {Object.entries(steps).map(([step, count]) => (
+                      <div key={step} style={{ flex: count, background: SECTOR_COLORS[sector] || '#555', borderRadius: 3, opacity: 0.4 + (Number(step) * 0.15) }} />
                     ))}
                   </div>
-                </>
-              )}
-            </Card>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Row 5: Leads Hinzugefügt + Abmeldungen */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {/* Leads hinzugefügt */}
-            <Card>
-              <CardTitle>Leads hinzugefügt</CardTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                {[
-                  { label: 'Heute', value: a.leads_added?.today ?? 0 },
-                  { label: 'Diese Woche', value: a.leads_added?.this_week ?? 0 },
-                  { label: 'Letzte Woche', value: a.leads_added?.last_week ?? 0 },
-                  { label: 'Dieser Monat', value: a.leads_added?.this_month ?? 0 },
-                ].map((s) => (
-                  <div key={s.label} style={{ background: '#1a1a1a', borderRadius: 8, padding: '16px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 28, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>
-                      <AnimatedNumber value={s.value} />
-                    </p>
-                    <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>{s.label}</p>
-                  </div>
+          {/* LinkedIn Tasks */}
+          {data.linkedinTasks.length > 0 && (
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>LinkedIn-Aufgaben</p>
+              {data.linkedinTasks.slice(0, 3).map((task: any, i: number) => (
+                <div key={i} style={{ padding: '6px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, color: '#F0F0F5' }}>{task.first_name} {task.last_name}</span>
+                  <span style={{ fontSize: 11, color: '#555' }}>· {task.company}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* ── SECTION 4: Performance Charts ─────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }} className="charts-grid">
+        <Card>
+          <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px' }}>Email-Performance</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={data.emailPerformance}>
+              <defs>
+                <linearGradient id="gSent" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CORAL} stopOpacity={0.3}/><stop offset="100%" stopColor={CORAL} stopOpacity={0}/></linearGradient>
+                <linearGradient id="gOpened" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3}/><stop offset="100%" stopColor="#3B82F6" stopOpacity={0}/></linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+              <XAxis dataKey="week" tick={AXIS_TICK} axisLine={{ stroke: '#333' }} tickFormatter={(v) => { const d = new Date(v); return `${d.getDate()}.${d.getMonth()+1}.`; }} />
+              <YAxis tick={AXIS_TICK} axisLine={{ stroke: '#333' }} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Area type="monotone" dataKey="sent" stroke={CORAL} fill="url(#gSent)" strokeWidth={2} name="Gesendet" />
+              <Area type="monotone" dataKey="opened" stroke="#3B82F6" fill="url(#gOpened)" strokeWidth={2} name="Geöffnet" />
+              <Area type="monotone" dataKey="replied" stroke="#22C55E" fill="transparent" strokeWidth={2} name="Beantwortet" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card>
+          <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px' }}>Leads nach Branche</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie data={data.sectorBreakdown} dataKey="count" nameKey="sector" cx="50%" cy="50%" innerRadius={55} outerRadius={85}
+                label={({ name, value }: any) => `${SECTOR_LABELS[name] || name}: ${value}`} labelLine={false}>
+                {data.sectorBreakdown.map((entry: any, i: number) => (
+                  <Cell key={i} fill={SECTOR_COLORS[entry.sector] || '#555'} />
                 ))}
-              </div>
-            </Card>
+              </Pie>
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any, name: any) => [`${v}`, SECTOR_LABELS[name] || name]} />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
 
-            {/* Abmeldungen */}
-            <Card>
-              <CardTitle>Abmeldungen</CardTitle>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <div style={{ background: '#3a1515', borderRadius: 8, padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 24, fontWeight: 700, color: '#E8472A' }}>
-                    <AnimatedNumber value={a.unsubscribes ?? 0} />
-                  </span>
-                  <span style={{ fontSize: 12, color: '#E8472A' }}>Abmeldungen</span>
+      {/* ── SECTION 5: Conversion Funnel ──────────────────────────────── */}
+      <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px' }}>Conversion-Funnel</h3>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          {([
+            { label: 'Leads', value: data.funnel.totalLeads },
+            { label: 'Kontaktiert', value: data.funnel.contacted },
+            { label: 'Geöffnet', value: data.funnel.opened },
+            { label: 'Beantwortet', value: data.funnel.replied },
+            { label: 'Meeting', value: data.funnel.meetings },
+          ]).map((stage, i, arr) => {
+            const maxVal = arr[0].value || 1;
+            const width = Math.max(20, (stage.value / maxVal) * 100);
+            const convRate = i > 0 && arr[i-1].value > 0 ? Math.round((stage.value / arr[i-1].value) * 100) : null;
+            return (
+              <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+                {convRate !== null && <p style={{ fontSize: 10, color: '#555', margin: '0 0 4px' }}>{convRate}%</p>}
+                <div style={{ height: 36, background: `${CORAL}${Math.round(20 + (80 - i * 15)).toString(16)}`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', width: `${width}%`, margin: '0 auto', minWidth: 40 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{stage.value}</span>
                 </div>
+                <p style={{ fontSize: 11, color: '#888', margin: '4px 0 0' }}>{stage.label}</p>
               </div>
-              {(a.unsubscribed_leads?.length ?? 0) > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {a.unsubscribed_leads!.slice(0, 5).map((lead) => (
-                    <div key={lead.id} style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <span style={{ fontSize: 13, color: '#ccc' }}>{lead.email}</span>
-                        {lead.company && <span style={{ fontSize: 11, color: '#555', marginLeft: 8 }}>{lead.company}</span>}
-                      </div>
-                      <span style={{ fontSize: 11, color: '#555' }}>
-                        {lead.unsubscribed_at ? new Date(lead.unsubscribed_at).toLocaleDateString('de-DE') : '-'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ color: '#555', fontSize: 13 }}>Keine Abmeldungen in diesem Zeitraum.</p>
-              )}
-            </Card>
-          </div>
-
+            );
+          })}
         </div>
-      )}
+      </div>
+
+      {/* ── SECTION 6: Activity Feed ──────────────────────────────────── */}
+      <Card>
+        <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          Letzte Aktivitäten
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
+          {data.activity.length === 0 && (
+            <p style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: 16 }}>Keine Aktivitäten im gewählten Zeitraum.</p>
+          )}
+          {data.activity.map((item: any, i: number) => {
+            const config = ACTIVITY_CONFIG[item.type] || { label: item.type, color: '#888', bg: '#88888820' };
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: '#0A0A0A', border: '1px solid #1E1E1E' }}>
+                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: config.bg, color: config.color, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {config.label}
+                </span>
+                <p style={{ fontSize: 13, color: '#ccc', margin: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontWeight: 600, color: '#F0F0F5' }}>{item.first_name} {item.last_name}</span>
+                  {item.company && <span style={{ color: '#888' }}> · {item.company}</span>}
+                  {item.detail && <span style={{ color: '#555' }}> · {SECTOR_LABELS[item.detail] || item.detail}</span>}
+                </p>
+                <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap', flexShrink: 0 }}>{timeAgo(item.created_at)}</span>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <style>{`
+        @media (max-width: 1024px) { .kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+        @media (max-width: 768px) {
+          .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .action-grid, .charts-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }

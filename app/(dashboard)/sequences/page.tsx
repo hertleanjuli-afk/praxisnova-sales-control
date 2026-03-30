@@ -1,583 +1,312 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
-interface SequenceLead {
-  id: number;
-  first_name: string;
-  last_name: string;
-  company: string;
-  email: string;
-  sequence_type: string;
-  sequence_step: number;
-  sequence_status: string;
-  enrolled_at: string;
-  lead_score: number;
+const CORAL = '#E8472A';
+const SECTOR_COLORS: Record<string, string> = {
+  immobilien: '#E8472A', handwerk: '#3B82F6', bauunternehmen: '#22C55E',
+  inbound: '#EAB308', allgemein: '#8B5CF6',
+};
+const SECTOR_LABELS: Record<string, string> = {
+  immobilien: 'Immobilien', handwerk: 'Handwerk', bauunternehmen: 'Bau',
+  inbound: 'Inbound', allgemein: 'Allgemein',
+};
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  active: { label: 'Aktiv', color: '#22C55E', bg: '#22C55E20' },
+  completed: { label: 'Fertig', color: '#3B82F6', bg: '#3B82F620' },
+  stopped: { label: 'Gestoppt', color: '#888', bg: '#88888820' },
+  booked: { label: 'Gebucht', color: '#EAB308', bg: '#EAB30820' },
+  replied: { label: 'Beantwortet', color: '#8B5CF6', bg: '#8B5CF620' },
+  unsubscribed: { label: 'Abgemeldet', color: '#EF4444', bg: '#EF444420' },
+  bounced: { label: 'Bounced', color: '#EF4444', bg: '#EF444420' },
+  cooldown: { label: 'Cooldown', color: '#888', bg: '#88888820' },
+  none: { label: 'Keine', color: '#555', bg: '#55555520' },
+};
+
+interface Lead {
+  id: number; first_name: string; last_name: string; company: string; email: string; title: string;
+  sequence_type: string; sequence_step: number; sequence_status: string; enrolled_at: string;
+  lead_score: number; linkedin_url: string; exited_at: string | null;
 }
 
-type SectorFilter = 'all' | 'immobilien' | 'handwerk' | 'bauunternehmen' | 'inbound' | 'allgemein';
-type StatusFilter = 'all' | 'active' | 'completed';
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return '–';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 60) return `vor ${min} Min.`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `vor ${h} Std.`;
+  const d = Math.floor(h / 24);
+  return `vor ${d} T.`;
+}
 
-const SECTOR_TABS: { value: SectorFilter; label: string }[] = [
-  { value: 'all', label: 'Alle' },
-  { value: 'immobilien', label: 'Immobilien' },
-  { value: 'handwerk', label: 'Handwerk' },
-  { value: 'bauunternehmen', label: 'Bauunternehmen' },
-  { value: 'allgemein', label: 'Allgemein' },
-  { value: 'inbound', label: 'Inbound' },
-];
-
-const STATUS_TABS: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'Alle' },
-  { value: 'active', label: 'Aktiv' },
-  { value: 'completed', label: 'Abgeschlossen' },
-];
-
-const STOP_REASONS = [
-  { value: 'linkedin_contact', label: 'LinkedIn-Kontakt aufgenommen' },
-  { value: 'phone_contact', label: 'Telefonisch kontaktiert' },
-  { value: 'no_interest', label: 'Kein Interesse' },
-  { value: 'wrong_contact', label: 'Falscher Ansprechpartner' },
-  { value: 'other', label: 'Anderer Grund' },
-];
+const MAX_STEPS = 6;
 
 export default function SequencesPage() {
-  const [leads, setLeads] = useState<SequenceLead[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [sectorFilter, setSectorFilter] = useState<SectorFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [bookingId, setBookingId] = useState<number | null>(null);
+  const [sectorFilter, setSectorFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'lead_score' | 'name' | 'step' | 'enrolled'>('lead_score');
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [leadEvents, setLeadEvents] = useState<any[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
 
-  // Reply marking state
-  const [markingReplyId, setMarkingReplyId] = useState<number | null>(null);
-
-  // Stop modal state
-  const [showStopModal, setShowStopModal] = useState<number | null>(null);
-  const [stopReason, setStopReason] = useState('');
-  const [stopDetails, setStopDetails] = useState('');
-  const [stoppingId, setStoppingId] = useState<number | null>(null);
-
-  // Call modal state
-  const [showCallModal, setShowCallModal] = useState<number | null>(null);
-  const [callResult, setCallResult] = useState('');
-  const [callNotes, setCallNotes] = useState('');
-  const [callDateTime, setCallDateTime] = useState('');
-  const [savingCall, setSavingCall] = useState(false);
-
-  const fetchSequences = useCallback(async () => {
+  const fetchLeads = useCallback(async () => {
     setLoading(true);
-    setError('');
     try {
       const params = new URLSearchParams();
       if (sectorFilter !== 'all') params.set('sector', sectorFilter);
       if (statusFilter !== 'all') params.set('status', statusFilter);
       const res = await fetch(`/api/sequences/status?${params}`);
-      if (!res.ok) throw new Error('Fehler');
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      setLeads(data.leads ?? []);
-    } catch {
-      setError('Sequenzdaten konnten nicht geladen werden.');
-    } finally {
-      setLoading(false);
-    }
+      setLeads(data.leads || []);
+    } catch { setLeads([]); }
+    setLoading(false);
   }, [sectorFilter, statusFilter]);
 
-  useEffect(() => {
-    fetchSequences();
-  }, [fetchSequences]);
+  useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
-  const openStopModal = (leadId: number) => {
-    setShowStopModal(leadId);
-    setStopReason('');
-    setStopDetails('');
-  };
-
-  const handleStopConfirm = async () => {
-    if (!showStopModal || !stopReason) return;
-    const leadId = showStopModal;
-    setStoppingId(leadId);
-    try {
-      const res = await fetch('/api/sequences/stop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadId,
-          reason: 'manual_stop',
-          stop_reason: stopReason,
-          stop_details: stopDetails,
-        }),
-      });
-      if (!res.ok) throw new Error('Stop failed');
-      setLeads((prev) =>
-        prev.map((l) =>
-          l.id === leadId ? { ...l, sequence_status: 'stopped' } : l
-        )
-      );
-      setShowStopModal(null);
-      setStopReason('');
-      setStopDetails('');
-    } catch {
-      setError('Sequenz konnte nicht gestoppt werden.');
-    } finally {
-      setStoppingId(null);
+  // Sector stats
+  const sectorStats = useMemo(() => {
+    const stats: Record<string, { active: number; totalStep: number; count: number }> = {};
+    for (const lead of leads) {
+      const s = lead.sequence_type || 'allgemein';
+      if (!stats[s]) stats[s] = { active: 0, totalStep: 0, count: 0 };
+      if (lead.sequence_status === 'active') stats[s].active++;
+      stats[s].totalStep += lead.sequence_step;
+      stats[s].count++;
     }
-  };
+    return stats;
+  }, [leads]);
 
-  const handleBooked = async (leadId: number) => {
-    setBookingId(leadId);
-    try {
-      const res = await fetch('/api/sequences/stop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId, reason: 'booked' }),
-      });
-      if (!res.ok) throw new Error('Booking failed');
-      setLeads((prev) =>
-        prev.map((l) =>
-          l.id === leadId ? { ...l, sequence_status: 'booked' } : l
-        )
-      );
-    } catch {
-      setError('Status konnte nicht aktualisiert werden.');
-    } finally {
-      setBookingId(null);
+  // Filtered & sorted
+  const filtered = useMemo(() => {
+    let result = leads;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(l => `${l.first_name} ${l.last_name} ${l.company} ${l.email}`.toLowerCase().includes(q));
     }
-  };
+    result = [...result].sort((a, b) => {
+      if (sortBy === 'lead_score') return (b.lead_score || 0) - (a.lead_score || 0);
+      if (sortBy === 'name') return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+      if (sortBy === 'step') return b.sequence_step - a.sequence_step;
+      if (sortBy === 'enrolled') return new Date(b.enrolled_at || 0).getTime() - new Date(a.enrolled_at || 0).getTime();
+      return 0;
+    });
+    return result;
+  }, [leads, search, sortBy]);
 
-  const handleMarkReplied = async (leadId: number) => {
-    setMarkingReplyId(leadId);
+  // Load detail
+  const openDetail = async (lead: Lead) => {
+    setSelectedLead(lead);
+    setDetailLoading(true);
     try {
-      const res = await fetch('/api/sequences/stop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId, reason: 'replied' }),
+      const res = await fetch('/api/email-tracking', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id }),
       });
-      if (!res.ok) throw new Error('Mark replied failed');
-      setLeads((prev) =>
-        prev.map((l) =>
-          l.id === leadId ? { ...l, sequence_status: 'replied' } : l
-        )
-      );
-    } catch {
-      setError('Status konnte nicht aktualisiert werden.');
-    } finally {
-      setMarkingReplyId(null);
-    }
-  };
-
-  const openCallModal = (leadId: number) => {
-    setShowCallModal(leadId);
-    setCallResult('');
-    setCallNotes('');
-    // Pre-fill with current date/time
-    const now = new Date();
-    const offset = now.getTimezoneOffset();
-    const local = new Date(now.getTime() - offset * 60000);
-    setCallDateTime(local.toISOString().slice(0, 16));
-  };
-
-  const handleCallSave = async () => {
-    if (!showCallModal || !callResult) return;
-    const leadId = showCallModal;
-    setSavingCall(true);
-    try {
-      const res = await fetch('/api/leads/call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadId,
-          result: callResult,
-          notes: callNotes,
-          dateTime: callDateTime,
-        }),
-      });
-      if (!res.ok) throw new Error('Call save failed');
-      if (callResult === 'appointment') {
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === leadId ? { ...l, sequence_status: 'booked' } : l
-          )
-        );
+      if (res.ok) {
+        const data = await res.json();
+        setLeadEvents(data.events || []);
       }
-      setShowCallModal(null);
-      setCallResult('');
-      setCallNotes('');
-    } catch {
-      setError('Anruf konnte nicht gespeichert werden.');
-    } finally {
-      setSavingCall(false);
-    }
+    } catch { /* */ }
+    setDetailLoading(false);
   };
 
-  const getStepLabel = (step: number, type: string) => {
-    const maxSteps = type === 'inbound' ? 4 : 5;
-    return `Schritt ${step} / ${maxSteps}`;
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return (
-          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-            Aktiv
-          </span>
-        );
-      case 'completed':
-        return (
-          <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-            Abgeschlossen
-          </span>
-        );
-      case 'stopped':
-        return (
-          <span className="inline-flex items-center rounded-full bg-[#1A1A1A] px-2.5 py-0.5 text-xs font-medium text-gray-800">
-            Gestoppt
-          </span>
-        );
-      case 'booked':
-        return (
-          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-            Termin gebucht
-          </span>
-        );
-      case 'replied':
-        return (
-          <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
-            Antwort erhalten
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center rounded-full bg-[#1A1A1A] px-2.5 py-0.5 text-xs font-medium text-[#aaa]">
-            {status}
-          </span>
-        );
-    }
-  };
+  const sectors = ['immobilien', 'handwerk', 'bauunternehmen', 'allgemein', 'inbound'];
 
   return (
-    <div className="space-y-6">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        {/* Sector filter */}
-        <div className="flex gap-1 bg-[#111] rounded-lg border border-[#1E1E1E] p-1">
-          {SECTOR_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setSectorFilter(tab.value)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                sectorFilter === tab.value
-                  ? 'bg-[#2563EB] text-white'
-                  : 'text-[#aaa] hover:bg-[#1A1A1A]'
-              }`}
-            >
-              {tab.label}
+    <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+      {/* ── Sector Overview Cards ──────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }} className="sector-grid">
+        {sectors.map(s => {
+          const st = sectorStats[s] || { active: 0, totalStep: 0, count: 0 };
+          const avgStep = st.count > 0 ? (st.totalStep / st.count).toFixed(1) : '0';
+          return (
+            <button key={s} onClick={() => setSectorFilter(sectorFilter === s ? 'all' : s)}
+              style={{
+                background: sectorFilter === s ? `${SECTOR_COLORS[s]}20` : '#111',
+                border: `1px solid ${sectorFilter === s ? SECTOR_COLORS[s] : '#1E1E1E'}`,
+                borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'left',
+                borderTop: `3px solid ${SECTOR_COLORS[s]}`,
+              }}>
+              <p style={{ fontSize: 12, color: SECTOR_COLORS[s], fontWeight: 600, margin: '0 0 6px' }}>{SECTOR_LABELS[s]}</p>
+              <p style={{ fontSize: 22, fontWeight: 700, color: '#F0F0F5', margin: '0 0 4px' }}>{st.active}</p>
+              <p style={{ fontSize: 11, color: '#555', margin: 0 }}>aktiv · Ø Step {avgStep}</p>
             </button>
-          ))}
-        </div>
-
-        {/* Status filter */}
-        <div className="flex gap-1 bg-[#111] rounded-lg border border-[#1E1E1E] p-1">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setStatusFilter(tab.value)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                statusFilter === tab.value
-                  ? 'bg-[#1E3A5F] text-white'
-                  : 'text-[#aaa] hover:bg-[#1A1A1A]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-4">
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
+      {/* ── Filters ───────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input type="text" placeholder="Suche nach Name, Firma..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 8, padding: '7px 14px', fontSize: 13, color: '#ccc', width: 220 }} />
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 8, padding: '7px 12px', fontSize: 12, color: '#ccc' }}>
+          <option value="all">Alle Status</option>
+          <option value="active">Aktiv</option>
+          <option value="completed">Abgeschlossen</option>
+        </select>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
+          style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 8, padding: '7px 12px', fontSize: 12, color: '#ccc' }}>
+          <option value="lead_score">Score (höchste)</option>
+          <option value="name">Name</option>
+          <option value="step">Step</option>
+          <option value="enrolled">Enrolled</option>
+        </select>
+        <span style={{ fontSize: 12, color: '#555', marginLeft: 'auto' }}>{filtered.length} Leads</span>
+      </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-5 animate-pulse"
-            >
-              <div className="h-4 bg-[#1E1E1E] rounded w-32 mb-3" />
-              <div className="h-3 bg-[#1E1E1E] rounded w-48 mb-2" />
-              <div className="h-3 bg-[#1E1E1E] rounded w-24 mb-4" />
-              <div className="h-2 bg-[#1E1E1E] rounded w-full" />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Cards */}
-      {!loading && leads.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...leads].sort((a, b) => (b.lead_score || 0) - (a.lead_score || 0)).map((lead) => (
-            <div
-              key={lead.id}
-              className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-5 flex flex-col gap-3"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    {lead.first_name} {lead.last_name}
-                  </h3>
-                  <p className="text-xs text-[#888]">{lead.company}</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {getStatusBadge(lead.sequence_status)}
-                  {lead.lead_score > 0 && (
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      lead.lead_score >= 30 ? 'bg-orange-100 text-orange-800' : 'bg-[#1A1A1A] text-[#aaa]'
-                    }`}>
-                      {lead.lead_score} Punkte
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-1 text-sm text-[#aaa]">
-                <p>
-                  <span className="font-medium text-[#F0F0F5]">Typ:</span>{' '}
-                  {lead.sequence_type}
-                </p>
-                <p>
-                  <span className="font-medium text-[#F0F0F5]">Fortschritt:</span>{' '}
-                  {getStepLabel(lead.sequence_step, lead.sequence_type)}
-                </p>
-                {lead.enrolled_at && (
-                  <p>
-                    <span className="font-medium text-[#F0F0F5]">Gestartet:</span>{' '}
-                    {new Date(lead.enrolled_at).toLocaleDateString('de-DE')}
-                  </p>
-                )}
-              </div>
-
-              {/* Progress bar */}
-              <div className="w-full bg-[#1A1A1A] rounded-full h-2">
-                <div
-                  className="bg-[#2563EB] h-2 rounded-full transition-all"
-                  style={{
-                    width: `${(lead.sequence_step / (lead.sequence_type === 'inbound' ? 4 : 5)) * 100}%`,
-                  }}
-                />
-              </div>
-
-              {lead.sequence_status === 'active' && (
-                <div className="mt-auto flex flex-col gap-2">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleBooked(lead.id)}
-                      disabled={bookingId === lead.id}
-                      className="flex-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {bookingId === lead.id ? 'Wird gespeichert...' : 'Termin gebucht'}
-                    </button>
-                    <button
-                      onClick={() => openCallModal(lead.id)}
-                      className="flex-1 rounded-md border border-[#2563EB] bg-[#111] px-3 py-1.5 text-sm font-medium text-[#2563EB] hover:bg-blue-50 transition-colors"
-                    >
-                      Anruf erfassen
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => handleMarkReplied(lead.id)}
-                    disabled={markingReplyId === lead.id}
-                    className="w-full rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {markingReplyId === lead.id ? 'Wird markiert...' : 'Als beantwortet markieren'}
-                  </button>
-                  <button
-                    onClick={() => openStopModal(lead.id)}
-                    className="w-full rounded-md border border-red-300 bg-[#111] px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    Sequenz stoppen
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && leads.length === 0 && (
-        <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-12 text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-[#555]"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <p className="mt-3 text-sm text-[#888]">
-            Keine Sequenzen für die ausgewählten Filter gefunden.
-          </p>
-        </div>
-      )}
-
-      {/* Stop Modal */}
-      {showStopModal !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-[#111] rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-[#F0F0F5] mb-4">
-              Sequenz stoppen
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#ccc] mb-1">
-                  Grund <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={stopReason}
-                  onChange={(e) => setStopReason(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
-                >
-                  <option value="">Bitte wählen...</option>
-                  {STOP_REASONS.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
+      {/* ── Lead Table ────────────────────────────────────────────────── */}
+      <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center' }}>
+            <div style={{ width: 28, height: 28, border: '3px solid #1E1E1E', borderTopColor: CORAL, borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+            <p style={{ fontSize: 13, color: '#888' }}>Lade Sequenzen...</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : filtered.length === 0 ? (
+          <p style={{ padding: 40, textAlign: 'center', color: '#555', fontSize: 14 }}>Keine Leads gefunden.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #1E1E1E' }}>
+                  {['Name', 'Firma', 'Branche', 'Step', 'Status', 'Score', 'Enrolled', 'Aktionen'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                   ))}
-                </select>
-              </div>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(lead => {
+                  const status = STATUS_CONFIG[lead.sequence_status] || STATUS_CONFIG.none;
+                  const stepPct = Math.min((lead.sequence_step / MAX_STEPS) * 100, 100);
+                  const scoreColor = lead.lead_score >= 80 ? CORAL : lead.lead_score >= 50 ? '#EAB308' : '#555';
+                  return (
+                    <tr key={lead.id} style={{ borderBottom: '1px solid #1E1E1E', cursor: 'pointer' }}
+                      onClick={() => openDetail(lead)}
+                      onMouseEnter={e => e.currentTarget.style.background = '#1A1A1A'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ fontWeight: 600, color: '#F0F0F5' }}>{lead.first_name} {lead.last_name}</span>
+                        {lead.title && <p style={{ fontSize: 11, color: '#888', margin: '2px 0 0' }}>{lead.title}</p>}
+                      </td>
+                      <td style={{ padding: '10px 14px', color: '#ccc' }}>{lead.company || '–'}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: `${SECTOR_COLORS[lead.sequence_type] || '#555'}20`, color: SECTOR_COLORS[lead.sequence_type] || '#888', fontWeight: 600 }}>
+                          {SECTOR_LABELS[lead.sequence_type] || lead.sequence_type}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ width: 60, height: 6, background: '#1E1E1E', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${stepPct}%`, background: SECTOR_COLORS[lead.sequence_type] || '#888', borderRadius: 3 }} />
+                          </div>
+                          <span style={{ fontSize: 11, color: '#888' }}>{lead.sequence_step}/{MAX_STEPS}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: status.bg, color: status.color, fontWeight: 600 }}>
+                          {status.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', border: `2px solid ${scoreColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: scoreColor }}>{lead.lead_score || 0}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '10px 14px', color: '#888', fontSize: 12 }}>
+                        {lead.enrolled_at ? timeAgo(lead.enrolled_at) : '–'}
+                      </td>
+                      <td style={{ padding: '10px 14px' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <a href={`mailto:${lead.email}`} title="Email" style={{ fontSize: 14, textDecoration: 'none' }}>✉️</a>
+                          {lead.linkedin_url && <a href={lead.linkedin_url} target="_blank" rel="noreferrer" title="LinkedIn" style={{ fontSize: 14, textDecoration: 'none' }}>🔗</a>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-              {stopReason === 'other' && (
-                <div>
-                  <label className="block text-sm font-medium text-[#ccc] mb-1">
-                    Details
-                  </label>
-                  <textarea
-                    value={stopDetails}
-                    onChange={(e) => setStopDetails(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none resize-none"
-                    placeholder="Bitte beschreiben Sie den Grund..."
-                  />
+      {/* ── Detail Modal ──────────────────────────────────────────────── */}
+      {selectedLead && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => setSelectedLead(null)}>
+          <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 16, width: '100%', maxWidth: 700, maxHeight: '80vh', overflowY: 'auto', padding: 24 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>{selectedLead.first_name} {selectedLead.last_name}</h2>
+                <p style={{ fontSize: 13, color: '#888', margin: '4px 0 0' }}>{selectedLead.company} · {selectedLead.title} · {selectedLead.email}</p>
+              </div>
+              <button onClick={() => setSelectedLead(null)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 24, cursor: 'pointer' }}>×</button>
+            </div>
+
+            {/* Lead info grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
+              {[
+                { label: 'Score', value: selectedLead.lead_score || 0, color: selectedLead.lead_score >= 80 ? CORAL : selectedLead.lead_score >= 50 ? '#EAB308' : '#555' },
+                { label: 'Sequenz', value: SECTOR_LABELS[selectedLead.sequence_type] || '–' },
+                { label: 'Step', value: `${selectedLead.sequence_step}/${MAX_STEPS}` },
+                { label: 'Status', value: (STATUS_CONFIG[selectedLead.sequence_status] || STATUS_CONFIG.none).label },
+              ].map((item, i) => (
+                <div key={i} style={{ background: '#0A0A0A', borderRadius: 8, padding: 12, border: '1px solid #1E1E1E' }}>
+                  <p style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', margin: '0 0 4px' }}>{item.label}</p>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: (item as any).color || '#F0F0F5', margin: 0 }}>{item.value}</p>
                 </div>
+              ))}
+            </div>
+
+            {/* Event Timeline */}
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#555', textTransform: 'uppercase', marginBottom: 8 }}>Sequenz-Timeline</p>
+            <div style={{ background: '#0A0A0A', borderRadius: 8, padding: 14, border: '1px solid #1E1E1E', maxHeight: 250, overflowY: 'auto', marginBottom: 16 }}>
+              {detailLoading ? (
+                <p style={{ fontSize: 13, color: '#888', textAlign: 'center' }}>Lade...</p>
+              ) : leadEvents.length === 0 ? (
+                <p style={{ fontSize: 13, color: '#555' }}>Keine Events.</p>
+              ) : leadEvents.map((e: any, i: number) => {
+                const eventColors: Record<string, string> = { sent: '#888', opened: '#22C55E', clicked: '#3B82F6', replied: '#8B5CF6', bounced: '#EF4444', failed: '#EF4444' };
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < leadEvents.length - 1 ? '1px solid #1E1E1E' : 'none' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: eventColors[e.event_type] || '#555', flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: '#ccc', fontWeight: 500 }}>{e.event_type}</span>
+                    <span style={{ fontSize: 11, color: '#555' }}>Step {e.step_number} · {e.sequence_type}</span>
+                    <span style={{ fontSize: 11, color: '#555', marginLeft: 'auto' }}>{timeAgo(e.created_at)}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <a href={`mailto:${selectedLead.email}`}
+                style={{ flex: 1, textAlign: 'center', padding: '10px', background: '#1E1E1E', borderRadius: 8, color: '#ccc', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+                ✉️ Email senden
+              </a>
+              {selectedLead.linkedin_url && (
+                <a href={selectedLead.linkedin_url} target="_blank" rel="noreferrer"
+                  style={{ flex: 1, textAlign: 'center', padding: '10px', background: '#1E1E1E', borderRadius: 8, color: '#ccc', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+                  🔗 LinkedIn öffnen
+                </a>
               )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={handleStopConfirm}
-                  disabled={!stopReason || stoppingId === showStopModal}
-                  className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {stoppingId === showStopModal
-                    ? 'Wird gestoppt...'
-                    : 'Sequenz stoppen'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowStopModal(null);
-                    setStopReason('');
-                    setStopDetails('');
-                  }}
-                  className="flex-1 rounded-md border border-gray-300 bg-[#111] px-4 py-2 text-sm font-medium text-[#ccc] hover:bg-[#0A0A0A] transition-colors"
-                >
-                  Abbrechen
-                </button>
-              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Call Modal */}
-      {showCallModal !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-[#111] rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-[#F0F0F5] mb-4">
-              Anruf erfassen
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#ccc] mb-1">
-                  Datum/Uhrzeit
-                </label>
-                <input
-                  type="datetime-local"
-                  value={callDateTime}
-                  onChange={(e) => setCallDateTime(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#ccc] mb-1">
-                  Ergebnis <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={callResult}
-                  onChange={(e) => setCallResult(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
-                >
-                  <option value="">Bitte wählen...</option>
-                  <option value="reached">Erreicht</option>
-                  <option value="not_reached">Nicht erreicht</option>
-                  <option value="voicemail">Voicemail</option>
-                  <option value="appointment">Termin vereinbart</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#ccc] mb-1">
-                  Notiz
-                </label>
-                <textarea
-                  value={callNotes}
-                  onChange={(e) => setCallNotes(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none resize-none"
-                  placeholder="Notizen zum Anruf..."
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={handleCallSave}
-                  disabled={!callResult || savingCall}
-                  className="flex-1 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {savingCall ? 'Wird gespeichert...' : 'Anruf speichern'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCallModal(null);
-                    setCallResult('');
-                    setCallNotes('');
-                  }}
-                  className="flex-1 rounded-md border border-gray-300 bg-[#111] px-4 py-2 text-sm font-medium text-[#ccc] hover:bg-[#0A0A0A] transition-colors"
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <style>{`
+        @media (max-width: 768px) { .sector-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+      `}</style>
     </div>
   );
 }

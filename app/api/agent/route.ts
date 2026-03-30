@@ -154,6 +154,32 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ leads: rows, count: rows.length });
       }
 
+      case 'instructions': {
+        const rows = await sql`
+          SELECT * FROM manager_instructions
+          WHERE status = 'unread'
+          ORDER BY created_at DESC
+          LIMIT 20
+        `;
+        return NextResponse.json({ instructions: rows, count: rows.length });
+      }
+
+      case 'linkedin-queue': {
+        const status = searchParams.get('status') ?? 'ready';
+        const rows = await sql`
+          SELECT lq.*,
+            l.first_name AS lead_first_name, l.last_name AS lead_last_name, l.company AS lead_company,
+            p.company AS partner_company, p.contact_name AS partner_contact_name
+          FROM linkedin_queue lq
+          LEFT JOIN leads l ON l.id = lq.lead_id
+          LEFT JOIN partners p ON p.id = lq.partner_id
+          WHERE lq.status = ${status}
+          ORDER BY lq.created_at DESC
+          LIMIT 100
+        `;
+        return NextResponse.json({ queue: rows, count: rows.length });
+      }
+
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
@@ -172,7 +198,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { type, payload } = body as {
-      type: 'decision' | 'log' | 'report' | 'partner';
+      type: 'decision' | 'log' | 'report' | 'partner' | 'linkedin_message' | 'instruction_response';
       payload: Record<string, unknown>;
     };
 
@@ -200,6 +226,15 @@ export async function POST(req: NextRequest) {
           )
           RETURNING id
         `;
+        // If Outreach Strategist sends a personalized email, mark the lead
+        if (payload.agent_name === 'outreach_strategist' && payload.decision_type === 'send_email' && payload.subject_email) {
+          await sql`UPDATE leads SET outreach_source = 'agent_personalized' WHERE email = ${payload.subject_email as string}`;
+        }
+        // If agent prepares a LinkedIn message, mark the lead
+        if (payload.decision_type === 'prepare_linkedin' && payload.subject_email) {
+          await sql`UPDATE leads SET linkedin_source = 'agent_prepared' WHERE email = ${payload.subject_email as string}`;
+        }
+
         return NextResponse.json({ ok: true, id: rows[0].id });
       }
 
@@ -257,6 +292,30 @@ export async function POST(req: NextRequest) {
             linkedin_url = COALESCE(EXCLUDED.linkedin_url, partners.linkedin_url),
             category = COALESCE(EXCLUDED.category, partners.category),
             tier = COALESCE(EXCLUDED.tier, partners.tier)
+          RETURNING id
+        `;
+        return NextResponse.json({ ok: true, id: rows[0].id });
+      }
+
+      case 'instruction_response': {
+        await sql`
+          UPDATE manager_instructions
+          SET status = 'actioned', response = ${payload.response as string}, read_at = NOW()
+          WHERE id = ${payload.instruction_id as number}
+        `;
+        return NextResponse.json({ ok: true });
+      }
+
+      case 'linkedin_message': {
+        const rows = await sql`
+          INSERT INTO linkedin_queue (lead_id, partner_id, source, connection_message, follow_up_message)
+          VALUES (
+            ${payload.lead_id as number ?? null},
+            ${payload.partner_id as number ?? null},
+            ${payload.source as string ?? 'agent'},
+            ${payload.connection_message as string},
+            ${payload.follow_up_message as string ?? null}
+          )
           RETURNING id
         `;
         return NextResponse.json({ ok: true, id: rows[0].id });

@@ -30,15 +30,15 @@ function getSenderForSequence(sequenceType: string, leadId?: number): { email: s
   switch (sequenceType) {
     case 'immobilien':
       return {
-        email: process.env.BREVO_SENDER_IMMOBILIEN_EMAIL || 'hertle.anjuli@praxisnovaai.com',
+        email: process.env.BREVO_SENDER_IMMOBILIEN_EMAIL || 'info@praxisnovaai.com',
         name: process.env.BREVO_SENDER_IMMOBILIEN_NAME || 'Anjuli Hertle',
         title: 'CEO &amp; Head of Sales',
       };
     case 'handwerk':
       return {
-        email: process.env.BREVO_SENDER_HANDWERK_EMAIL || 'info@praxisnovaai.com',
-        name: process.env.BREVO_SENDER_HANDWERK_NAME || 'Anjuli Hertle',
-        title: 'CEO &amp; Head of Sales',
+        email: process.env.BREVO_SENDER_HANDWERK_EMAIL || 'meyer.samantha@praxisnovaai.com',
+        name: process.env.BREVO_SENDER_HANDWERK_NAME || 'Samantha Meyer',
+        title: 'Head of Process Automation',
       };
     case 'bauunternehmen':
       return {

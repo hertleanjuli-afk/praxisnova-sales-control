@@ -329,6 +329,37 @@ export async function initializeDatabase(): Promise<void> {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_agent_reports_team ON agent_reports(team)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_agent_reports_date ON agent_reports(created_at)`;
+
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS outreach_source TEXT DEFAULT 'automation'`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_source TEXT DEFAULT 'manual'`;
+  await sql`ALTER TABLE partners ADD COLUMN IF NOT EXISTS outreach_source TEXT DEFAULT 'agent_personalized'`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS linkedin_queue (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER REFERENCES leads(id),
+      partner_id INTEGER REFERENCES partners(id),
+      source TEXT NOT NULL DEFAULT 'agent',
+      connection_message TEXT NOT NULL,
+      follow_up_message TEXT,
+      status TEXT DEFAULT 'ready',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      sent_at TIMESTAMPTZ
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_linkedin_queue_status ON linkedin_queue(status)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS manager_instructions (
+      id SERIAL PRIMARY KEY,
+      from_human BOOLEAN DEFAULT TRUE,
+      message TEXT NOT NULL,
+      status TEXT DEFAULT 'unread',
+      response TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      read_at TIMESTAMPTZ
+    )
+  `;
 }
 
 export interface Lead {

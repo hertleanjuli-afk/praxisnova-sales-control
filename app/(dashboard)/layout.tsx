@@ -3,11 +3,11 @@
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 const tiktokEnabled = process.env.NEXT_PUBLIC_TIKTOK_MODULE_ENABLED === 'true';
 
-interface NavGroup { title: string; items: { label: string; href: string; emoji: string; tiktokOnly?: boolean }[] }
+interface NavGroup { title: string; items: { label: string; href: string; emoji: string; tiktokOnly?: boolean; badgeKey?: string }[] }
 
 const navGroups: NavGroup[] = [
   {
@@ -23,6 +23,7 @@ const navGroups: NavGroup[] = [
       { label: 'Eingehende Leads', href: '/inbound', emoji: '📥' },
       { label: 'Sequenzen', href: '/sequences', emoji: '👥' },
       { label: 'LinkedIn', href: '/linkedin', emoji: '🔗' },
+      { label: 'LinkedIn Warteschlange', href: '/linkedin-queue', emoji: '💬', badgeKey: 'linkedinQueue' },
     ],
   },
   {
@@ -36,6 +37,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'Verwaltung',
     items: [
+      { label: 'Agent-Metriken', href: '/agent-metrics', emoji: '🤖' },
       { label: 'Berichte', href: '/reports', emoji: '📋' },
       { label: 'Change Log', href: '/changelog', emoji: '📝' },
       { label: 'Abmeldungen', href: '/unsubscribes', emoji: '🚫' },
@@ -50,6 +52,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard', '/leads': 'Lead-Suche', '/sequences': 'Sequenzen',
   '/inbound': 'Eingehende Leads', '/linkedin': 'LinkedIn', '/website-clicks': 'Website-Klicks', '/email-tracking': 'Email-Tracking',
   '/unsubscribes': 'Abmeldungen', '/analytics': 'Analytics', '/changelog': 'Change Log',
+  '/linkedin-queue': 'LinkedIn Warteschlange', '/agent-metrics': 'Agent-Metriken',
   '/reports': 'Berichte', '/errors': 'Fehler-Log', '/settings': 'Einstellungen', '/ads': 'TikTok / Ads',
 };
 
@@ -57,10 +60,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const [badges, setBadges] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login');
   }, [status, router]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    fetch('/api/linkedin/queue?status=ready')
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(d => setBadges(prev => ({ ...prev, linkedinQueue: d.count ?? 0 })))
+      .catch(() => {});
+  }, [status]);
 
   if (status === 'loading') {
     return (
@@ -119,7 +131,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                     >
                       <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.emoji}</span>
-                      {item.label}
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {item.badgeKey && badges[item.badgeKey] > 0 && (
+                        <span style={{ fontSize: 10, fontWeight: 700, background: '#E8472A', color: 'white', borderRadius: 10, padding: '2px 6px', minWidth: 18, textAlign: 'center' }}>
+                          {badges[item.badgeKey]}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

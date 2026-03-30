@@ -80,6 +80,152 @@ const ACTIVITY_CONFIG: Record<string, { label: string; color: string; bg: string
   new_lead: { label: 'Neue Anfrage', color: '#EAB308', bg: '#EAB30820' },
 };
 
+// ── Manager Widget ───────────────────────────────────────────────────────
+function ManagerWidget() {
+  const [msg, setMsg] = useState('');
+  const [sending, setSending] = useState(false);
+  const [instructions, setInstructions] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/manager-instructions');
+      if (res.ok) {
+        const json = await res.json();
+        setInstructions(json.instructions ?? []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const send = async () => {
+    if (!msg.trim() || sending) return;
+    setSending(true);
+    try {
+      await fetch('/api/manager-instructions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg }),
+      });
+      setMsg('');
+      await load();
+    } catch { /* ignore */ }
+    setSending(false);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 20, right: 20, zIndex: 1000,
+      width: open ? 360 : 'auto',
+    }}>
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          style={{
+            background: '#E8472A', color: '#fff', border: 'none', borderRadius: '50%',
+            width: 52, height: 52, fontSize: 22, cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(232,71,42,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          💬
+        </button>
+      )}
+      {open && (
+        <div style={{
+          background: '#0A0A0A', border: '1px solid #1E1E1E', borderRadius: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)', overflow: 'hidden',
+        }}>
+          {/* Header */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '12px 16px', borderBottom: '1px solid #1E1E1E',
+          }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#F0F0F5' }}>
+              💬 Nachricht an Manager
+            </span>
+            <button
+              onClick={() => setOpen(false)}
+              style={{
+                background: 'transparent', border: 'none', color: '#888',
+                cursor: 'pointer', fontSize: 18, lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Input */}
+          <div style={{ padding: 12 }}>
+            <textarea
+              value={msg}
+              onChange={(e) => setMsg(e.target.value)}
+              placeholder="Schreib dem Manager eine Anweisung..."
+              rows={3}
+              style={{
+                width: '100%', background: '#111', border: '1px solid #1E1E1E',
+                borderRadius: 8, padding: 10, color: '#F0F0F5', fontSize: 13,
+                resize: 'none', outline: 'none', fontFamily: 'inherit',
+                boxSizing: 'border-box',
+              }}
+              onFocus={(e) => { e.target.style.borderColor = '#E8472A'; }}
+              onBlur={(e) => { e.target.style.borderColor = '#1E1E1E'; }}
+            />
+            <button
+              onClick={send}
+              disabled={sending || !msg.trim()}
+              style={{
+                marginTop: 8, width: '100%', padding: '8px 0',
+                background: sending || !msg.trim() ? '#333' : '#E8472A',
+                color: '#fff', border: 'none', borderRadius: 8,
+                fontSize: 13, fontWeight: 600, cursor: sending || !msg.trim() ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {sending ? 'Sende...' : 'Senden'}
+            </button>
+          </div>
+
+          {/* Recent instructions */}
+          {instructions.length > 0 && (
+            <div style={{ padding: '0 12px 12px', maxHeight: 200, overflowY: 'auto' }}>
+              <p style={{ fontSize: 11, color: '#888', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Letzte Nachrichten
+              </p>
+              {instructions.slice(0, 3).map((inst: any) => (
+                <div key={inst.id} style={{
+                  padding: '8px 10px', background: '#111', borderRadius: 8,
+                  border: '1px solid #1E1E1E', marginBottom: 6,
+                }}>
+                  <p style={{ fontSize: 12, color: '#F0F0F5', margin: 0, lineHeight: 1.4 }}>{inst.message}</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                    <span style={{
+                      fontSize: 10, padding: '1px 6px', borderRadius: 4,
+                      background: inst.status === 'actioned' ? '#22C55E20' : inst.status === 'unread' ? '#EAB30820' : '#88888820',
+                      color: inst.status === 'actioned' ? '#22C55E' : inst.status === 'unread' ? '#EAB308' : '#888',
+                      fontWeight: 600,
+                    }}>
+                      {inst.status === 'actioned' ? 'Erledigt' : inst.status === 'unread' ? 'Ungelesen' : inst.status}
+                    </span>
+                    <span style={{ fontSize: 10, color: '#555' }}>
+                      {new Date(inst.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  {inst.response && (
+                    <p style={{ fontSize: 11, color: '#22C55E', margin: '6px 0 0', fontStyle: 'italic' }}>
+                      ↳ {inst.response}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -396,6 +542,8 @@ export default function DashboardPage() {
           .action-grid, .charts-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
+
+      <ManagerWidget />
     </div>
   );
 }

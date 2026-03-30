@@ -69,6 +69,20 @@ curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=720&agent=partner_researcher'
 ```
 
+**Schritt 4 — Manager-Anweisungen lesen:**
+```bash
+curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
+  'https://praxisnova-sales-control.vercel.app/api/agent?action=instructions'
+```
+Wenn Anweisungen vorhanden: In Phase 2 verarbeiten und in Phase 3 im Briefing unter "📝 Manager-Anweisungen" erwähnen.
+Nach Verarbeitung: Antwort schreiben:
+```bash
+curl -s -X POST -H 'Content-Type: application/json' \
+  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
+  'https://praxisnova-sales-control.vercel.app/api/agent' \
+  -d '{"type": "instruction_response", "payload": {"instruction_id": [ID], "response": "[Antwort auf Deutsch]"}}'
+```
+
 ---
 
 ### Phase 2: Analyse
@@ -235,10 +249,24 @@ curl -s -X POST -H 'Content-Type: application/json' \
       </p>
     </div>
 
+    <!-- MANAGER-ANWEISUNGEN (nur wenn vorhanden) -->
+    <!--
+    <h2 style="font-size: 16px; color: #0A0A0A; border-bottom: 2px solid #E8472A; padding-bottom: 8px; margin-top: 24px;">
+      📝 Manager-Anweisungen
+    </h2>
+    <ul style="padding-left: 20px; line-height: 1.8;">
+      <li><strong>Anweisung:</strong> [Text] → <strong>Status:</strong> [Verarbeitet/Umgesetzt]</li>
+    </ul>
+    -->
+
   </div>
 
   <div style="background: #0A0A0A; color: white; padding: 16px; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; opacity: 0.8;">
     PraxisNova AI — Automatisch generiert vom Operations Manager
+    <p style="margin: 8px 0 0; font-size: 12px;">
+      Antworten? Schreib direkt im Sales Control Center:<br/>
+      <a href="https://praxisnova-sales-control.vercel.app/dashboard" style="color: #E8472A;">Dashboard → Nachricht an Manager</a>
+    </p>
   </div>
 
 </div>

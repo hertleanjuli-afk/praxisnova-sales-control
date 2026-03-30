@@ -1,20 +1,17 @@
 /**
- * Agent Briefing Email Sender
- *
- * Accepts HTML briefing content from the Operations Manager agent
- * and sends it via Brevo transactional email to Angie.
+ * Agent Email Sender — unified endpoint for all agent-sent emails
  *
  * POST /api/agent/send-briefing
  * Headers: x-agent-secret: <CRON_SECRET>
- * Body: { subject: string, html: string, recipient?: string }
+ * Body: { subject, html, recipient?, sender_email?, sender_name?, tags? }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTransactionalEmail } from '@/lib/brevo';
 
 const DEFAULT_RECIPIENT = 'hertle.anjuli@praxisnovaai.com';
-const SENDER_EMAIL = 'info@praxisnovaai.com';
-const SENDER_NAME = 'PraxisNova AI Ops Manager';
+const DEFAULT_SENDER_EMAIL = 'info@praxisnovaai.com';
+const DEFAULT_SENDER_NAME = 'PraxisNova AI';
 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-agent-secret');
@@ -24,10 +21,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { subject, html, recipient } = body as {
+    const { subject, html, recipient, sender_email, sender_name, tags } = body as {
       subject: string;
       html: string;
       recipient?: string;
+      sender_email?: string;
+      sender_name?: string;
+      tags?: string[];
     };
 
     if (!subject || !html) {
@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
       to: recipient || DEFAULT_RECIPIENT,
       subject,
       htmlContent: html,
-      senderEmail: SENDER_EMAIL,
-      senderName: SENDER_NAME,
-      tags: ['ops-briefing'],
+      senderEmail: sender_email || DEFAULT_SENDER_EMAIL,
+      senderName: sender_name || DEFAULT_SENDER_NAME,
+      tags: tags || ['agent-email'],
     });
 
     if (result.success) {

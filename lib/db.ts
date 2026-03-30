@@ -251,6 +251,84 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_no_profile_date TIMESTAMPTZ`;
   // Mark existing Apollo leads
   await sql`UPDATE leads SET source = 'apollo' WHERE apollo_id IS NOT NULL AND (source IS NULL OR source = 'manual')`;
+  // Agent-required lead fields
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS website_url TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS agent_score INTEGER`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS agent_scored_at TIMESTAMPTZ`;
+
+  // ── Agent System Tables ──────────────────────────────────────────────────
+  // Partners table (separate from leads — different scoring, different pipeline)
+  await sql`
+    CREATE TABLE IF NOT EXISTS partners (
+      id SERIAL PRIMARY KEY,
+      company TEXT NOT NULL,
+      website TEXT,
+      email TEXT,
+      contact_name TEXT,
+      contact_title TEXT,
+      linkedin_url TEXT,
+      category TEXT,
+      tier INTEGER,
+      status TEXT DEFAULT 'identified',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_partners_company ON partners(company)`;
+
+  // Agent decisions — every scored qualification or outreach plan
+  await sql`
+    CREATE TABLE IF NOT EXISTS agent_decisions (
+      id SERIAL PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      agent_name TEXT NOT NULL,
+      decision_type TEXT NOT NULL,
+      subject_type TEXT NOT NULL,
+      subject_id INTEGER,
+      subject_email TEXT,
+      subject_company TEXT,
+      score INTEGER,
+      reasoning TEXT,
+      data_payload JSONB,
+      status TEXT DEFAULT 'pending',
+      reviewed_by TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_agent_decisions_run ON agent_decisions(run_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_agent_decisions_agent ON agent_decisions(agent_name)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_agent_decisions_date ON agent_decisions(created_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_agent_decisions_status ON agent_decisions(status)`;
+
+  // Agent logs — operational trace of every agent action
+  await sql`
+    CREATE TABLE IF NOT EXISTS agent_logs (
+      id SERIAL PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      agent_name TEXT NOT NULL,
+      action TEXT NOT NULL,
+      status TEXT NOT NULL,
+      details JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_agent_logs_run ON agent_logs(run_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_logs(agent_name)`;
+
+  // Agent reports — supervisor and operations manager reports
+  await sql`
+    CREATE TABLE IF NOT EXISTS agent_reports (
+      id SERIAL PRIMARY KEY,
+      team TEXT NOT NULL,
+      report_type TEXT NOT NULL,
+      summary TEXT,
+      metrics JSONB,
+      recommendations TEXT,
+      flagged_items JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_agent_reports_team ON agent_reports(team)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_agent_reports_date ON agent_reports(created_at)`;
 }
 
 export interface Lead {

@@ -1,188 +1,122 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
-interface InboundLead {
-  id: number;
-  first_name: string;
-  last_name: string;
-  company: string;
-  email: string;
-  title: string;
-  sequence_status: string;
-  sequence_step: number;
-  enrolled_at: string;
+const CORAL = '#E8472A';
+const STATUS_CONFIG: Record<string, { label: string; icon: string; color: string; bg: string }> = {
+  pending_optin: { label: 'Wartend', icon: '🟡', color: '#EAB308', bg: '#EAB30820' },
+  active: { label: 'In Sequenz', icon: '🔵', color: '#3B82F6', bg: '#3B82F620' },
+  none: { label: 'Bestätigt', icon: '🟢', color: '#22C55E', bg: '#22C55E20' },
+  completed: { label: 'Abgeschlossen', icon: '✅', color: '#22C55E', bg: '#22C55E20' },
+  replied: { label: 'Beantwortet', icon: '💬', color: '#8B5CF6', bg: '#8B5CF620' },
+  booked: { label: 'Gebucht', icon: '📅', color: '#EAB308', bg: '#EAB30820' },
+};
+
+function timeAgo(d: string | null): string {
+  if (!d) return '–';
+  const min = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+  if (min < 60) return `vor ${min} Min.`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `vor ${h} Std.`;
+  return `vor ${Math.floor(h / 24)} T.`;
+}
+
+interface Lead {
+  id: number; first_name: string; last_name: string; company: string; email: string;
+  title: string; sequence_status: string; sequence_step: number; enrolled_at: string;
+  created_at: string; source: string; lead_score: number;
 }
 
 export default function InboundPage() {
-  const [leads, setLeads] = useState<InboundLead[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
-  useEffect(() => {
-    async function fetchInbound() {
-      try {
-        const res = await fetch('/api/sequences/status?sector=inbound');
-        if (!res.ok) throw new Error('Fehler');
-        const data = await res.json();
-        setLeads(data.leads ?? []);
-      } catch {
-        setError('Eingehende Leads konnten nicht geladen werden.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchInbound();
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/sequences/status?sector=inbound');
+      if (res.ok) { const d = await res.json(); setLeads(d.leads || []); }
+    } catch { /* */ }
+    setLoading(false);
   }, []);
 
-  const pendingLeads = leads.filter(
-    (l) => l.sequence_status === 'pending' || l.sequence_step === 0
-  );
-  const activeLeads = leads.filter(
-    (l) => l.sequence_status === 'active' && l.sequence_step > 0
-  );
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { const i = setInterval(fetchData, 30000); return () => clearInterval(i); }, [fetchData]);
 
-  const renderLeadCard = (lead: InboundLead) => (
-    <div
-      key={lead.id}
-      className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-5 flex flex-col gap-2"
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900">
-            {lead.first_name} {lead.last_name}
-          </h3>
-          {lead.title && <p className="text-xs text-[#888]">{lead.title}</p>}
-        </div>
-        <span
-          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            lead.sequence_status === 'active'
-              ? 'bg-green-100 text-green-800'
-              : 'bg-yellow-100 text-yellow-800'
-          }`}
-        >
-          {lead.sequence_status === 'active' ? 'Aktiv' : 'Wartend'}
-        </span>
-      </div>
-
-      <div className="space-y-1 text-sm text-[#aaa]">
-        {lead.company && (
-          <p>
-            <span className="font-medium text-[#F0F0F5]">Firma:</span> {lead.company}
-          </p>
-        )}
-        <p>
-          <span className="font-medium text-[#F0F0F5]">Schritt:</span>{' '}
-          {lead.sequence_step} / 4
-        </p>
-        {lead.enrolled_at && (
-          <p>
-            <span className="font-medium text-[#F0F0F5]">Eingegangen:</span>{' '}
-            {new Date(lead.enrolled_at).toLocaleDateString('de-DE')}
-          </p>
-        )}
-      </div>
-
-      {/* Progress bar */}
-      <div className="w-full bg-[#1A1A1A] rounded-full h-1.5 mt-1">
-        <div
-          className="bg-[#2563EB] h-1.5 rounded-full transition-all"
-          style={{ width: `${(lead.sequence_step / 4) * 100}%` }}
-        />
-      </div>
-    </div>
-  );
+  const stats = useMemo(() => ({
+    today: leads.filter(l => new Date(l.created_at || l.enrolled_at).toDateString() === new Date().toDateString()).length,
+    pending: leads.filter(l => l.sequence_status === 'pending_optin').length,
+    inSequence: leads.filter(l => l.sequence_status === 'active').length,
+    converted: leads.filter(l => ['replied', 'booked', 'completed'].includes(l.sequence_status)).length,
+  }), [leads]);
 
   return (
-    <div className="space-y-8">
-      {/* Error */}
-      {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-4">
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
+    <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }} className="kpi-grid">
+        {[
+          { label: 'Neue Anfragen (heute)', value: stats.today, color: CORAL },
+          { label: 'Wartend auf Bestätigung', value: stats.pending, color: '#EAB308' },
+          { label: 'In Sequenz', value: stats.inSequence, color: '#3B82F6' },
+          { label: 'Konvertiert', value: stats.converted, color: '#22C55E' },
+        ].map((kpi, i) => (
+          <div key={i} style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16, borderTop: `3px solid ${kpi.color}` }}>
+            <p style={{ fontSize: 12, color: '#888', margin: '0 0 6px' }}>{kpi.label}</p>
+            <p style={{ fontSize: 24, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>{kpi.value}</p>
+          </div>
+        ))}
+      </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-5 animate-pulse">
-              <div className="h-4 bg-[#1E1E1E] rounded w-32 mb-3" />
-              <div className="h-3 bg-[#1E1E1E] rounded w-48 mb-2" />
-              <div className="h-3 bg-[#1E1E1E] rounded w-24" />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!loading && (
-        <>
-          {/* Pending section */}
-          <section>
-            <h3 className="text-base font-semibold text-[#F0F0F5] mb-4">
-              Warte auf Bestätigung
-              <span className="ml-2 text-sm font-normal text-[#666]">
-                ({pendingLeads.length})
-              </span>
-            </h3>
-            {pendingLeads.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pendingLeads.map(renderLeadCard)}
-              </div>
-            ) : (
-              <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-8 text-center">
-                <p className="text-sm text-[#666]">
-                  Keine wartenden Leads vorhanden.
-                </p>
-              </div>
-            )}
-          </section>
-
-          {/* Active section */}
-          <section>
-            <h3 className="text-base font-semibold text-[#F0F0F5] mb-4">
-              Aktive Sequenzen
-              <span className="ml-2 text-sm font-normal text-[#666]">
-                ({activeLeads.length})
-              </span>
-            </h3>
-            {activeLeads.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeLeads.map(renderLeadCard)}
-              </div>
-            ) : (
-              <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-8 text-center">
-                <p className="text-sm text-[#666]">
-                  Keine aktiven Inbound-Sequenzen.
-                </p>
-              </div>
-            )}
-          </section>
-
-          {/* Global empty state */}
-          {leads.length === 0 && (
-            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-12 text-center">
-              <svg
-                className="mx-auto h-12 w-12 text-[#555]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                />
-              </svg>
-              <p className="mt-3 text-sm text-[#888]">
-                Noch keine eingehenden Leads vorhanden. Leads werden über das
-                Inbound-Webhook automatisch erfasst.
-              </p>
-            </div>
-          )}
-        </>
-      )}
+      {/* Table */}
+      <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center' }}>
+            <div style={{ width: 28, height: 28, border: '3px solid #1E1E1E', borderTopColor: CORAL, borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : leads.length === 0 ? (
+          <p style={{ padding: 40, textAlign: 'center', color: '#555' }}>Keine eingehenden Leads.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #1E1E1E' }}>
+                  {['Status', 'Name', 'Email', 'Firma', 'Quelle', 'Eingegangen', 'Aktionen'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#555', textTransform: 'uppercase' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {leads.map(lead => {
+                  const st = STATUS_CONFIG[lead.sequence_status] || { label: lead.sequence_status, icon: '⚪', color: '#555', bg: '#55555520' };
+                  const isNew = Date.now() - new Date(lead.created_at || lead.enrolled_at).getTime() < 3600000;
+                  return (
+                    <tr key={lead.id} style={{ borderBottom: '1px solid #1E1E1E', borderLeft: isNew ? `3px solid ${CORAL}` : 'none' }}>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: st.bg, color: st.color, fontWeight: 600 }}>
+                          {st.icon} {st.label}
+                        </span>
+                        {isNew && <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: `${CORAL}30`, color: CORAL, fontWeight: 700, marginLeft: 6, animation: 'pulse 2s infinite' }}>NEU</span>}
+                      </td>
+                      <td style={{ padding: '10px 14px', fontWeight: 600, color: '#F0F0F5' }}>{lead.first_name} {lead.last_name}</td>
+                      <td style={{ padding: '10px 14px', color: '#888', fontFamily: 'monospace', fontSize: 12 }}>{lead.email}</td>
+                      <td style={{ padding: '10px 14px', color: '#ccc' }}>{lead.company || '–'}</td>
+                      <td style={{ padding: '10px 14px', color: '#888', fontSize: 12 }}>{lead.source || 'Website'}</td>
+                      <td style={{ padding: '10px 14px', color: '#888', fontSize: 12 }}>{timeAgo(lead.created_at || lead.enrolled_at)}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <a href={`mailto:${lead.email}`} style={{ fontSize: 14, textDecoration: 'none' }} title="Email">✉️</a>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }`}</style>
+      <style>{`@media (max-width: 768px) { .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } }`}</style>
     </div>
   );
 }

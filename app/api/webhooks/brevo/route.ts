@@ -142,7 +142,9 @@ export async function POST(request: NextRequest) {
           SET sequence_status = ${newStatus},
               exited_at = COALESCE(exited_at, NOW()),
               cooldown_until = ${cooldownUntil.toISOString()},
-              reply_sentiment = ${sentiment}
+              reply_sentiment = ${sentiment},
+              signal_email_reply = TRUE,
+              last_signal_at = NOW()
           WHERE id = ${lead.id}
             AND sequence_status NOT IN ('unsubscribed', 'bounced')
         `;
@@ -151,7 +153,9 @@ export async function POST(request: NextRequest) {
           UPDATE leads
           SET sequence_status = ${newStatus},
               exited_at = COALESCE(exited_at, NOW()),
-              cooldown_until = ${cooldownUntil.toISOString()}
+              cooldown_until = ${cooldownUntil.toISOString()},
+              signal_email_reply = CASE WHEN ${eventType} = 'replied' THEN TRUE ELSE signal_email_reply END,
+              last_signal_at = CASE WHEN ${eventType} = 'replied' THEN NOW() ELSE last_signal_at END
           WHERE id = ${lead.id}
             AND sequence_status NOT IN ('unsubscribed', 'bounced')
         `;

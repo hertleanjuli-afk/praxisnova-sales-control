@@ -20,8 +20,8 @@ const sequenceMap: Record<string, SequenceStep[]> = {
 };
 
 // Inbox rotation for allgemein sequence
+// NOTE: hertle.anjuli@praxisnovaai.com is EXCLUDED from automation — reserved for agent-personalized outreach only
 const ALLGEMEIN_SENDERS = [
-  { email: 'hertle.anjuli@praxisnovaai.com', name: 'Anjuli Hertle', title: 'CEO &amp; Head of Sales' },
   { email: 'info@praxisnovaai.com', name: 'Anjuli Hertle', title: 'CEO &amp; Head of Sales' },
   { email: 'meyer.samantha@praxisnovaai.com', name: 'Samantha Meyer', title: 'Head of Process Automation' },
 ];

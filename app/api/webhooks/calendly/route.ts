@@ -31,7 +31,11 @@ export async function POST(request: NextRequest) {
           UPDATE leads SET
             sequence_status = 'booked',
             exited_at = NOW(),
-            cooldown_until = ${cooldownUntil.toISOString()}
+            cooldown_until = ${cooldownUntil.toISOString()},
+            pipeline_stage = 'Booked',
+            pipeline_stage_updated_at = NOW(),
+            signal_email_reply = TRUE,
+            last_signal_at = NOW()
           WHERE id = ${lead.id}
         `;
 

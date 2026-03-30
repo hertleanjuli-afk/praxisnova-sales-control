@@ -114,9 +114,21 @@ Partner-KPI:
 
 ---
 
-### Phase 3: Morgen-Briefing per Gmail senden
+### Phase 3: Morgen-Briefing per Brevo senden
 
-**An:** hertle.anjuli@praxisnovaai.com
+**Sende die E-Mail über den API-Endpunkt** (nicht Gmail MCP):
+
+```bash
+curl -s -X POST -H 'Content-Type: application/json' \
+  -H 'x-agent-secret: <CRON_SECRET>' \
+  'https://praxisnova-sales-control.vercel.app/api/agent/send-briefing' \
+  -d '{
+    "subject": "🤖 Guten Morgen, Angie – Tagesbericht [DATUM]",
+    "html": "<HIER DAS BEFÜLLTE HTML-TEMPLATE EINFÜGEN>"
+  }'
+```
+
+**An:** hertle.anjuli@praxisnovaai.com (Standard-Empfänger im Endpunkt)
 **Betreff:** `🤖 Guten Morgen, Angie – Tagesbericht [DATUM]`
 **Format:** HTML-E-Mail
 
@@ -232,12 +244,16 @@ Partner-KPI:
 </div>
 ```
 
-**Gmail senden:**
-Nutze das Gmail MCP Tool `gmail_create_draft` oder sende direkt:
-- An: hertle.anjuli@praxisnovaai.com
-- Betreff: 🤖 Guten Morgen, Angie – Tagesbericht [DATUM]
-- Body: HTML-E-Mail mit den befüllten Daten
-- Wenn Gmail-Versand fehlschlägt: E-Mail-Inhalt als Fallback in den Report schreiben
+**E-Mail senden:**
+Nutze den Brevo-Endpunkt `POST /api/agent/send-briefing` mit dem befüllten HTML:
+```bash
+curl -s -X POST -H 'Content-Type: application/json' \
+  -H 'x-agent-secret: <CRON_SECRET>' \
+  'https://praxisnova-sales-control.vercel.app/api/agent/send-briefing' \
+  -d '{"subject": "🤖 Guten Morgen, Angie – Tagesbericht [DATUM]", "html": "<BEFÜLLTES HTML>"}'
+```
+- Empfänger ist automatisch hertle.anjuli@praxisnovaai.com
+- Wenn Versand fehlschlägt: E-Mail-Inhalt als Fallback in den Report schreiben
 
 ---
 

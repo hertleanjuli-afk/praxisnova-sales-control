@@ -1,581 +1,332 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+const CORAL = '#E8472A';
+const TOOLTIP_STYLE = { background: '#1a1a1a', border: '1px solid #333', borderRadius: 8, color: '#fff' };
+const AXIS_TICK = { fill: '#888', fontSize: 12 };
 
 interface ClickEntry {
-  id?: number;
-  button_id: string;
-  button_text?: string | null;
-  page: string;
-  referrer?: string | null;
-  visitor_id: string;
-  lead_id?: number;
-  lead_name?: string;
-  utm_source?: string | null;
-  utm_medium?: string | null;
-  utm_campaign?: string | null;
-  utm_content?: string | null;
-  created_at: string;
-  clicked_at?: string;
+  id?: number; button_id: string; button_text?: string | null; page: string;
+  referrer?: string | null; visitor_id: string; lead_id?: number;
+  lead_name?: string; lead_email?: string; lead_company?: string;
+  utm_source?: string | null; utm_medium?: string | null;
+  utm_campaign?: string | null; utm_content?: string | null;
+  created_at: string; clicked_at?: string;
 }
 
-interface Stats {
-  total_clicks: number;
-  unique_visitors: number;
-  identified_visitors: number;
+interface Stats { total_clicks: number; unique_visitors: number; identified_visitors: number }
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'gerade eben';
+  if (min < 60) return `vor ${min} Min.`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `vor ${h} Std.`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'gestern';
+  return `vor ${d} Tagen`;
 }
 
-interface ClickCategory {
-  label: string;
-  category: 'workshop' | 'automation' | 'cta' | 'pageview' | 'other';
-}
+export default function WebsiteClicksPage() {
+  const [clicks, setClicks] = useState<ClickEntry[]>([]);
+  const [, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'feed' | 'analyse'>('feed');
+  const [period, setPeriod] = useState('7');
+  const [pageFilter, setPageFilter] = useState('all');
+  const [identifiedOnly, setIdentifiedOnly] = useState(false);
 
-// ── Category Colors ────────────────────────────────────────────────────────────
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/webhooks/website-clicks');
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setClicks(data.clicks || []);
+      setStats(data.stats || null);
+    } catch { setClicks([]); }
+    setLoading(false);
+  }, []);
 
-const CATEGORY_CONFIG: Record<
-  ClickCategory['category'],
-  { title: string; color: string; bgLight: string; textColor: string }
-> = {
-  workshop: {
-    title: 'Workshops',
-    color: 'bg-blue-600',
-    bgLight: 'bg-blue-50',
-    textColor: 'text-blue-600',
-  },
-  automation: {
-    title: 'Automatisierung',
-    color: 'bg-green-600',
-    bgLight: 'bg-green-50',
-    textColor: 'text-green-600',
-  },
-  cta: {
-    title: 'Allgemeine CTAs',
-    color: 'bg-purple-600',
-    bgLight: 'bg-purple-50',
-    textColor: 'text-purple-600',
-  },
-  pageview: {
-    title: 'Seitenaufrufe',
-    color: 'bg-gray-500',
-    bgLight: 'bg-[#0A0A0A]',
-    textColor: 'text-[#888]',
-  },
-  other: {
-    title: 'Sonstige',
-    color: 'bg-orange-500',
-    bgLight: 'bg-orange-50',
-    textColor: 'text-orange-500',
-  },
-};
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { const i = setInterval(fetchData, 60000); return () => clearInterval(i); }, [fetchData]);
 
-// ── Categorization Function ────────────────────────────────────────────────────
+  // Filter clicks
+  const filtered = useMemo(() => {
+    let result = clicks;
+    const days = parseInt(period);
+    const since = Date.now() - days * 86400000;
+    result = result.filter(c => new Date(c.clicked_at || c.created_at).getTime() >= since);
+    if (pageFilter !== 'all') result = result.filter(c => c.page === pageFilter);
+    if (identifiedOnly) result = result.filter(c => c.lead_id);
+    return result;
+  }, [clicks, period, pageFilter, identifiedOnly]);
 
-function categorizeClick(
-  buttonId: string,
-  buttonText: string | null,
-): ClickCategory {
-  const id = (buttonId || '').toLowerCase();
-  const text = (buttonText || '').toLowerCase();
+  // Unique pages for filter
+  const uniquePages = useMemo(() => Array.from(new Set(clicks.map(c => c.page))).sort(), [clicks]);
 
-  // Workshops
-  if (
-    id.includes('workshop_01') ||
-    (id.includes('service_cta_01') && text.includes('workshop'))
-  )
-    return { label: 'Workshop Starter', category: 'workshop' };
-  if (
-    id.includes('workshop_02') ||
-    (id.includes('service_cta_02') && text.includes('workshop'))
-  )
-    return { label: 'Workshop Professional', category: 'workshop' };
-  if (
-    id.includes('workshop_03') ||
-    (text.includes('automatisierung') && text.includes('workshop'))
-  )
-    return { label: 'KI-Prozessautomatisierung', category: 'workshop' };
+  // Top page for KPI
+  const topPage = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of filtered) { counts[c.page] = (counts[c.page] || 0) + 1; }
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return sorted[0]?.[0] || '–';
+  }, [filtered]);
 
-  // Automation
-  if (id.includes('auto_01') || text.includes('immobilien'))
-    return { label: 'Immobilienmakler', category: 'automation' };
-  if (id.includes('auto_02') || text.includes('handwerk'))
-    return { label: 'Handwerksbetriebe', category: 'automation' };
-  if (id.includes('auto_03') || text.includes('bau'))
-    return { label: 'Bauunternehmen', category: 'automation' };
+  // Charts data
+  const topButtons = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of filtered) {
+      if (c.button_id === 'pageview') continue;
+      const label = c.button_text || c.button_id;
+      counts[label] = (counts[label] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count }));
+  }, [filtered]);
 
-  // CTAs
-  if (id === 'hero_cta_primary' || text.includes('workshops entdecken'))
-    return { label: 'Hero: Workshops entdecken', category: 'cta' };
-  if (id === 'hero_cta_secondary' || text.includes('audit'))
-    return { label: 'Hero: Kostenlosen Audit buchen', category: 'cta' };
-  if (id === 'cta_bottom')
-    return { label: 'Bottom CTA', category: 'cta' };
-  if (id === 'launch_banner_cta' || text.includes('platz sichern'))
-    return { label: 'Launch Banner', category: 'cta' };
-  if (id.includes('calendly') || text.includes('termin'))
-    return { label: 'Calendly Link', category: 'cta' };
+  const clicksByPage = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of filtered) { counts[c.page] = (counts[c.page] || 0) + 1; }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([page, count]) => ({ page, count }));
+  }, [filtered]);
 
-  // Pageviews & Scroll
-  if (id === 'pageview')
-    return { label: 'Seitenaufruf', category: 'pageview' };
-  if (id.includes('scroll') || id.includes('time_on_page'))
-    return { label: buttonText || id, category: 'pageview' };
+  const clicksByDay = useMemo(() => {
+    const days: Record<string, number> = {};
+    for (const c of filtered) {
+      const day = new Date(c.clicked_at || c.created_at).toISOString().slice(0, 10);
+      days[day] = (days[day] || 0) + 1;
+    }
+    return Object.entries(days).sort().map(([day, count]) => ({ day, count }));
+  }, [filtered]);
 
-  // Other
-  return {
-    label: buttonText || buttonId || 'Unbekannt',
-    category: 'other',
-  };
-}
+  const utmSources = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of filtered) {
+      const src = c.utm_source || 'Direkt';
+      counts[src] = (counts[src] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([source, count]) => ({ source, count }));
+  }, [filtered]);
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+  const hourHeatmap = useMemo(() => {
+    const hours = Array(24).fill(0);
+    for (const c of filtered) { hours[new Date(c.clicked_at || c.created_at).getHours()]++; }
+    return hours.map((count, hour) => ({ hour, count }));
+  }, [filtered]);
 
-interface GroupedItem {
-  label: string;
-  count: number;
-}
+  const maxHour = Math.max(...hourHeatmap.map(h => h.count), 1);
+  const PIE_COLORS = [CORAL, '#3B82F6', '#22C55E', '#EAB308', '#8B5CF6', '#EC4899'];
+  const identifiedCount = useMemo(() => new Set(filtered.filter(c => c.lead_id).map(c => c.visitor_id)).size, [filtered]);
+  const uniqueCount = useMemo(() => new Set(filtered.map(c => c.visitor_id)).size, [filtered]);
 
-interface CategoryGroup {
-  category: ClickCategory['category'];
-  total: number;
-  items: GroupedItem[];
-}
-
-function groupClicksByCategory(
-  clicks: ClickEntry[],
-): Record<ClickCategory['category'], CategoryGroup> {
-  const groups: Record<ClickCategory['category'], CategoryGroup> = {
-    workshop: { category: 'workshop', total: 0, items: [] },
-    automation: { category: 'automation', total: 0, items: [] },
-    cta: { category: 'cta', total: 0, items: [] },
-    pageview: { category: 'pageview', total: 0, items: [] },
-    other: { category: 'other', total: 0, items: [] },
-  };
-
-  const labelCounts: Record<string, Record<string, number>> = {};
-
-  for (const click of clicks) {
-    const { label, category } = categorizeClick(
-      click.button_id,
-      click.button_text ?? null,
-    );
-    groups[category].total++;
-
-    if (!labelCounts[category]) labelCounts[category] = {};
-    labelCounts[category][label] = (labelCounts[category][label] || 0) + 1;
-  }
-
-  for (const cat of Object.keys(labelCounts) as ClickCategory['category'][]) {
-    groups[cat].items = Object.entries(labelCounts[cat])
-      .map(([label, count]) => ({ label, count }))
-      .sort((a, b) => b.count - a.count);
-  }
-
-  return groups;
-}
-
-// ── Percentage Bar Component ───────────────────────────────────────────────────
-
-function PercentageBar({
-  count,
-  max,
-  colorClass,
-}: {
-  count: number;
-  max: number;
-  colorClass: string;
-}) {
-  const percentage = max > 0 ? (count / max) * 100 : 0;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 bg-[#1A1A1A] rounded-full h-2">
-        <div
-          className={`${colorClass} h-2 rounded-full transition-all`}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-      <span className="text-xs text-[#888] w-10 text-right">{count}</span>
-    </div>
-  );
-}
-
-// ── Category Section Component ─────────────────────────────────────────────────
-
-function CategorySection({
-  group,
-  totalClicks,
-}: {
-  group: CategoryGroup;
-  totalClicks: number;
-}) {
-  const config = CATEGORY_CONFIG[group.category];
-  const maxItem = group.items.length > 0 ? group.items[0].count : 1;
-  const sharePercent =
-    totalClicks > 0 ? ((group.total / totalClicks) * 100).toFixed(1) : '0';
-
-  if (group.total === 0) return null;
+  const periods = [{ key: '1', label: 'Heute' }, { key: '7', label: '7 Tage' }, { key: '30', label: '30 Tage' }];
 
   return (
-    <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-[#F0F0F5]">
-          {config.title}
-        </h3>
-        <span
-          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${config.bgLight} ${config.textColor}`}
-        >
-          {group.total} Klicks
-        </span>
-      </div>
-
-      {/* Share of total */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between text-xs text-[#888] mb-1">
-          <span>Anteil an Gesamtklicks</span>
-          <span>{sharePercent}%</span>
-        </div>
-        <div className="w-full bg-[#1A1A1A] rounded-full h-2">
-          <div
-            className={`${config.color} h-2 rounded-full transition-all`}
-            style={{ width: `${sharePercent}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Individual items */}
-      <div className="space-y-3">
-        {group.items.map((item) => (
-          <div key={item.label} className="space-y-1">
-            <div className="flex justify-between text-sm">
-              <span className="font-medium text-[#ccc]">{item.label}</span>
-              <span className="text-[#888]">{item.count}</span>
-            </div>
-            <PercentageBar
-              count={item.count}
-              max={maxItem}
-              colorClass={config.color}
-            />
+    <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+      {/* ── KPI Cards ─────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }} className="kpi-grid">
+        {[
+          { label: 'Klicks gesamt', value: filtered.length, color: CORAL },
+          { label: 'Unique Besucher', value: uniqueCount, color: '#3B82F6' },
+          { label: 'Identifizierte', value: identifiedCount, color: '#22C55E' },
+          { label: 'Top-Seite', value: topPage, color: '#EAB308', isText: true },
+        ].map((kpi, i) => (
+          <div key={i} style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16, borderTop: `3px solid ${kpi.color}` }}>
+            <p style={{ fontSize: 12, color: '#888', margin: '0 0 6px' }}>{kpi.label}</p>
+            <p style={{ fontSize: kpi.isText ? 14 : 24, fontWeight: 700, color: '#F0F0F5', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {typeof kpi.value === 'number' ? kpi.value.toLocaleString('de-DE') : kpi.value}
+            </p>
           </div>
         ))}
       </div>
-    </div>
-  );
-}
 
-// ── Category Badge for Table ───────────────────────────────────────────────────
-
-function CategoryBadge({ category }: { category: ClickCategory['category'] }) {
-  const config = CATEGORY_CONFIG[category];
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${config.bgLight} ${config.textColor}`}
-    >
-      {config.title}
-    </span>
-  );
-}
-
-// ── Main Page Component ────────────────────────────────────────────────────────
-
-export default function ClicksPage() {
-  const [clicks, setClicks] = useState<ClickEntry[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      setError('');
-      try {
-        const res = await fetch('/api/webhooks/website-clicks');
-        if (!res.ok) throw new Error('Fehler beim Laden der Daten');
-        const data = await res.json();
-        setClicks(data.clicks ?? []);
-        setStats(data.stats ?? null);
-      } catch {
-        setError('Daten konnten nicht geladen werden.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
-
-  // Process clicks into category groups
-  const grouped = useMemo(() => groupClicksByCategory(clicks), [clicks]);
-
-  // Compute stats from clicks as fallback
-  const totalClicks = stats?.total_clicks ?? clicks.length;
-  const uniqueVisitors = useMemo(() => {
-    if (stats?.unique_visitors != null) return stats.unique_visitors;
-    return new Set(clicks.map((c) => c.visitor_id)).size;
-  }, [clicks, stats]);
-  const identifiedVisitors = useMemo(() => {
-    if (stats?.identified_visitors != null) return stats.identified_visitors;
-    return clicks.filter((c) => c.lead_id).length;
-  }, [clicks, stats]);
-
-  // Categorized clicks for the table
-  const categorizedClicks = useMemo(
-    () =>
-      clicks.map((click) => ({
-        ...click,
-        ...categorizeClick(click.button_id, click.button_text ?? null),
-      })),
-    [clicks],
-  );
-
-  return (
-    <div className="space-y-6">
-      {/* Error */}
-      {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-4">
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading ? (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6 animate-pulse"
-              >
-                <div className="h-3 bg-[#1E1E1E] rounded w-24 mb-3" />
-                <div className="h-8 bg-[#1E1E1E] rounded w-16" />
-              </div>
-            ))}
-          </div>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6 animate-pulse"
-            >
-              <div className="h-5 bg-[#1E1E1E] rounded w-40 mb-4" />
-              <div className="space-y-3">
-                <div className="h-3 bg-[#1E1E1E] rounded w-full" />
-                <div className="h-3 bg-[#1E1E1E] rounded w-3/4" />
-                <div className="h-3 bg-[#1E1E1E] rounded w-1/2" />
-              </div>
-            </div>
+      {/* ── Filters ───────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 3, background: '#111', borderRadius: 8, padding: 3, border: '1px solid #1E1E1E' }}>
+          {periods.map(p => (
+            <button key={p.key} onClick={() => setPeriod(p.key)}
+              style={{ padding: '5px 12px', borderRadius: 6, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
+                background: period === p.key ? CORAL : 'transparent', color: period === p.key ? '#fff' : '#888' }}>
+              {p.label}
+            </button>
           ))}
         </div>
+        <select value={pageFilter} onChange={e => setPageFilter(e.target.value)}
+          style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 8, padding: '6px 12px', fontSize: 12, color: '#ccc' }}>
+          <option value="all">Alle Seiten</option>
+          {uniquePages.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#888', cursor: 'pointer' }}>
+          <input type="checkbox" checked={identifiedOnly} onChange={e => setIdentifiedOnly(e.target.checked)} style={{ accentColor: CORAL }} />
+          Nur identifizierte
+        </label>
+
+        {/* Tabs */}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 3, background: '#111', borderRadius: 8, padding: 3, border: '1px solid #1E1E1E' }}>
+          {(['feed', 'analyse'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
+                background: tab === t ? '#3B82F6' : 'transparent', color: tab === t ? '#fff' : '#888' }}>
+              {t === 'feed' ? 'Live-Feed' : 'Analyse'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ padding: 40, textAlign: 'center' }}>
+          <div style={{ width: 28, height: 28, border: '3px solid #1E1E1E', borderTopColor: CORAL, borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+          <p style={{ fontSize: 13, color: '#888' }}>Lade Klick-Daten...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      ) : tab === 'feed' ? (
+        /* ── TAB 1: Live Feed ─────────────────────────────────────────── */
+        <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, overflow: 'hidden' }}>
+          {filtered.length === 0 ? (
+            <p style={{ padding: 40, textAlign: 'center', color: '#555', fontSize: 14 }}>Keine Klicks im gewählten Zeitraum.</p>
+          ) : (
+            <div style={{ maxHeight: 600, overflowY: 'auto' }}>
+              {filtered.map((click, i) => {
+                const identified = !!click.lead_id;
+                const name = identified ? (click.lead_name || `${click.lead_email || ''}`) : click.visitor_id?.slice(0, 12) + '...';
+                return (
+                  <div key={click.id || i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid #1E1E1E' }}>
+                    {/* Badge */}
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
+                      background: identified ? '#22C55E20' : '#55555520', color: identified ? '#22C55E' : '#555' }}>
+                      {identified ? 'Identifiziert' : 'Anonym'}
+                    </span>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontWeight: 600, color: '#F0F0F5' }}>{name}</span>
+                        {click.lead_company && <span style={{ color: '#888' }}> · {click.lead_company}</span>}
+                        <span style={{ color: '#555' }}> hat </span>
+                        <span style={{ color: '#ccc' }}>{click.button_text || click.button_id || 'Seite'}</span>
+                        <span style={{ color: '#555' }}> geklickt auf </span>
+                        <span style={{ color: '#888' }}>{click.page}</span>
+                      </p>
+                      {click.utm_source && (
+                        <p style={{ fontSize: 11, color: '#555', margin: '2px 0 0' }}>
+                          via {click.utm_source}{click.utm_medium ? ` / ${click.utm_medium}` : ''}
+                          {click.utm_campaign ? ` (${click.utm_campaign})` : ''}
+                        </p>
+                      )}
+                    </div>
+                    {/* Time */}
+                    <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {timeAgo(click.clicked_at || click.created_at)}
+                    </span>
+                    {/* Actions */}
+                    {identified && click.lead_email && (
+                      <a href={`mailto:${click.lead_email}`} style={{ fontSize: 14, textDecoration: 'none', flexShrink: 0 }} title="Email">✉️</a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       ) : (
-        <>
-          {/* ── Stats Cards ──────────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
-              <p className="text-sm text-[#888] mb-1">Klicks gesamt</p>
-              <p className="text-2xl font-bold text-[#F0F0F5]">
-                {totalClicks}
-              </p>
+        /* ── TAB 2: Analyse ───────────────────────────────────────────── */
+        <div style={{ display: 'grid', gap: 16 }}>
+          {/* Row 1: Top Buttons + Clicks by Page */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="charts-grid">
+            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px' }}>Top geklickte Buttons</h3>
+              {topButtons.length === 0 ? <p style={{ fontSize: 13, color: '#555' }}>Keine Daten.</p> : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={topButtons} layout="vertical" margin={{ left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+                    <XAxis type="number" tick={AXIS_TICK} axisLine={{ stroke: '#333' }} />
+                    <YAxis type="category" dataKey="name" tick={AXIS_TICK} axisLine={{ stroke: '#333' }} width={120} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Bar dataKey="count" fill={CORAL} radius={[0, 4, 4, 0]} name="Klicks" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
-            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
-              <p className="text-sm text-[#888] mb-1">Eindeutige Besucher</p>
-              <p className="text-2xl font-bold text-[#2563EB]">
-                {uniqueVisitors}
-              </p>
-            </div>
-            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
-              <p className="text-sm text-[#888] mb-1">Identifizierte Besucher</p>
-              <p className="text-2xl font-bold text-emerald-600">
-                {identifiedVisitors}
-              </p>
+            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px' }}>Klicks nach Seite</h3>
+              {clicksByPage.length === 0 ? <p style={{ fontSize: 13, color: '#555' }}>Keine Daten.</p> : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={clicksByPage} dataKey="count" nameKey="page" cx="50%" cy="50%" innerRadius={45} outerRadius={75}
+                      label={({ page, count }: any) => `${page}: ${count}`} labelLine={false}>
+                      {clicksByPage.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
 
-          {/* ── Section 1: Workshops ─────────────────────────────────────── */}
-          <CategorySection
-            group={grouped.workshop}
-            totalClicks={totalClicks}
-          />
+          {/* Row 2: Clicks over time */}
+          <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px' }}>Klicks über Zeit</h3>
+            {clicksByDay.length === 0 ? <p style={{ fontSize: 13, color: '#555' }}>Keine Daten.</p> : (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={clicksByDay}>
+                  <defs><linearGradient id="clickGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CORAL} stopOpacity={0.3}/><stop offset="100%" stopColor={CORAL} stopOpacity={0}/></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+                  <XAxis dataKey="day" tick={AXIS_TICK} axisLine={{ stroke: '#333' }} tickFormatter={(v: any) => { const d = new Date(v); return `${d.getDate()}.${d.getMonth()+1}.`; }} />
+                  <YAxis tick={AXIS_TICK} axisLine={{ stroke: '#333' }} allowDecimals={false} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  <Area type="monotone" dataKey="count" stroke={CORAL} fill="url(#clickGrad)" strokeWidth={2} name="Klicks" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
 
-          {/* ── Section 2: Automatisierung ───────────────────────────────── */}
-          <CategorySection
-            group={grouped.automation}
-            totalClicks={totalClicks}
-          />
-
-          {/* ── Section 3: Allgemeine CTAs ───────────────────────────────── */}
-          <CategorySection group={grouped.cta} totalClicks={totalClicks} />
-
-          {/* ── Section 4: Seitenaufrufe ─────────────────────────────────── */}
-          {grouped.pageview.total > 0 && (
-            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#F0F0F5]">
-                  Seitenaufrufe
-                </h3>
-                <span className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium bg-[#0A0A0A] text-[#888]">
-                  {grouped.pageview.total} gesamt
-                </span>
-              </div>
-
-              {/* Pageview share */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between text-xs text-[#888] mb-1">
-                  <span>Anteil an Gesamtklicks</span>
-                  <span>
-                    {totalClicks > 0
-                      ? ((grouped.pageview.total / totalClicks) * 100).toFixed(
-                          1,
-                        )
-                      : '0'}
-                    %
-                  </span>
-                </div>
-                <div className="w-full bg-[#1A1A1A] rounded-full h-2">
-                  <div
-                    className="bg-gray-500 h-2 rounded-full transition-all"
-                    style={{
-                      width: `${totalClicks > 0 ? (grouped.pageview.total / totalClicks) * 100 : 0}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Breakdown by label (scroll depths, pageviews, etc.) */}
-              <div className="space-y-3">
-                {grouped.pageview.items.map((item) => (
-                  <div key={item.label} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-[#ccc]">
-                        {item.label}
-                      </span>
-                      <span className="text-[#888]">{item.count}</span>
+          {/* Row 3: UTM Sources + Hour Heatmap */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="charts-grid">
+            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px' }}>Traffic-Quellen (UTM)</h3>
+              {utmSources.length === 0 ? <p style={{ fontSize: 13, color: '#555' }}>Keine UTM-Daten.</p> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {utmSources.slice(0, 8).map((s, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 12, color: '#ccc', width: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.source}</span>
+                      <div style={{ flex: 1, height: 6, background: '#1E1E1E', borderRadius: 3 }}>
+                        <div style={{ height: '100%', width: `${(s.count / (utmSources[0]?.count || 1)) * 100}%`, background: PIE_COLORS[i % PIE_COLORS.length], borderRadius: 3 }} />
+                      </div>
+                      <span style={{ fontSize: 11, color: '#888', width: 30, textAlign: 'right' }}>{s.count}</span>
                     </div>
-                    <PercentageBar
-                      count={item.count}
-                      max={grouped.pageview.items[0]?.count || 1}
-                      colorClass="bg-gray-500"
-                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px' }}>Tageszeit-Verteilung</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 3 }}>
+                {hourHeatmap.map(h => (
+                  <div key={h.hour} style={{ textAlign: 'center' }}>
+                    <div style={{
+                      height: 28, borderRadius: 4, marginBottom: 2,
+                      background: h.count > 0 ? `rgba(232,71,42,${0.15 + (h.count / maxHour) * 0.85})` : '#1A1A1A',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {h.count > 0 && <span style={{ fontSize: 9, color: '#fff', fontWeight: 600 }}>{h.count}</span>}
+                    </div>
+                    <span style={{ fontSize: 9, color: '#555' }}>{h.hour}</span>
                   </div>
                 ))}
               </div>
             </div>
-          )}
-
-          {/* ── Section 5: Sonstige ──────────────────────────────────────── */}
-          <CategorySection group={grouped.other} totalClicks={totalClicks} />
-
-          {/* ── Section 6: Alle Klicks (Table) ───────────────────────────── */}
-          <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#1E1E1E]">
-              <h3 className="text-lg font-semibold text-[#F0F0F5]">
-                Alle Klicks
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead>
-                  <tr className="border-b border-[#1E1E1E] bg-[#0A0A0A]">
-                    <th className="px-6 py-3 font-medium text-[#888]">
-                      Zeitpunkt
-                    </th>
-                    <th className="px-6 py-3 font-medium text-[#888]">
-                      Kategorie
-                    </th>
-                    <th className="px-6 py-3 font-medium text-[#888]">
-                      Button
-                    </th>
-                    <th className="px-6 py-3 font-medium text-[#888]">
-                      Seite
-                    </th>
-                    <th className="px-6 py-3 font-medium text-[#888]">
-                      Referrer
-                    </th>
-                    <th className="px-6 py-3 font-medium text-[#888]">
-                      UTM
-                    </th>
-                    <th className="px-6 py-3 font-medium text-[#888]">
-                      Besucher
-                    </th>
-                    <th className="px-6 py-3 font-medium text-[#888]">
-                      Lead
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categorizedClicks.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        className="px-6 py-8 text-center text-[#666]"
-                      >
-                        Keine Klicks vorhanden.
-                      </td>
-                    </tr>
-                  ) : (
-                    categorizedClicks.map((click, idx) => (
-                      <tr
-                        key={click.id ?? idx}
-                        className="border-b border-[#1E1E1E] last:border-0 hover:bg-[#0A0A0A]"
-                      >
-                        <td className="px-6 py-3 text-[#ccc] whitespace-nowrap">
-                          {new Date(click.created_at).toLocaleString('de-DE', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </td>
-                        <td className="px-6 py-3">
-                          <CategoryBadge category={click.category} />
-                        </td>
-                        <td className="px-6 py-3 text-[#ccc]">
-                          <span className="font-medium">{click.label}</span>
-                          <span className="block text-xs text-[#666] mt-0.5">
-                            {click.button_id}
-                          </span>
-                        </td>
-                        <td
-                          className="px-6 py-3 text-[#ccc] max-w-[200px] truncate"
-                          title={click.page}
-                        >
-                          {click.page}
-                        </td>
-                        <td className="px-6 py-3 text-[#888] text-xs max-w-[150px] truncate" title={click.referrer || ''}>
-                          {click.referrer ? (() => { try { return new URL(click.referrer!).hostname; } catch { return click.referrer; } })() : '-'}
-                        </td>
-                        <td className="px-6 py-3 text-xs">
-                          {click.utm_source ? (
-                            <span className="inline-flex items-center rounded-full px-2 py-0.5 bg-blue-50 text-blue-600 font-medium">
-                              {click.utm_source}{click.utm_medium ? ` / ${click.utm_medium}` : ''}
-                            </span>
-                          ) : (
-                            <span className="text-[#555]">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-3 text-[#888] font-mono text-xs">
-                          {click.visitor_id?.slice(0, 12)}...
-                        </td>
-                        <td className="px-6 py-3 text-[#ccc]">
-                          {click.lead_name ? (
-                            <span className="text-emerald-600 font-medium">
-                              {click.lead_name}
-                            </span>
-                          ) : click.lead_id ? (
-                            <span className="text-[#888]">
-                              #{click.lead_id}
-                            </span>
-                          ) : (
-                            <span className="text-[#555]">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
           </div>
-        </>
+        </div>
       )}
+
+      <style>{`
+        @media (max-width: 768px) {
+          .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .charts-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 {
-    "crons": [
-          { "path": "/api/cron/process-sequences", "schedule": "0 8 * * *" },
-          { "path": "/api/cron/daily-summary", "schedule": "0 17 * * *" }
-    ]
+  "crons": [
+    { "path": "/api/cron/process-sequences", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/daily-summary", "schedule": "0 17 * * *" }
+  ]
 }

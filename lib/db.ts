@@ -367,6 +367,13 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pipeline_notes TEXT`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS re_engage_after TIMESTAMPTZ`;
   await sql`CREATE INDEX IF NOT EXISTS idx_leads_pipeline_stage ON leads(pipeline_stage)`;
+
+  // Signal tracking for Re-Engagement Agent
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS signal_email_reply BOOLEAN DEFAULT FALSE`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS signal_linkedin_interest BOOLEAN DEFAULT FALSE`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS signal_company_news TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS signal_notes TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_signal_at TIMESTAMPTZ`;
 }
 
 export interface Lead {

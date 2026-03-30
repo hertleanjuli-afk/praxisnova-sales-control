@@ -15,6 +15,7 @@ interface MetricsData {
     partner_tier1: number; partner_approach: string;
     linkedin_prepared: number; linkedin_ready: number;
     prospect_kpi: string; partner_kpi: string;
+    re_engage_total: number; re_engage_with_signal: number;
   };
 }
 
@@ -119,6 +120,22 @@ export default function AgentMetricsPage() {
                 <p style={{ fontSize: 12, color: '#888', margin: '4px 0 0' }}>Pipeline: {ag.partner_tier1} / 50</p>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Re-Engagement Pool */}
+      <div style={{ marginTop: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 8, height: 8, borderRadius: 4, background: '#EAB308' }} />
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>Re-Engagement Pool</h3>
+          <span style={{ fontSize: 11, color: '#555', fontStyle: 'italic' }}>Wartet auf Re-Engagement Agent</span>
+        </div>
+        <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <MetricCard label="Leads in 'Wieder aufnehmen'" value={ag.re_engage_total} />
+            <MetricCard label="Davon mit Signal" value={ag.re_engage_with_signal} sub="E-Mail-Antwort, LinkedIn oder News" />
+            <MetricCard label="Davon ohne Signal" value={ag.re_engage_total - ag.re_engage_with_signal} sub="Kein Grund zur Kontaktaufnahme" />
           </div>
         </div>
       </div>

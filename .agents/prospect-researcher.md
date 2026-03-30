@@ -81,9 +81,9 @@ curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
   'https://praxisnova-sales-control.vercel.app/api/agent?action=leads-to-research&limit=30'
 ```
 
-Die API liefert automatisch:
-1. **Zuerst**: Leads mit `pipeline_stage = 'Neu'` (frisch, nie berührt)
-2. **Danach**: Leads mit `pipeline_stage = 'Wieder aufnehmen'` (re_engage_after abgelaufen)
+Die API liefert **ausschließlich** Leads mit `pipeline_stage = 'Neu'` oder `NULL` (frisch, nie berührt).
+
+**WICHTIG**: Du arbeitest NIEMALS mit `Wieder aufnehmen`-Leads. Diese gehören exklusiv dem zukünftigen Re-Engagement Agent. Wenn du einen Lead mit diesem Status siehst, überspringe ihn.
 
 ---
 

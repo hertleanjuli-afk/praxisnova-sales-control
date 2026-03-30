@@ -31,9 +31,8 @@ export async function GET(req: NextRequest) {
   try {
     switch (action) {
 
-      // Leads for Prospect Researcher — pipeline-stage-aware selection
-      // Priority: 'Neu' first, then 'Wieder aufnehmen' (only if re_engage_after passed)
-      // Excludes leads already in outreach, cooldown, won, lost, or not qualified
+      // Leads for Prospect Researcher — ONLY 'Neu' leads (never scored)
+      // 'Wieder aufnehmen' leads are reserved for the future Re-Engagement Agent
       case 'leads-to-research': {
         const limit = parseInt(searchParams.get('limit') ?? '20', 10);
         const rows = await sql`
@@ -43,19 +42,18 @@ export async function GET(req: NextRequest) {
             l.website_url, l.source, l.created_at,
             l.sequence_status, l.sequence_type,
             l.agent_score, l.agent_scored_at,
-            l.pipeline_stage, l.pipeline_notes, l.re_engage_after
+            l.pipeline_stage, l.pipeline_notes
           FROM leads l
           WHERE l.permanently_blocked = FALSE
             AND l.sequence_status NOT IN ('unsubscribed', 'bounced', 'active', 'cooldown')
-            AND COALESCE(l.pipeline_stage, 'Neu') IN ('Neu', 'Wieder aufnehmen')
-            AND (l.pipeline_stage != 'Wieder aufnehmen' OR l.re_engage_after IS NULL OR l.re_engage_after <= NOW())
+            AND (l.pipeline_stage IS NULL OR l.pipeline_stage = 'Neu')
             AND NOT EXISTS (
               SELECT 1 FROM agent_decisions ad
               WHERE ad.subject_email = l.email
                 AND ad.agent_name = 'prospect_researcher'
                 AND ad.created_at > NOW() - INTERVAL '7 days'
             )
-          ORDER BY (COALESCE(l.pipeline_stage, 'Neu') = 'Neu') DESC, l.created_at DESC
+          ORDER BY l.created_at DESC
           LIMIT ${limit}
         `;
         return NextResponse.json({ leads: rows, count: rows.length });
@@ -201,7 +199,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { type, payload } = body as {
-      type: 'decision' | 'log' | 'report' | 'partner' | 'linkedin_message' | 'instruction_response' | 'update_pipeline_stage';
+      type: 'decision' | 'log' | 'report' | 'partner' | 'linkedin_message' | 'instruction_response' | 'update_pipeline_stage' | 'update_signal';
       payload: Record<string, unknown>;
     };
 
@@ -334,6 +332,24 @@ export async function POST(req: NextRequest) {
             re_engage_after = ${payload.re_engage_after as string ?? null}
           WHERE id = ${payload.lead_id as number}
         `;
+        return NextResponse.json({ ok: true });
+      }
+
+      // Update signal tracking on a lead (for future Re-Engagement Agent)
+      case 'update_signal': {
+        const signalType = payload.signal_type as string;
+        const notes = payload.notes as string ?? null;
+        const leadId = payload.lead_id as number;
+
+        if (signalType === 'email_reply') {
+          await sql`UPDATE leads SET signal_email_reply = TRUE, signal_notes = ${notes}, last_signal_at = NOW() WHERE id = ${leadId}`;
+        } else if (signalType === 'linkedin') {
+          await sql`UPDATE leads SET signal_linkedin_interest = TRUE, signal_notes = ${notes}, last_signal_at = NOW() WHERE id = ${leadId}`;
+        } else if (signalType === 'company_news') {
+          await sql`UPDATE leads SET signal_company_news = ${notes}, last_signal_at = NOW() WHERE id = ${leadId}`;
+        } else {
+          return NextResponse.json({ error: 'Unknown signal_type' }, { status: 400 });
+        }
         return NextResponse.json({ ok: true });
       }
 

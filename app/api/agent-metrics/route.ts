@@ -68,6 +68,13 @@ export async function GET() {
       SELECT COUNT(*) as count FROM linkedin_connections
     `;
 
+    // Re-engagement pool
+    const reEngageTotal = await sql`
+      SELECT COUNT(*) as total,
+        COUNT(CASE WHEN signal_email_reply = TRUE OR signal_linkedin_interest = TRUE OR signal_company_news IS NOT NULL THEN 1 END) as with_signal
+      FROM leads WHERE pipeline_stage = 'Wieder aufnehmen'
+    `;
+
     // KPI calculations
     const prospectPipeline = parseInt(prospectWeek[0]?.high_priority ?? '0', 10);
     const partnerPipeline = parseInt(partnerMonth[0]?.tier1_count ?? '0', 10);
@@ -102,6 +109,8 @@ export async function GET() {
         linkedin_ready: parseInt(linkedinReady[0]?.count ?? '0', 10),
         prospect_kpi: prospectKpi,
         partner_kpi: partnerKpi,
+        re_engage_total: parseInt(reEngageTotal[0]?.total ?? '0', 10),
+        re_engage_with_signal: parseInt(reEngageTotal[0]?.with_signal ?? '0', 10),
       },
     });
   } catch (error) {

@@ -59,8 +59,8 @@ const CATEGORY_CONFIG: Record<
   pageview: {
     title: 'Seitenaufrufe',
     color: 'bg-gray-500',
-    bgLight: 'bg-gray-50',
-    textColor: 'text-gray-500',
+    bgLight: 'bg-[#0A0A0A]',
+    textColor: 'text-[#888]',
   },
   other: {
     title: 'Sonstige',
@@ -189,13 +189,13 @@ function PercentageBar({
   const percentage = max > 0 ? (count / max) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 bg-gray-100 rounded-full h-2">
+      <div className="flex-1 bg-[#1A1A1A] rounded-full h-2">
         <div
           className={`${colorClass} h-2 rounded-full transition-all`}
           style={{ width: `${percentage}%` }}
         />
       </div>
-      <span className="text-xs text-gray-500 w-10 text-right">{count}</span>
+      <span className="text-xs text-[#888] w-10 text-right">{count}</span>
     </div>
   );
 }
@@ -217,9 +217,9 @@ function CategorySection({
   if (group.total === 0) return null;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-[#1E3A5F]">
+        <h3 className="text-lg font-semibold text-[#F0F0F5]">
           {config.title}
         </h3>
         <span
@@ -231,11 +231,11 @@ function CategorySection({
 
       {/* Share of total */}
       <div className="mb-4">
-        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+        <div className="flex items-center justify-between text-xs text-[#888] mb-1">
           <span>Anteil an Gesamtklicks</span>
           <span>{sharePercent}%</span>
         </div>
-        <div className="w-full bg-gray-100 rounded-full h-2">
+        <div className="w-full bg-[#1A1A1A] rounded-full h-2">
           <div
             className={`${config.color} h-2 rounded-full transition-all`}
             style={{ width: `${sharePercent}%` }}
@@ -248,8 +248,8 @@ function CategorySection({
         {group.items.map((item) => (
           <div key={item.label} className="space-y-1">
             <div className="flex justify-between text-sm">
-              <span className="font-medium text-gray-700">{item.label}</span>
-              <span className="text-gray-500">{item.count}</span>
+              <span className="font-medium text-[#ccc]">{item.label}</span>
+              <span className="text-[#888]">{item.count}</span>
             </div>
             <PercentageBar
               count={item.count}
@@ -343,23 +343,23 @@ export default function ClicksPage() {
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse"
+                className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6 animate-pulse"
               >
-                <div className="h-3 bg-gray-200 rounded w-24 mb-3" />
-                <div className="h-8 bg-gray-200 rounded w-16" />
+                <div className="h-3 bg-[#1E1E1E] rounded w-24 mb-3" />
+                <div className="h-8 bg-[#1E1E1E] rounded w-16" />
               </div>
             ))}
           </div>
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse"
+              className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6 animate-pulse"
             >
-              <div className="h-5 bg-gray-200 rounded w-40 mb-4" />
+              <div className="h-5 bg-[#1E1E1E] rounded w-40 mb-4" />
               <div className="space-y-3">
-                <div className="h-3 bg-gray-200 rounded w-full" />
-                <div className="h-3 bg-gray-200 rounded w-3/4" />
-                <div className="h-3 bg-gray-200 rounded w-1/2" />
+                <div className="h-3 bg-[#1E1E1E] rounded w-full" />
+                <div className="h-3 bg-[#1E1E1E] rounded w-3/4" />
+                <div className="h-3 bg-[#1E1E1E] rounded w-1/2" />
               </div>
             </div>
           ))}
@@ -368,20 +368,20 @@ export default function ClicksPage() {
         <>
           {/* ── Stats Cards ──────────────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-sm text-gray-500 mb-1">Klicks gesamt</p>
-              <p className="text-2xl font-bold text-[#1E3A5F]">
+            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+              <p className="text-sm text-[#888] mb-1">Klicks gesamt</p>
+              <p className="text-2xl font-bold text-[#F0F0F5]">
                 {totalClicks}
               </p>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-sm text-gray-500 mb-1">Eindeutige Besucher</p>
+            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+              <p className="text-sm text-[#888] mb-1">Eindeutige Besucher</p>
               <p className="text-2xl font-bold text-[#2563EB]">
                 {uniqueVisitors}
               </p>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-sm text-gray-500 mb-1">Identifizierte Besucher</p>
+            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+              <p className="text-sm text-[#888] mb-1">Identifizierte Besucher</p>
               <p className="text-2xl font-bold text-emerald-600">
                 {identifiedVisitors}
               </p>
@@ -405,19 +405,19 @@ export default function ClicksPage() {
 
           {/* ── Section 4: Seitenaufrufe ─────────────────────────────────── */}
           {grouped.pageview.total > 0 && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#1E3A5F]">
+                <h3 className="text-lg font-semibold text-[#F0F0F5]">
                   Seitenaufrufe
                 </h3>
-                <span className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium bg-gray-50 text-gray-500">
+                <span className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium bg-[#0A0A0A] text-[#888]">
                   {grouped.pageview.total} gesamt
                 </span>
               </div>
 
               {/* Pageview share */}
               <div className="mb-4">
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                <div className="flex items-center justify-between text-xs text-[#888] mb-1">
                   <span>Anteil an Gesamtklicks</span>
                   <span>
                     {totalClicks > 0
@@ -428,7 +428,7 @@ export default function ClicksPage() {
                     %
                   </span>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
+                <div className="w-full bg-[#1A1A1A] rounded-full h-2">
                   <div
                     className="bg-gray-500 h-2 rounded-full transition-all"
                     style={{
@@ -443,10 +443,10 @@ export default function ClicksPage() {
                 {grouped.pageview.items.map((item) => (
                   <div key={item.label} className="space-y-1">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium text-gray-700">
+                      <span className="font-medium text-[#ccc]">
                         {item.label}
                       </span>
-                      <span className="text-gray-500">{item.count}</span>
+                      <span className="text-[#888]">{item.count}</span>
                     </div>
                     <PercentageBar
                       count={item.count}
@@ -463,38 +463,38 @@ export default function ClicksPage() {
           <CategorySection group={grouped.other} totalClicks={totalClicks} />
 
           {/* ── Section 6: Alle Klicks (Table) ───────────────────────────── */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-[#1E3A5F]">
+          <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#1E1E1E]">
+              <h3 className="text-lg font-semibold text-[#F0F0F5]">
                 Alle Klicks
               </h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="px-6 py-3 font-medium text-gray-500">
+                  <tr className="border-b border-[#1E1E1E] bg-[#0A0A0A]">
+                    <th className="px-6 py-3 font-medium text-[#888]">
                       Zeitpunkt
                     </th>
-                    <th className="px-6 py-3 font-medium text-gray-500">
+                    <th className="px-6 py-3 font-medium text-[#888]">
                       Kategorie
                     </th>
-                    <th className="px-6 py-3 font-medium text-gray-500">
+                    <th className="px-6 py-3 font-medium text-[#888]">
                       Button
                     </th>
-                    <th className="px-6 py-3 font-medium text-gray-500">
+                    <th className="px-6 py-3 font-medium text-[#888]">
                       Seite
                     </th>
-                    <th className="px-6 py-3 font-medium text-gray-500">
+                    <th className="px-6 py-3 font-medium text-[#888]">
                       Referrer
                     </th>
-                    <th className="px-6 py-3 font-medium text-gray-500">
+                    <th className="px-6 py-3 font-medium text-[#888]">
                       UTM
                     </th>
-                    <th className="px-6 py-3 font-medium text-gray-500">
+                    <th className="px-6 py-3 font-medium text-[#888]">
                       Besucher
                     </th>
-                    <th className="px-6 py-3 font-medium text-gray-500">
+                    <th className="px-6 py-3 font-medium text-[#888]">
                       Lead
                     </th>
                   </tr>
@@ -504,7 +504,7 @@ export default function ClicksPage() {
                     <tr>
                       <td
                         colSpan={8}
-                        className="px-6 py-8 text-center text-gray-400"
+                        className="px-6 py-8 text-center text-[#666]"
                       >
                         Keine Klicks vorhanden.
                       </td>
@@ -513,9 +513,9 @@ export default function ClicksPage() {
                     categorizedClicks.map((click, idx) => (
                       <tr
                         key={click.id ?? idx}
-                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                        className="border-b border-[#1E1E1E] last:border-0 hover:bg-[#0A0A0A]"
                       >
-                        <td className="px-6 py-3 text-gray-700 whitespace-nowrap">
+                        <td className="px-6 py-3 text-[#ccc] whitespace-nowrap">
                           {new Date(click.created_at).toLocaleString('de-DE', {
                             day: '2-digit',
                             month: '2-digit',
@@ -527,19 +527,19 @@ export default function ClicksPage() {
                         <td className="px-6 py-3">
                           <CategoryBadge category={click.category} />
                         </td>
-                        <td className="px-6 py-3 text-gray-700">
+                        <td className="px-6 py-3 text-[#ccc]">
                           <span className="font-medium">{click.label}</span>
-                          <span className="block text-xs text-gray-400 mt-0.5">
+                          <span className="block text-xs text-[#666] mt-0.5">
                             {click.button_id}
                           </span>
                         </td>
                         <td
-                          className="px-6 py-3 text-gray-700 max-w-[200px] truncate"
+                          className="px-6 py-3 text-[#ccc] max-w-[200px] truncate"
                           title={click.page}
                         >
                           {click.page}
                         </td>
-                        <td className="px-6 py-3 text-gray-500 text-xs max-w-[150px] truncate" title={click.referrer || ''}>
+                        <td className="px-6 py-3 text-[#888] text-xs max-w-[150px] truncate" title={click.referrer || ''}>
                           {click.referrer ? (() => { try { return new URL(click.referrer!).hostname; } catch { return click.referrer; } })() : '-'}
                         </td>
                         <td className="px-6 py-3 text-xs">
@@ -548,23 +548,23 @@ export default function ClicksPage() {
                               {click.utm_source}{click.utm_medium ? ` / ${click.utm_medium}` : ''}
                             </span>
                           ) : (
-                            <span className="text-gray-300">-</span>
+                            <span className="text-[#555]">-</span>
                           )}
                         </td>
-                        <td className="px-6 py-3 text-gray-500 font-mono text-xs">
+                        <td className="px-6 py-3 text-[#888] font-mono text-xs">
                           {click.visitor_id?.slice(0, 12)}...
                         </td>
-                        <td className="px-6 py-3 text-gray-700">
+                        <td className="px-6 py-3 text-[#ccc]">
                           {click.lead_name ? (
                             <span className="text-emerald-600 font-medium">
                               {click.lead_name}
                             </span>
                           ) : click.lead_id ? (
-                            <span className="text-gray-500">
+                            <span className="text-[#888]">
                               #{click.lead_id}
                             </span>
                           ) : (
-                            <span className="text-gray-300">-</span>
+                            <span className="text-[#555]">-</span>
                           )}
                         </td>
                       </tr>

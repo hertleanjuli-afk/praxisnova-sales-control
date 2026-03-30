@@ -149,50 +149,50 @@ export default function SettingsPage() {
   return (
     <div className="max-w-3xl space-y-6">
       {/* API Status */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-base font-semibold text-[#1E3A5F] mb-4">API-Verbindungen</h3>
+      <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+        <h3 className="text-base font-semibold text-[#F0F0F5] mb-4">API-Verbindungen</h3>
         {loading ? (
-          <div className="space-y-3 animate-pulse">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="h-5 bg-gray-200 rounded w-48" />))}</div>
+          <div className="space-y-3 animate-pulse">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="h-5 bg-[#1E1E1E] rounded w-48" />))}</div>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-center gap-3"><StatusDot ok={apiStatus.apollo} /><span className="text-sm text-gray-700">Apollo.io</span><span className="text-xs text-gray-400">{apiStatus.apollo ? 'Verbunden' : 'Nicht konfiguriert'}</span></div>
-            <div className="flex items-center gap-3"><StatusDot ok={apiStatus.hubspot} /><span className="text-sm text-gray-700">HubSpot CRM</span><span className="text-xs text-gray-400">{apiStatus.hubspot ? 'Verbunden' : 'Nicht konfiguriert'}</span></div>
-            <div className="flex items-center gap-3"><StatusDot ok={apiStatus.brevo} /><span className="text-sm text-gray-700">Brevo (E-Mail)</span><span className="text-xs text-gray-400">{apiStatus.brevo ? 'Verbunden' : 'Nicht konfiguriert'}</span></div>
+            <div className="flex items-center gap-3"><StatusDot ok={apiStatus.apollo} /><span className="text-sm text-[#ccc]">Apollo.io</span><span className="text-xs text-[#666]">{apiStatus.apollo ? 'Verbunden' : 'Nicht konfiguriert'}</span></div>
+            <div className="flex items-center gap-3"><StatusDot ok={apiStatus.hubspot} /><span className="text-sm text-[#ccc]">HubSpot CRM</span><span className="text-xs text-[#666]">{apiStatus.hubspot ? 'Verbunden' : 'Nicht konfiguriert'}</span></div>
+            <div className="flex items-center gap-3"><StatusDot ok={apiStatus.brevo} /><span className="text-sm text-[#ccc]">Brevo (E-Mail)</span><span className="text-xs text-[#666]">{apiStatus.brevo ? 'Verbunden' : 'Nicht konfiguriert'}</span></div>
           </div>
         )}
       </div>
 
       {/* Calendly */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-base font-semibold text-[#1E3A5F] mb-3">Calendly-Link</h3>
+      <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+        <h3 className="text-base font-semibold text-[#F0F0F5] mb-3">Calendly-Link</h3>
         {process.env.NEXT_PUBLIC_CALENDLY_LINK ? (
-          <a href={process.env.NEXT_PUBLIC_CALENDLY_LINK} target="_blank" rel="noopener noreferrer" className="text-sm text-[#2563EB] font-mono bg-gray-50 rounded-md px-3 py-2 border border-gray-100 block hover:underline">{process.env.NEXT_PUBLIC_CALENDLY_LINK}</a>
+          <a href={process.env.NEXT_PUBLIC_CALENDLY_LINK} target="_blank" rel="noopener noreferrer" className="text-sm text-[#2563EB] font-mono bg-[#0A0A0A] rounded-md px-3 py-2 border border-[#1E1E1E] block hover:underline">{process.env.NEXT_PUBLIC_CALENDLY_LINK}</a>
         ) : (
-          <p className="text-sm text-gray-600 font-mono bg-gray-50 rounded-md px-3 py-2 border border-gray-100">Nicht konfiguriert (CALENDLY_LINK in .env setzen)</p>
+          <p className="text-sm text-[#aaa] font-mono bg-[#0A0A0A] rounded-md px-3 py-2 border border-[#1E1E1E]">Nicht konfiguriert (CALENDLY_LINK in .env setzen)</p>
         )}
       </div>
 
       {/* Feature Flags */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-base font-semibold text-[#1E3A5F] mb-4">Feature-Flags</h3>
+      <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+        <h3 className="text-base font-semibold text-[#F0F0F5] mb-4">Feature-Flags</h3>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-700">TikTok / Ads Modul</p>
-            <p className="text-xs text-gray-400 mt-0.5">NEXT_PUBLIC_TIKTOK_MODULE_ENABLED in .env ändern</p>
+            <p className="text-sm font-medium text-[#ccc]">TikTok / Ads Modul</p>
+            <p className="text-xs text-[#666] mt-0.5">NEXT_PUBLIC_TIKTOK_MODULE_ENABLED in .env ändern</p>
           </div>
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${tiktokEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${tiktokEnabled ? 'bg-green-100 text-green-800' : 'bg-[#1A1A1A] text-[#aaa]'}`}>
             {tiktokEnabled ? 'Aktiviert' : 'Deaktiviert'}
           </span>
         </div>
       </div>
 
       {/* Database */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-base font-semibold text-[#1E3A5F] mb-4">Datenbank</h3>
+      <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+        <h3 className="text-base font-semibold text-[#F0F0F5] mb-4">Datenbank</h3>
 
         <div className="flex items-center gap-3 mb-3">
           <StatusDot ok={apiStatus.database} pulsing={isReconnecting} />
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-[#ccc]">
             {apiStatus.database ? 'Verbunden' : isReconnecting ? 'Verbindet automatisch...' : 'Nicht verbunden'}
           </span>
           {apiStatus.database && dbHealth.latencyMs > 0 && (
@@ -203,20 +203,20 @@ export default function SettingsPage() {
         </div>
 
         {/* Detailed status info */}
-        <div className="bg-gray-50 rounded-md p-3 mb-4 space-y-1">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="bg-[#0A0A0A] rounded-md p-3 mb-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[#888]">
             <span>Letzte Prüfung</span>
             <span className="font-mono">{dbHealth.lastChecked || '–'}</span>
           </div>
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-[#888]">
             <span>Latenz</span>
             <span className="font-mono">{dbHealth.latencyMs > 0 ? `${dbHealth.latencyMs} ms` : '–'}</span>
           </div>
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-[#888]">
             <span>Timeout</span>
             <span className="font-mono">30 s</span>
           </div>
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-[#888]">
             <span>Wiederholungsversuche</span>
             <span className="font-mono">3× mit Backoff</span>
           </div>
@@ -235,13 +235,13 @@ export default function SettingsPage() {
         </div>
 
         {!apiStatus.database && !isReconnecting && (
-          <p className="text-xs text-gray-400 mb-4">Verbindung wird automatisch alle 15 Sekunden erneut versucht.</p>
+          <p className="text-xs text-[#666] mb-4">Verbindung wird automatisch alle 15 Sekunden erneut versucht.</p>
         )}
         {isReconnecting && (
-          <p className="text-xs text-gray-400 mb-4">Automatische Wiederverbindung läuft – bitte warten.</p>
+          <p className="text-xs text-[#666] mb-4">Automatische Wiederverbindung läuft – bitte warten.</p>
         )}
         {apiStatus.database && (
-          <p className="text-xs text-gray-400 mb-4">Status wird alle 30 Sekunden geprüft. Abfragen werden bei Fehlern automatisch 3× wiederholt.</p>
+          <p className="text-xs text-[#666] mb-4">Status wird alle 30 Sekunden geprüft. Abfragen werden bei Fehlern automatisch 3× wiederholt.</p>
         )}
 
         <div className="flex gap-3">
@@ -254,7 +254,7 @@ export default function SettingsPage() {
               setDbHealth(health);
               setApiStatus((prev) => ({ ...prev, database: health.connected }));
             }}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-[#ccc] hover:bg-[#0A0A0A] transition-colors"
           >
             Jetzt prüfen
           </button>
@@ -265,9 +265,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Manual Sequence Processing */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">Sequenz-Verarbeitung</h3>
-        <p className="text-sm text-gray-500 mb-4">Sequenzen werden automatisch Mo-Fr verarbeitet. Hier können Sie die Verarbeitung manuell starten (ignoriert Zeitfenster).</p>
+      <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+        <h3 className="text-lg font-semibold text-[#F0F0F5] mb-4">Sequenz-Verarbeitung</h3>
+        <p className="text-sm text-[#888] mb-4">Sequenzen werden automatisch Mo-Fr verarbeitet. Hier können Sie die Verarbeitung manuell starten (ignoriert Zeitfenster).</p>
         <button
           onClick={async () => {
             setProcessMessage('');

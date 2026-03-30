@@ -193,7 +193,7 @@ export default function LeadsPage() {
       <div className="flex-1">
         {/* Header with manual add button */}
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#1E3A5F]">Leads</h2>
+          <h2 className="text-lg font-semibold text-[#F0F0F5]">Leads</h2>
           <button
             onClick={() => setShowManualForm((prev) => !prev)}
             className="rounded-md border border-[#2563EB] px-4 py-2 text-sm font-medium text-[#2563EB] hover:bg-blue-50 transition-colors"
@@ -204,14 +204,14 @@ export default function LeadsPage() {
 
         {/* Manual lead form */}
         {showManualForm && (
-          <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-base font-semibold text-[#1E3A5F] mb-4">
+          <div className="mb-6 bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+            <h3 className="text-base font-semibold text-[#F0F0F5] mb-4">
               Lead manuell hinzufügen
             </h3>
             <form onSubmit={handleManualSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#ccc] mb-1">
                     Vorname
                   </label>
                   <input
@@ -228,7 +228,7 @@ export default function LeadsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#ccc] mb-1">
                     Nachname
                   </label>
                   <input
@@ -247,7 +247,7 @@ export default function LeadsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[#ccc] mb-1">
                   E-Mail <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -267,7 +267,7 @@ export default function LeadsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#ccc] mb-1">
                     Firma
                   </label>
                   <input
@@ -284,7 +284,7 @@ export default function LeadsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#ccc] mb-1">
                     Position
                   </label>
                   <input
@@ -304,7 +304,7 @@ export default function LeadsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#ccc] mb-1">
                     Branche <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -325,7 +325,7 @@ export default function LeadsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#ccc] mb-1">
                     Mitarbeiterzahl
                   </label>
                   <input
@@ -357,7 +357,7 @@ export default function LeadsPage() {
                 <button
                   type="button"
                   onClick={() => setShowManualForm(false)}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="rounded-md border border-gray-300 bg-[#111] px-4 py-2 text-sm font-medium text-[#ccc] hover:bg-[#0A0A0A] transition-colors"
                 >
                   Abbrechen
                 </button>
@@ -403,12 +403,12 @@ export default function LeadsPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 animate-pulse"
+                className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-4 animate-pulse"
               >
-                <div className="h-4 bg-gray-200 rounded w-32 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-48 mb-3" />
-                <div className="h-3 bg-gray-200 rounded w-40 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-36" />
+                <div className="h-4 bg-[#1E1E1E] rounded w-32 mb-2" />
+                <div className="h-3 bg-[#1E1E1E] rounded w-48 mb-3" />
+                <div className="h-3 bg-[#1E1E1E] rounded w-40 mb-2" />
+                <div className="h-3 bg-[#1E1E1E] rounded w-36" />
               </div>
             ))}
           </div>
@@ -431,9 +431,9 @@ export default function LeadsPage() {
 
         {/* Empty state */}
         {!loading && searched && leads.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-12 text-center">
             <svg
-              className="mx-auto h-12 w-12 text-gray-300"
+              className="mx-auto h-12 w-12 text-[#555]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -445,7 +445,7 @@ export default function LeadsPage() {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
-            <p className="mt-3 text-sm text-gray-500">
+            <p className="mt-3 text-sm text-[#888]">
               Keine Leads gefunden. Versuchen Sie andere Suchkriterien.
             </p>
           </div>
@@ -453,9 +453,9 @@ export default function LeadsPage() {
 
         {/* Initial state */}
         {!loading && !searched && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-12 text-center">
             <svg
-              className="mx-auto h-12 w-12 text-gray-300"
+              className="mx-auto h-12 w-12 text-[#555]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -467,7 +467,7 @@ export default function LeadsPage() {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
-            <p className="mt-3 text-sm text-gray-500">
+            <p className="mt-3 text-sm text-[#888]">
               Wählen Sie einen Sektor und starten Sie die Suche.
             </p>
           </div>

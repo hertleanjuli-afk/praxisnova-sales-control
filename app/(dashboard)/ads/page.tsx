@@ -51,23 +51,23 @@ export default function AdsPage() {
         {PLACEHOLDER_KPIS.map((kpi) => (
           <div
             key={kpi.label}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 opacity-60"
+            className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6 opacity-60"
           >
-            <p className="text-sm text-gray-500 mb-1">{kpi.label}</p>
-            <p className="text-2xl font-bold text-gray-300">{kpi.value}</p>
+            <p className="text-sm text-[#888] mb-1">{kpi.label}</p>
+            <p className="text-2xl font-bold text-[#555]">{kpi.value}</p>
           </div>
         ))}
       </div>
 
       {/* Placeholder chart */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-base font-semibold text-[#1E3A5F] mb-4">
+      <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+        <h3 className="text-base font-semibold text-[#F0F0F5] mb-4">
           Wöchentliche Werbeausgaben vs. Leads
         </h3>
-        <div className="border-2 border-dashed border-gray-200 rounded-lg h-64 flex items-center justify-center">
+        <div className="border-2 border-dashed border-[#1E1E1E] rounded-lg h-64 flex items-center justify-center">
           <div className="text-center">
             <svg
-              className="mx-auto h-10 w-10 text-gray-300 mb-2"
+              className="mx-auto h-10 w-10 text-[#555] mb-2"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -79,7 +79,7 @@ export default function AdsPage() {
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
               />
             </svg>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-[#666]">
               Diagramm wird verfügbar, sobald das Modul aktiviert ist.
             </p>
           </div>
@@ -87,30 +87,30 @@ export default function AdsPage() {
       </div>
 
       {/* Lead source tracking table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-base font-semibold text-[#1E3A5F] mb-4">
+      <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+        <h3 className="text-base font-semibold text-[#F0F0F5] mb-4">
           Lead-Quellen Tracking
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="pb-3 font-medium text-gray-500">Quelle</th>
-                <th className="pb-3 font-medium text-gray-500 text-right">Leads</th>
-                <th className="pb-3 font-medium text-gray-500 text-right">Kosten</th>
-                <th className="pb-3 font-medium text-gray-500 text-right">Conversion</th>
+              <tr className="border-b border-[#1E1E1E]">
+                <th className="pb-3 font-medium text-[#888]">Quelle</th>
+                <th className="pb-3 font-medium text-[#888] text-right">Leads</th>
+                <th className="pb-3 font-medium text-[#888] text-right">Kosten</th>
+                <th className="pb-3 font-medium text-[#888] text-right">Conversion</th>
               </tr>
             </thead>
             <tbody>
               {PLACEHOLDER_SOURCES.map((row) => (
                 <tr
                   key={row.source}
-                  className="border-b border-gray-100 last:border-0 opacity-50"
+                  className="border-b border-[#1E1E1E] last:border-0 opacity-50"
                 >
-                  <td className="py-3 font-medium text-gray-700">{row.source}</td>
-                  <td className="py-3 text-right text-gray-400">{row.leads}</td>
-                  <td className="py-3 text-right text-gray-400">{row.cost}</td>
-                  <td className="py-3 text-right text-gray-400">{row.conversion}</td>
+                  <td className="py-3 font-medium text-[#ccc]">{row.source}</td>
+                  <td className="py-3 text-right text-[#666]">{row.leads}</td>
+                  <td className="py-3 text-right text-[#666]">{row.cost}</td>
+                  <td className="py-3 text-right text-[#666]">{row.conversion}</td>
                 </tr>
               ))}
             </tbody>

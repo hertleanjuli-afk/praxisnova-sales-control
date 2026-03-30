@@ -140,7 +140,7 @@ export default function ClicksPage() {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 dateRange === tab.value
                   ? 'bg-[#2563EB] text-white'
-                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                  : 'bg-[#111] text-[#ccc] border border-[#1E1E1E] hover:bg-[#0A0A0A]'
               }`}
             >
               {tab.label}
@@ -152,7 +152,7 @@ export default function ClicksPage() {
         <select
           value={buttonFilter}
           onChange={(e) => setButtonFilter(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none bg-white"
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none bg-[#111]"
         >
           <option value="all">Alle Buttons</option>
           {buttonIds.map((id) => (
@@ -172,9 +172,9 @@ export default function ClicksPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse">
-              <div className="h-3 bg-gray-200 rounded w-24 mb-3" />
-              <div className="h-8 bg-gray-200 rounded w-16" />
+            <div key={i} className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6 animate-pulse">
+              <div className="h-3 bg-[#1E1E1E] rounded w-24 mb-3" />
+              <div className="h-8 bg-[#1E1E1E] rounded w-16" />
             </div>
           ))}
         </div>
@@ -182,36 +182,36 @@ export default function ClicksPage() {
         <>
           {/* Stats cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-sm text-gray-500 mb-1">Total Clicks</p>
-              <p className="text-2xl font-bold text-[#1E3A5F]">{totalClicks}</p>
+            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+              <p className="text-sm text-[#888] mb-1">Total Clicks</p>
+              <p className="text-2xl font-bold text-[#F0F0F5]">{totalClicks}</p>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-sm text-gray-500 mb-1">Unique Visitors</p>
+            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+              <p className="text-sm text-[#888] mb-1">Unique Visitors</p>
               <p className="text-2xl font-bold text-[#2563EB]">{uniqueVisitors}</p>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-sm text-gray-500 mb-1">Identified Visitors</p>
+            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+              <p className="text-sm text-[#888] mb-1">Identified Visitors</p>
               <p className="text-2xl font-bold text-emerald-600">{identifiedVisitors}</p>
             </div>
           </div>
 
           {/* Click activity chart - last 7 days */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">
+          <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+            <h3 className="text-lg font-semibold text-[#F0F0F5] mb-4">
               Klick-Aktivität (letzte 7 Tage)
             </h3>
             <div className="flex items-end gap-2 h-40">
               {clicksByDay.map((day) => (
                 <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-xs text-gray-500 font-medium">{day.count}</span>
+                  <span className="text-xs text-[#888] font-medium">{day.count}</span>
                   <div
                     className="w-full bg-[#2563EB] rounded-t-sm transition-all"
                     style={{
                       height: `${Math.max((day.count / maxDayCount) * 120, 4)}px`,
                     }}
                   />
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-[#666]">
                     {new Date(day.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'short' })}
                   </span>
                 </div>
@@ -221,18 +221,18 @@ export default function ClicksPage() {
 
           {/* Top 5 Buttons */}
           {topButtons.length > 0 && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">
+            <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6">
+              <h3 className="text-lg font-semibold text-[#F0F0F5] mb-4">
                 Top 5 Buttons
               </h3>
               <div className="space-y-3">
                 {topButtons.map((btn) => (
                   <div key={btn.button_id} className="space-y-1">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium text-gray-700">{btn.button_text}</span>
-                      <span className="text-gray-500">{btn.count} Klicks</span>
+                      <span className="font-medium text-[#ccc]">{btn.button_text}</span>
+                      <span className="text-[#888]">{btn.count} Klicks</span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className="w-full bg-[#1A1A1A] rounded-full h-2">
                       <div
                         className="bg-[#2563EB] h-2 rounded-full transition-all"
                         style={{ width: `${(btn.count / maxButtonCount) * 100}%` }}
@@ -245,35 +245,35 @@ export default function ClicksPage() {
           )}
 
           {/* Click table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-[#1E3A5F]">
+          <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#1E1E1E]">
+              <h3 className="text-lg font-semibold text-[#F0F0F5]">
                 Alle Klicks
               </h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="px-6 py-3 font-medium text-gray-500">Zeitpunkt</th>
-                    <th className="px-6 py-3 font-medium text-gray-500">Seite</th>
-                    <th className="px-6 py-3 font-medium text-gray-500">Button</th>
-                    <th className="px-6 py-3 font-medium text-gray-500">Besucher-ID</th>
-                    <th className="px-6 py-3 font-medium text-gray-500">Lead</th>
-                    <th className="px-6 py-3 font-medium text-gray-500">Referrer</th>
+                  <tr className="border-b border-[#1E1E1E] bg-[#0A0A0A]">
+                    <th className="px-6 py-3 font-medium text-[#888]">Zeitpunkt</th>
+                    <th className="px-6 py-3 font-medium text-[#888]">Seite</th>
+                    <th className="px-6 py-3 font-medium text-[#888]">Button</th>
+                    <th className="px-6 py-3 font-medium text-[#888]">Besucher-ID</th>
+                    <th className="px-6 py-3 font-medium text-[#888]">Lead</th>
+                    <th className="px-6 py-3 font-medium text-[#888]">Referrer</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClicks.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                      <td colSpan={6} className="px-6 py-8 text-center text-[#666]">
                         Keine Klicks im gewählten Zeitraum.
                       </td>
                     </tr>
                   ) : (
                     filteredClicks.map((click, idx) => (
-                      <tr key={click.id ?? idx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                        <td className="px-6 py-3 text-gray-700 whitespace-nowrap">
+                      <tr key={click.id ?? idx} className="border-b border-[#1E1E1E] last:border-0 hover:bg-[#0A0A0A]">
+                        <td className="px-6 py-3 text-[#ccc] whitespace-nowrap">
                           {new Date(click.created_at).toLocaleString('de-DE', {
                             day: '2-digit',
                             month: '2-digit',
@@ -282,27 +282,27 @@ export default function ClicksPage() {
                             minute: '2-digit',
                           })}
                         </td>
-                        <td className="px-6 py-3 text-gray-700 max-w-[200px] truncate" title={click.page_url}>
+                        <td className="px-6 py-3 text-[#ccc] max-w-[200px] truncate" title={click.page_url}>
                           {click.page_url}
                         </td>
-                        <td className="px-6 py-3 text-gray-700">
+                        <td className="px-6 py-3 text-[#ccc]">
                           <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-[#2563EB]">
                             {click.button_text ?? click.button_id}
                           </span>
                         </td>
-                        <td className="px-6 py-3 text-gray-500 font-mono text-xs">
+                        <td className="px-6 py-3 text-[#888] font-mono text-xs">
                           {click.visitor_id?.slice(0, 12)}...
                         </td>
-                        <td className="px-6 py-3 text-gray-700">
+                        <td className="px-6 py-3 text-[#ccc]">
                           {click.lead_name ? (
                             <span className="text-emerald-600 font-medium">{click.lead_name}</span>
                           ) : click.lead_id ? (
-                            <span className="text-gray-500">#{click.lead_id}</span>
+                            <span className="text-[#888]">#{click.lead_id}</span>
                           ) : (
-                            <span className="text-gray-300">-</span>
+                            <span className="text-[#555]">-</span>
                           )}
                         </td>
-                        <td className="px-6 py-3 text-gray-500 max-w-[150px] truncate" title={click.referrer}>
+                        <td className="px-6 py-3 text-[#888] max-w-[150px] truncate" title={click.referrer}>
                           {click.referrer || '-'}
                         </td>
                       </tr>

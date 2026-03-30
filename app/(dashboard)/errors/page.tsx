@@ -54,7 +54,7 @@ export default function ErrorsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-navy mb-6">Fehler-Log</h1>
-      <p className="text-sm text-gray-500 mb-6">Fehler der letzten 7 Tage</p>
+      <p className="text-sm text-[#888] mb-6">Fehler der letzten 7 Tage</p>
 
       {/* Stats */}
       {stats.length > 0 && (
@@ -62,12 +62,12 @@ export default function ErrorsPage() {
           {stats.map((s) => (
             <div
               key={s.error_type}
-              className="bg-white rounded-lg border border-red-200 p-3 text-center"
+              className="bg-[#111] rounded-lg border border-red-200 p-3 text-center"
             >
               <div className="text-2xl font-bold text-red-600">
                 {Number(s.count)}
               </div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-[#888] mt-1">
                 {ERROR_TYPE_LABELS[s.error_type] || s.error_type}
               </div>
             </div>
@@ -80,24 +80,24 @@ export default function ErrorsPage() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse"
+              className="bg-[#111] rounded-lg border border-[#1E1E1E] p-4 animate-pulse"
             >
-              <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
-              <div className="h-3 bg-gray-200 rounded w-2/3" />
+              <div className="h-4 bg-[#1E1E1E] rounded w-1/3 mb-2" />
+              <div className="h-3 bg-[#1E1E1E] rounded w-2/3" />
             </div>
           ))}
         </div>
       ) : errors.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <div className="bg-[#111] rounded-lg border border-[#1E1E1E] p-12 text-center">
           <div className="text-4xl mb-3">&#10003;</div>
-          <p className="text-gray-500">
+          <p className="text-[#888]">
             Keine Fehler in den letzten 7 Tagen
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="bg-[#111] rounded-lg border border-[#1E1E1E] overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
+            <thead className="bg-[#0A0A0A] text-[#aaa]">
               <tr>
                 <th className="text-left p-3">Zeitpunkt</th>
                 <th className="text-left p-3">Typ</th>
@@ -111,9 +111,9 @@ export default function ErrorsPage() {
               {errors.map((err) => (
                 <tr
                   key={err.id}
-                  className="border-t border-gray-100 hover:bg-red-50/30"
+                  className="border-t border-[#1E1E1E] hover:bg-red-50/30"
                 >
-                  <td className="p-3 text-gray-500 whitespace-nowrap text-xs">
+                  <td className="p-3 text-[#888] whitespace-nowrap text-xs">
                     {formatDate(err.created_at)}
                   </td>
                   <td className="p-3">
@@ -121,20 +121,20 @@ export default function ErrorsPage() {
                       {ERROR_TYPE_LABELS[err.error_type] || err.error_type}
                     </span>
                   </td>
-                  <td className="p-3 text-gray-700">
+                  <td className="p-3 text-[#ccc]">
                     {err.lead_email ? (
                       <span>
                         {err.first_name} {err.last_name}
                         <br />
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-[#666]">
                           {err.lead_email}
                         </span>
                       </span>
                     ) : (
-                      <span className="text-gray-400">–</span>
+                      <span className="text-[#666]">–</span>
                     )}
                   </td>
-                  <td className="p-3 text-gray-500 text-xs">
+                  <td className="p-3 text-[#888] text-xs">
                     {err.sequence_type || '–'}
                     {err.step_number != null && `, Schritt ${err.step_number}`}
                   </td>

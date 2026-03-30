@@ -28,7 +28,7 @@ const CHANGE_TYPE_COLORS: Record<string, string> = {
   Timing: 'bg-yellow-100 text-yellow-800',
   Sektor: 'bg-green-100 text-green-800',
   LinkedIn: 'bg-sky-100 text-sky-800',
-  Sonstiges: 'bg-gray-100 text-gray-800',
+  Sonstiges: 'bg-[#1A1A1A] text-gray-800',
 };
 
 export default function ChangeLogPage() {
@@ -136,8 +136,8 @@ export default function ChangeLogPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[#1E3A5F] mb-6">Change Log</h1>
-      <p className="text-sm text-gray-500 mb-6">
+      <h1 className="text-2xl font-bold text-[#F0F0F5] mb-6">Change Log</h1>
+      <p className="text-sm text-[#888] mb-6">
         Dokumentiere alle Aenderungen an Sequenzen, Templates und Strategie
       </p>
 
@@ -154,14 +154,14 @@ export default function ChangeLogPage() {
       )}
 
       {/* Add Change Form */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-[#1E3A5F] mb-4">
+      <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-6 mb-6">
+        <h2 className="text-lg font-semibold text-[#F0F0F5] mb-4">
           Neue Aenderung erfassen
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#ccc] mb-1">
                 Datum
               </label>
               <input
@@ -173,7 +173,7 @@ export default function ChangeLogPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#ccc] mb-1">
                 Typ
               </label>
               <select
@@ -191,7 +191,7 @@ export default function ChangeLogPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[#ccc] mb-1">
               Beschreibung
             </label>
             <textarea
@@ -205,7 +205,7 @@ export default function ChangeLogPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[#ccc] mb-1">
               Erwartete Auswirkung
             </label>
             <textarea
@@ -233,24 +233,24 @@ export default function ChangeLogPage() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse"
+              className="bg-[#111] rounded-lg border border-[#1E1E1E] p-4 animate-pulse"
             >
-              <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
-              <div className="h-3 bg-gray-200 rounded w-2/3" />
+              <div className="h-4 bg-[#1E1E1E] rounded w-1/3 mb-2" />
+              <div className="h-3 bg-[#1E1E1E] rounded w-2/3" />
             </div>
           ))}
         </div>
       ) : entries.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-          <p className="text-gray-500">
+        <div className="bg-[#111] rounded-lg border border-[#1E1E1E] p-12 text-center">
+          <p className="text-[#888]">
             Noch keine Aenderungen dokumentiert
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600">
+              <thead className="bg-[#0A0A0A] text-[#aaa]">
                 <tr>
                   <th className="text-left p-3">Datum</th>
                   <th className="text-left p-3">Typ</th>
@@ -264,27 +264,27 @@ export default function ChangeLogPage() {
                 {entries.map((entry) => (
                   <tr
                     key={entry.id}
-                    className="border-t border-gray-100 hover:bg-gray-50/50"
+                    className="border-t border-[#1E1E1E] hover:bg-[#0A0A0A]/50"
                   >
-                    <td className="p-3 text-gray-500 whitespace-nowrap text-xs">
+                    <td className="p-3 text-[#888] whitespace-nowrap text-xs">
                       {formatDate(entry.change_date)}
                     </td>
                     <td className="p-3">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                           CHANGE_TYPE_COLORS[entry.change_type] ||
-                          'bg-gray-100 text-gray-800'
+                          'bg-[#1A1A1A] text-gray-800'
                         }`}
                       >
                         {entry.change_type}
                       </span>
                     </td>
-                    <td className="p-3 text-gray-700 max-w-xs">
+                    <td className="p-3 text-[#ccc] max-w-xs">
                       {entry.change_description}
                     </td>
-                    <td className="p-3 text-gray-500 max-w-xs text-xs">
+                    <td className="p-3 text-[#888] max-w-xs text-xs">
                       {entry.expected_impact || (
-                        <span className="text-gray-300">--</span>
+                        <span className="text-[#555]">--</span>
                       )}
                     </td>
                     <td
@@ -313,16 +313,16 @@ export default function ChangeLogPage() {
                           className="w-full border border-[#2563EB] rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
                         />
                       ) : entry.actual_impact ? (
-                        <span className="text-gray-700">
+                        <span className="text-[#ccc]">
                           {entry.actual_impact}
                         </span>
                       ) : (
-                        <span className="text-gray-300 italic hover:text-gray-500">
+                        <span className="text-[#555] italic hover:text-[#888]">
                           Klicken zum Bearbeiten
                         </span>
                       )}
                     </td>
-                    <td className="p-3 text-gray-500 whitespace-nowrap text-xs">
+                    <td className="p-3 text-[#888] whitespace-nowrap text-xs">
                       {entry.changed_by}
                     </td>
                   </tr>

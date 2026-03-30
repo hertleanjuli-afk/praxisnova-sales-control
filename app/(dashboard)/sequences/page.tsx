@@ -231,7 +231,7 @@ export default function SequencesPage() {
         );
       case 'stopped':
         return (
-          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+          <span className="inline-flex items-center rounded-full bg-[#1A1A1A] px-2.5 py-0.5 text-xs font-medium text-gray-800">
             Gestoppt
           </span>
         );
@@ -249,7 +249,7 @@ export default function SequencesPage() {
         );
       default:
         return (
-          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+          <span className="inline-flex items-center rounded-full bg-[#1A1A1A] px-2.5 py-0.5 text-xs font-medium text-[#aaa]">
             {status}
           </span>
         );
@@ -261,7 +261,7 @@ export default function SequencesPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Sector filter */}
-        <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-1">
+        <div className="flex gap-1 bg-[#111] rounded-lg border border-[#1E1E1E] p-1">
           {SECTOR_TABS.map((tab) => (
             <button
               key={tab.value}
@@ -269,7 +269,7 @@ export default function SequencesPage() {
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 sectorFilter === tab.value
                   ? 'bg-[#2563EB] text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  : 'text-[#aaa] hover:bg-[#1A1A1A]'
               }`}
             >
               {tab.label}
@@ -278,7 +278,7 @@ export default function SequencesPage() {
         </div>
 
         {/* Status filter */}
-        <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-1">
+        <div className="flex gap-1 bg-[#111] rounded-lg border border-[#1E1E1E] p-1">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.value}
@@ -286,7 +286,7 @@ export default function SequencesPage() {
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 statusFilter === tab.value
                   ? 'bg-[#1E3A5F] text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  : 'text-[#aaa] hover:bg-[#1A1A1A]'
               }`}
             >
               {tab.label}
@@ -308,12 +308,12 @@ export default function SequencesPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 animate-pulse"
+              className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-5 animate-pulse"
             >
-              <div className="h-4 bg-gray-200 rounded w-32 mb-3" />
-              <div className="h-3 bg-gray-200 rounded w-48 mb-2" />
-              <div className="h-3 bg-gray-200 rounded w-24 mb-4" />
-              <div className="h-2 bg-gray-200 rounded w-full" />
+              <div className="h-4 bg-[#1E1E1E] rounded w-32 mb-3" />
+              <div className="h-3 bg-[#1E1E1E] rounded w-48 mb-2" />
+              <div className="h-3 bg-[#1E1E1E] rounded w-24 mb-4" />
+              <div className="h-2 bg-[#1E1E1E] rounded w-full" />
             </div>
           ))}
         </div>
@@ -325,20 +325,20 @@ export default function SequencesPage() {
           {[...leads].sort((a, b) => (b.lead_score || 0) - (a.lead_score || 0)).map((lead) => (
             <div
               key={lead.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col gap-3"
+              className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-5 flex flex-col gap-3"
             >
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">
                     {lead.first_name} {lead.last_name}
                   </h3>
-                  <p className="text-xs text-gray-500">{lead.company}</p>
+                  <p className="text-xs text-[#888]">{lead.company}</p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {getStatusBadge(lead.sequence_status)}
                   {lead.lead_score > 0 && (
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      lead.lead_score >= 30 ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'
+                      lead.lead_score >= 30 ? 'bg-orange-100 text-orange-800' : 'bg-[#1A1A1A] text-[#aaa]'
                     }`}>
                       {lead.lead_score} Punkte
                     </span>
@@ -346,25 +346,25 @@ export default function SequencesPage() {
                 </div>
               </div>
 
-              <div className="space-y-1 text-sm text-gray-600">
+              <div className="space-y-1 text-sm text-[#aaa]">
                 <p>
-                  <span className="font-medium text-[#1E3A5F]">Typ:</span>{' '}
+                  <span className="font-medium text-[#F0F0F5]">Typ:</span>{' '}
                   {lead.sequence_type}
                 </p>
                 <p>
-                  <span className="font-medium text-[#1E3A5F]">Fortschritt:</span>{' '}
+                  <span className="font-medium text-[#F0F0F5]">Fortschritt:</span>{' '}
                   {getStepLabel(lead.sequence_step, lead.sequence_type)}
                 </p>
                 {lead.enrolled_at && (
                   <p>
-                    <span className="font-medium text-[#1E3A5F]">Gestartet:</span>{' '}
+                    <span className="font-medium text-[#F0F0F5]">Gestartet:</span>{' '}
                     {new Date(lead.enrolled_at).toLocaleDateString('de-DE')}
                   </p>
                 )}
               </div>
 
               {/* Progress bar */}
-              <div className="w-full bg-gray-100 rounded-full h-2">
+              <div className="w-full bg-[#1A1A1A] rounded-full h-2">
                 <div
                   className="bg-[#2563EB] h-2 rounded-full transition-all"
                   style={{
@@ -385,7 +385,7 @@ export default function SequencesPage() {
                     </button>
                     <button
                       onClick={() => openCallModal(lead.id)}
-                      className="flex-1 rounded-md border border-[#2563EB] bg-white px-3 py-1.5 text-sm font-medium text-[#2563EB] hover:bg-blue-50 transition-colors"
+                      className="flex-1 rounded-md border border-[#2563EB] bg-[#111] px-3 py-1.5 text-sm font-medium text-[#2563EB] hover:bg-blue-50 transition-colors"
                     >
                       Anruf erfassen
                     </button>
@@ -399,7 +399,7 @@ export default function SequencesPage() {
                   </button>
                   <button
                     onClick={() => openStopModal(lead.id)}
-                    className="w-full rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    className="w-full rounded-md border border-red-300 bg-[#111] px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                   >
                     Sequenz stoppen
                   </button>
@@ -412,9 +412,9 @@ export default function SequencesPage() {
 
       {/* Empty state */}
       {!loading && leads.length === 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+        <div className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-12 text-center">
           <svg
-            className="mx-auto h-12 w-12 text-gray-300"
+            className="mx-auto h-12 w-12 text-[#555]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -432,7 +432,7 @@ export default function SequencesPage() {
               d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-[#888]">
             Keine Sequenzen für die ausgewählten Filter gefunden.
           </p>
         </div>
@@ -441,13 +441,13 @@ export default function SequencesPage() {
       {/* Stop Modal */}
       {showStopModal !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">
+          <div className="bg-[#111] rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-[#F0F0F5] mb-4">
               Sequenz stoppen
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[#ccc] mb-1">
                   Grund <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -466,7 +466,7 @@ export default function SequencesPage() {
 
               {stopReason === 'other' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#ccc] mb-1">
                     Details
                   </label>
                   <textarea
@@ -495,7 +495,7 @@ export default function SequencesPage() {
                     setStopReason('');
                     setStopDetails('');
                   }}
-                  className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 rounded-md border border-gray-300 bg-[#111] px-4 py-2 text-sm font-medium text-[#ccc] hover:bg-[#0A0A0A] transition-colors"
                 >
                   Abbrechen
                 </button>
@@ -508,13 +508,13 @@ export default function SequencesPage() {
       {/* Call Modal */}
       {showCallModal !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">
+          <div className="bg-[#111] rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-[#F0F0F5] mb-4">
               Anruf erfassen
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[#ccc] mb-1">
                   Datum/Uhrzeit
                 </label>
                 <input
@@ -526,7 +526,7 @@ export default function SequencesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[#ccc] mb-1">
                   Ergebnis <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -543,7 +543,7 @@ export default function SequencesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[#ccc] mb-1">
                   Notiz
                 </label>
                 <textarea
@@ -569,7 +569,7 @@ export default function SequencesPage() {
                     setCallResult('');
                     setCallNotes('');
                   }}
-                  className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 rounded-md border border-gray-300 bg-[#111] px-4 py-2 text-sm font-medium text-[#ccc] hover:bg-[#0A0A0A] transition-colors"
                 >
                   Abbrechen
                 </button>

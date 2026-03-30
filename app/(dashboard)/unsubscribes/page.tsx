@@ -92,9 +92,9 @@ export default function UnsubscribesPage() {
       <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white rounded-lg shadow-sm border p-6 animate-pulse">
-              <div className="h-3 bg-gray-200 rounded w-24 mb-3" />
-              <div className="h-8 bg-gray-200 rounded w-16" />
+            <div key={i} className="bg-[#111] rounded-lg shadow-sm border p-6 animate-pulse">
+              <div className="h-3 bg-[#1E1E1E] rounded w-24 mb-3" />
+              <div className="h-8 bg-[#1E1E1E] rounded w-16" />
             </div>
           ))}
         </div>
@@ -129,21 +129,21 @@ export default function UnsubscribesPage() {
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <p className="text-sm text-gray-500 mb-1">Gesamt abgemeldet</p>
+        <div className="bg-[#111] rounded-lg shadow-sm border p-6">
+          <p className="text-sm text-[#888] mb-1">Gesamt abgemeldet</p>
           <p className="text-2xl font-bold text-amber-600">{data.stats.total}</p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <p className="text-sm text-gray-500 mb-1">Permanent gesperrt</p>
+        <div className="bg-[#111] rounded-lg shadow-sm border p-6">
+          <p className="text-sm text-[#888] mb-1">Permanent gesperrt</p>
           <p className="text-2xl font-bold text-red-600">{data.stats.permanently_blocked}</p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <p className="text-sm text-gray-500 mb-1">Letzte 7 Tage</p>
+        <div className="bg-[#111] rounded-lg shadow-sm border p-6">
+          <p className="text-sm text-[#888] mb-1">Letzte 7 Tage</p>
           <p className="text-2xl font-bold text-amber-600">{data.stats.last_7_days}</p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <p className="text-sm text-gray-500 mb-1">Abmelderate</p>
-          <p className="text-2xl font-bold text-[#1E3A5F]">
+        <div className="bg-[#111] rounded-lg shadow-sm border p-6">
+          <p className="text-sm text-[#888] mb-1">Abmelderate</p>
+          <p className="text-2xl font-bold text-[#F0F0F5]">
             {(data.stats.unsubscribe_rate * 100).toFixed(1)}%
           </p>
         </div>
@@ -152,20 +152,20 @@ export default function UnsubscribesPage() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Timeline */}
-        <div className="bg-white rounded-lg shadow-sm border p-5 lg:col-span-2">
-          <h3 className="text-sm font-semibold text-[#1E3A5F] mb-4">Abmeldungen pro Woche (90 Tage)</h3>
+        <div className="bg-[#111] rounded-lg shadow-sm border p-5 lg:col-span-2">
+          <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">Abmeldungen pro Woche (90 Tage)</h3>
           {data.timeline.length === 0 ? (
-            <p className="text-sm text-gray-400">Keine Daten vorhanden.</p>
+            <p className="text-sm text-[#666]">Keine Daten vorhanden.</p>
           ) : (
             <div className="flex items-end gap-1 h-32">
               {data.timeline.map((entry) => (
                 <div key={entry.week_start} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-xs font-medium text-gray-700">{entry.count}</span>
+                  <span className="text-xs font-medium text-[#ccc]">{entry.count}</span>
                   <div
                     className="w-full bg-amber-400 rounded-t"
                     style={{ height: `${(entry.count / maxTimelineCount) * 100}%`, minHeight: entry.count > 0 ? 4 : 0 }}
                   />
-                  <span className="text-[10px] text-gray-400 rotate-[-45deg] origin-top-left whitespace-nowrap">
+                  <span className="text-[10px] text-[#666] rotate-[-45deg] origin-top-left whitespace-nowrap">
                     {new Date(entry.week_start).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
                   </span>
                 </div>
@@ -175,12 +175,12 @@ export default function UnsubscribesPage() {
         </div>
 
         {/* By Sector */}
-        <div className="bg-white rounded-lg shadow-sm border p-5">
-          <h3 className="text-sm font-semibold text-[#1E3A5F] mb-4">Nach Sektor</h3>
+        <div className="bg-[#111] rounded-lg shadow-sm border p-5">
+          <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">Nach Sektor</h3>
           <div className="space-y-3">
             {data.by_sector.map((s) => (
               <div key={s.sector} className="flex items-center justify-between">
-                <span className="text-sm capitalize text-gray-700">{s.sector}</span>
+                <span className="text-sm capitalize text-[#ccc]">{s.sector}</span>
                 <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
                   {s.count}
                 </span>
@@ -188,14 +188,14 @@ export default function UnsubscribesPage() {
             ))}
           </div>
 
-          <h3 className="text-sm font-semibold text-[#1E3A5F] mt-6 mb-4">Nach Sequenz-Schritt</h3>
+          <h3 className="text-sm font-semibold text-[#F0F0F5] mt-6 mb-4">Nach Sequenz-Schritt</h3>
           <div className="space-y-2">
             {data.by_step.map((s) => (
               <div key={s.step} className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-[#ccc]">
                   {s.step === 0 ? 'Vor Start' : `Email ${s.step}`}
                 </span>
-                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+                <span className="inline-flex items-center rounded-full bg-[#1A1A1A] px-2.5 py-0.5 text-xs font-medium text-[#ccc]">
                   {s.count}
                 </span>
               </div>
@@ -206,22 +206,22 @@ export default function UnsubscribesPage() {
 
       {/* By Domain */}
       {data.by_domain.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border p-5">
-          <h3 className="text-sm font-semibold text-[#1E3A5F] mb-4">Nach Domain / Firma</h3>
+        <div className="bg-[#111] rounded-lg shadow-sm border p-5">
+          <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">Nach Domain / Firma</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-[#0A0A0A]">
                 <tr>
-                  <th className="text-left p-2 font-medium text-gray-600">Domain</th>
-                  <th className="text-left p-2 font-medium text-gray-600">Firmen</th>
-                  <th className="text-right p-2 font-medium text-gray-600">Anzahl</th>
+                  <th className="text-left p-2 font-medium text-[#aaa]">Domain</th>
+                  <th className="text-left p-2 font-medium text-[#aaa]">Firmen</th>
+                  <th className="text-right p-2 font-medium text-[#aaa]">Anzahl</th>
                 </tr>
               </thead>
               <tbody>
                 {data.by_domain.map((d) => (
-                  <tr key={d.domain} className="border-t border-gray-100">
-                    <td className="p-2 font-mono text-xs text-gray-700">{d.domain}</td>
-                    <td className="p-2 text-gray-500 text-xs">
+                  <tr key={d.domain} className="border-t border-[#1E1E1E]">
+                    <td className="p-2 font-mono text-xs text-[#ccc]">{d.domain}</td>
+                    <td className="p-2 text-[#888] text-xs">
                       {Array.from(new Set(d.companies.filter(Boolean))).slice(0, 3).join(', ')}
                     </td>
                     <td className="p-2 text-right">
@@ -238,9 +238,9 @@ export default function UnsubscribesPage() {
       )}
 
       {/* Full Lead List */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-[#1E3A5F]">
+      <div className="bg-[#111] rounded-lg shadow-sm border">
+        <div className="p-4 border-b border-[#1E1E1E] flex items-center justify-between">
+          <h3 className="text-base font-semibold text-[#F0F0F5]">
             Alle abgemeldeten Kontakte ({filteredLeads.length})
           </h3>
           <input
@@ -248,47 +248,47 @@ export default function UnsubscribesPage() {
             placeholder="Suche nach Name, E-Mail, Firma..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-200 rounded-md px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-[#1E1E1E] rounded-md px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-[#0A0A0A]">
               <tr>
-                <th className="text-left p-3 font-medium text-gray-600">Name</th>
-                <th className="text-left p-3 font-medium text-gray-600">E-Mail</th>
-                <th className="text-left p-3 font-medium text-gray-600">Firma</th>
-                <th className="text-left p-3 font-medium text-gray-600">Sequenz</th>
-                <th className="text-center p-3 font-medium text-gray-600">Schritt</th>
-                <th className="text-left p-3 font-medium text-gray-600">Abgemeldet</th>
-                <th className="text-center p-3 font-medium text-gray-600">Status</th>
+                <th className="text-left p-3 font-medium text-[#aaa]">Name</th>
+                <th className="text-left p-3 font-medium text-[#aaa]">E-Mail</th>
+                <th className="text-left p-3 font-medium text-[#aaa]">Firma</th>
+                <th className="text-left p-3 font-medium text-[#aaa]">Sequenz</th>
+                <th className="text-center p-3 font-medium text-[#aaa]">Schritt</th>
+                <th className="text-left p-3 font-medium text-[#aaa]">Abgemeldet</th>
+                <th className="text-center p-3 font-medium text-[#aaa]">Status</th>
               </tr>
             </thead>
             <tbody>
               {filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-gray-400">
+                  <td colSpan={7} className="p-6 text-center text-[#666]">
                     {search ? 'Keine Ergebnisse für diese Suche.' : 'Keine Abmeldungen vorhanden.'}
                   </td>
                 </tr>
               ) : (
                 filteredLeads.map((lead) => (
-                  <tr key={lead.id} className="border-t border-gray-100 hover:bg-gray-50">
+                  <tr key={lead.id} className="border-t border-[#1E1E1E] hover:bg-[#0A0A0A]">
                     <td className="p-3 font-medium text-gray-900">
                       {lead.first_name} {lead.last_name}
                       {lead.title && (
-                        <span className="block text-xs text-gray-400">{lead.title}</span>
+                        <span className="block text-xs text-[#666]">{lead.title}</span>
                       )}
                     </td>
-                    <td className="p-3 text-gray-500 text-xs font-mono">{lead.email}</td>
-                    <td className="p-3 text-gray-600">{lead.company || '–'}</td>
+                    <td className="p-3 text-[#888] text-xs font-mono">{lead.email}</td>
+                    <td className="p-3 text-[#aaa]">{lead.company || '–'}</td>
                     <td className="p-3">
-                      <span className="capitalize text-gray-500">{lead.sequence_type || '–'}</span>
+                      <span className="capitalize text-[#888]">{lead.sequence_type || '–'}</span>
                     </td>
-                    <td className="p-3 text-center text-gray-500">
+                    <td className="p-3 text-center text-[#888]">
                       {lead.sequence_step > 0 ? `Email ${lead.sequence_step}` : '–'}
                     </td>
-                    <td className="p-3 text-gray-400 text-xs">
+                    <td className="p-3 text-[#666] text-xs">
                       {formatDate(lead.unsubscribed_at || lead.exited_at)}
                     </td>
                     <td className="p-3 text-center">

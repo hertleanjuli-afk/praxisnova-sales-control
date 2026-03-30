@@ -11,7 +11,9 @@ Internes Sales-Dashboard für Lead-Tracking, E-Mail-Sequenzen und DSGVO-konforme
 - **Wochenberichte**: Automatische Performance-Reports mit Trend-Vergleich
 - **LinkedIn-Integration**: Export, Verbindungs-Tracking, Branchen-Aufschlüsselung
 - **DSGVO-Compliance**: HMAC-signierte Abmeldelinks, permanente Sperrliste
+- **Email-Tracking**: Wer hat geöffnet, geklickt, beantwortet — mit Lead-Details
 - **7 Cron Jobs**: Sequenz-Verarbeitung, tägliche Zusammenfassung, Wochen/Monats/Quartalsberichte
+- **Dark Theme**: Durchgehend #0A0A0A/#111/#E8472A auf allen Seiten
 
 ## Tech Stack
 
@@ -52,19 +54,23 @@ npm run dev                   # http://localhost:3000
 | `/api/webhooks/website-clicks` | Secret | Website → Sales Control Webhook |
 | `/api/webhooks/brevo` | HMAC | Brevo E-Mail-Events |
 | `/api/webhooks/inbound` | Secret | Inbound-Lead Webhook |
+| `/api/dashboard` | Session | Konsolidierte Dashboard-Daten (KPIs, Hot Leads, Funnel) |
 | `/api/analytics` | Session | Dashboard-KPIs |
 | `/api/analytics/performance` | Session | Recharts-Daten |
+| `/api/email-tracking` | Session | Email-Events mit Lead-Daten |
 | `/api/reports` | Session | Wochen/Monatsberichte |
 
 ## Dashboard-Seiten
 
 | Seite | Pfad | Beschreibung |
 |-------|------|-------------|
-| Dashboard | `/` | KPIs, Hot Leads, Website-Aktivität |
-| Lead-Suche | `/leads` | Suche und Enrollment |
-| Sequenzen | `/sequences` | Aktive Sequenzen |
-| Analytics | `/analytics` | Recharts-Grafiken |
-| Berichte | `/reports` | Wochen/Monatsberichte |
-| Website-Klicks | `/website-clicks` | Klick-Tracking |
+| Dashboard | `/` | KPIs mit Trends, Hot Leads, Conversion-Funnel, Activity Feed |
+| Lead-Suche | `/leads` | Apollo-Suche, Bulk-Enrollment, Branche/Bundesland Filter |
+| Eingehende Leads | `/inbound` | Neue Anfragen, Status-Tracking, KPI Cards |
+| Sequenzen | `/sequences` | Sector-Cards, Lead-Tabelle, Detail-Modal |
+| Email-Tracking | `/email-tracking` | Geöffnet/Geklickt/Beantwortet mit Lead-Details |
+| Website-Klicks | `/website-clicks` | Live-Feed + Analyse (Charts, UTM, Heatmap) |
+| Analytics | `/analytics` | Recharts-Grafiken, Funnel, Heatmap |
+| Berichte | `/reports` | Wochen/Monatsberichte mit Sparklines |
 | LinkedIn | `/linkedin` | LinkedIn-Verbindungen |
-| Einstellungen | `/settings` | DB-Status, Cron, Feature-Flags |
+| Einstellungen | `/settings` | DB-Status, Health-Check, Feature-Flags |

@@ -88,6 +88,56 @@ npm run lint     # Run ESLint
 ## Development Notes
 - Brevo API for email automation
 - HubSpot lead sync
-- Database: check `.env.local` for connection details
+- Database: Neon PostgreSQL (credentials in Vercel environment variables, not .env.local)
 - State management for lead pipeline
 - Real-time updates for sales team
+
+---
+
+## 🤖 Agent System (Multi-Agent Sales Team)
+
+### Agent API
+All agents communicate via: `https://praxisnova-sales-control.vercel.app/api/agent`
+Auth header: `x-agent-secret: [CRON_SECRET from Vercel env vars]`
+
+### Agent Files
+All 7 agent prompts live in `.agents/`:
+- `prospect-researcher.md` — Qualifies leads Mon/Wed/Fri at 08:00
+- `partner-researcher.md` — Qualifies partners Tue/Thu at 08:00
+- `operations-manager.md` — Morning briefing email daily at 08:00
+- `sales-supervisor.md` — Reviews prospect decisions daily at 10:00
+- `partner-supervisor.md` — Reviews partner decisions daily at 10:00
+- `outreach-strategist.md` — Sends personalized outreach Mon-Fri at 12:00
+- `partner-outreach-strategist.md` — Sends partner proposals Mon-Fri at 12:00
+
+### Email Routing (CRITICAL — never change this)
+- Immobilien automation: `info@praxisnovaai.com`
+- Handwerk/Bau automation: `meyer.samantha@praxisnovaai.com`
+- All agent-personalized outreach: `hertle.anjuli@praxisnovaai.com`
+- Partner outreach: `hertle.anjuli@praxisnovaai.com`
+
+### LinkedIn
+Agents do NOT send LinkedIn messages directly. They write to `linkedin_queue` table.
+Angie reviews and sends manually.
+
+### Trigger Slot Strategy (3 slots total)
+```
+Slot 1 — 08:00: Morning Research (Prospect Researcher OR Partner Researcher + Operations Manager)
+Slot 2 — 10:00: Supervisor Review (Sales Supervisor + Partner Supervisor sequentially)
+Slot 3 — 12:00: Outreach (Outreach Strategist + Partner Outreach Strategist sequentially)
+```
+
+### Custom Commands (type these in Claude Code terminal)
+- `/setup-agents` — create/update all 3 scheduled trigger sessions
+- `/agent-status` — check which agents are running and last activity
+- `/merge-triggers` — consolidate all agents into 3 trigger slots
+
+### Pipeline Stages
+Neu → In Outreach → Nurture | Nicht qualifiziert | Cooldown → Wieder aufnehmen (passive)
+- 'Wieder aufnehmen' leads are PROTECTED — only touched by future Re-Engagement Agent
+- Never contact 'Wieder aufnehmen' leads unless positive signal exists
+
+### KPI Goals
+- Customer meetings: 10/week (tracked via pipeline stage proxies)
+- Partner meetings: 10/month (tracked via partner outreach count)
+- Agents change approach (A/B/C) if KPIs not met — never just add volume

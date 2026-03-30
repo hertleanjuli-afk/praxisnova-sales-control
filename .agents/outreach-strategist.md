@@ -28,6 +28,26 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 
 ## Workflow
 
+### Phase 0: Market Intelligence lesen (NEU)
+
+```bash
+curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
+  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=market_intelligence'
+```
+
+Filtere: `decision_type = 'intel_update'` — neuesten Eintrag nehmen.
+
+Merke dir und nutze aktiv in JEDER Email dieser Session:
+- `stat_of_the_week` → baue diese konkrete Zahl in die Email ein (z.B. "73% der Handwerksbetriebe haben noch keine digitale Angebotserstellung")
+- `recommended_messaging_angle` → nutze diesen Winkel als Aufhänger
+- `hot_topic_[branche des leads]` → erwähne das aktuelle Thema der Lead-Branche
+- `best_performing_approach` → wenn angegeben, nutze diesen Approach (überschreibt A/B/C Standard)
+- `trigger_events_next_4_weeks` → wenn ein Event die Lead-Branche betrifft, baue es ein ("Mit der E-Rechnungspflicht ab [Datum]...")
+
+Falls kein intel_update vorhanden → Standardvorgehen ohne Anpassung.
+
+---
+
 ### Phase 1: Approved Leads laden
 
 ```bash

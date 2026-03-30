@@ -44,6 +44,26 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 
 ## Täglicher Workflow
 
+### Phase 0: Market Intelligence prüfen (nur montags relevant)
+
+```bash
+curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
+  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=48&agent=market_intelligence'
+```
+
+Filtere: `decision_type = 'intel_update'` — nur wenn heute Montag und neuer intel_update vorhanden.
+
+Falls ja → füge im Briefing einen Abschnitt **"🧠 Markt-Intelligence diese Woche"** ein:
+- Top-Branche: `top_industry_this_week` + warum
+- Empfehlung: `recommended_focus_industry` und `recommended_messaging_angle`
+- Stat der Woche: `stat_of_the_week` (konkrete Zahl für Outreach nutzbar)
+- Heiße Themen: `hot_topic_*` der wichtigsten Branche
+- Kommende Events: `trigger_events_next_4_weeks`
+
+Falls kein intel_update → Abschnitt weglassen.
+
+---
+
 ### Phase 1: Daten laden
 
 **Schritt 1 — Letzte 24h Entscheidungen:**

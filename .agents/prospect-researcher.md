@@ -39,6 +39,25 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 
 ## Workflow
 
+### Phase 0: Market Intelligence lesen (NEU)
+
+```bash
+curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
+  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=market_intelligence'
+```
+
+Filtere: `decision_type = 'intel_update'` — neuesten Eintrag nehmen.
+
+Merke dir:
+- `top_industry_this_week` → priorisiere Leads aus dieser Branche
+- `hot_topic_bauunternehmen / hot_topic_handwerk / hot_topic_immobilien` → nutze als **Dimension-4-Bonus** (+2 Urgency wenn Lead aus dieser Branche und das Thema relevant ist)
+- `trigger_events_next_4_weeks` → +2 Urgency für betroffene Leads
+- `recommended_focus_industry` → falls Pipeline schwach (Ansatz B/C), auf diese Branche fokussieren
+
+Falls kein intel_update vorhanden (z.B. erster Lauf) → mit Standardwerten weiterarbeiten.
+
+---
+
 ### Phase 1: Ansatz bestimmen
 
 **1. Pipeline-Gesundheit prüfen:**

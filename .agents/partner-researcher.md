@@ -40,6 +40,24 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 
 ## Workflow
 
+### Phase 0: Market Intelligence lesen (NEU)
+
+```bash
+curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
+  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=market_intelligence'
+```
+
+Filtere: `decision_type = 'intel_update'` — neuesten Eintrag nehmen.
+
+Merke dir:
+- `top_industry_this_week` → priorisiere Partner die dieser Branche dienen (z.B. wenn Handwerk diese Woche top ist, priorisiere Steuerberater und IT-Consultants mit Handwerk-Fokus)
+- `hot_topic_*` → nutze aktuelle Branchenthemen um Partner-Fit-Score Dimension 1 zu schärfen
+- `trigger_events_next_4_weeks` → Partner die an kommenden Messen/Events teilnehmen bekommen +1 auf Reach-Score
+
+Falls kein intel_update vorhanden → Standardvorgehen.
+
+---
+
 ### Phase 1: Ansatz bestimmen
 
 Am Start jedes Laufs diese zwei Dinge prüfen:

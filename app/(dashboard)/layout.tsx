@@ -29,6 +29,7 @@ const navGroups: NavGroup[] = [
     title: 'Tracking',
     items: [
       { label: 'Website-Klicks', href: '/website-clicks', emoji: '🌐' },
+      { label: 'Email-Tracking', href: '/email-tracking', emoji: '📧' },
       { label: 'Analytics', href: '/analytics', emoji: '📈' },
     ],
   },
@@ -47,7 +48,7 @@ const navGroups: NavGroup[] = [
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard', '/leads': 'Lead-Suche', '/sequences': 'Sequenzen',
-  '/inbound': 'Eingehende Leads', '/linkedin': 'LinkedIn', '/website-clicks': 'Website-Klicks',
+  '/inbound': 'Eingehende Leads', '/linkedin': 'LinkedIn', '/website-clicks': 'Website-Klicks', '/email-tracking': 'Email-Tracking',
   '/unsubscribes': 'Abmeldungen', '/analytics': 'Analytics', '/changelog': 'Change Log',
   '/reports': 'Berichte', '/errors': 'Fehler-Log', '/settings': 'Einstellungen', '/ads': 'TikTok / Ads',
 };

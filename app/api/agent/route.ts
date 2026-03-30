@@ -31,9 +31,9 @@ export async function GET(req: NextRequest) {
   try {
     switch (action) {
 
-      // Leads that have never been scored by the Prospect Researcher
-      // DUPLICATE PROTECTION: excludes leads already active in an email sequence
-      // (whether enrolled by agent or by the automated enrollment workflow)
+      // Leads for Prospect Researcher — pipeline-stage-aware selection
+      // Priority: 'Neu' first, then 'Wieder aufnehmen' (only if re_engage_after passed)
+      // Excludes leads already in outreach, cooldown, won, lost, or not qualified
       case 'leads-to-research': {
         const limit = parseInt(searchParams.get('limit') ?? '20', 10);
         const rows = await sql`
@@ -42,17 +42,20 @@ export async function GET(req: NextRequest) {
             l.title, l.industry, l.employee_count, l.linkedin_url,
             l.website_url, l.source, l.created_at,
             l.sequence_status, l.sequence_type,
-            l.agent_score, l.agent_scored_at
+            l.agent_score, l.agent_scored_at,
+            l.pipeline_stage, l.pipeline_notes, l.re_engage_after
           FROM leads l
           WHERE l.permanently_blocked = FALSE
             AND l.sequence_status NOT IN ('unsubscribed', 'bounced', 'active', 'cooldown')
+            AND COALESCE(l.pipeline_stage, 'Neu') IN ('Neu', 'Wieder aufnehmen')
+            AND (l.pipeline_stage != 'Wieder aufnehmen' OR l.re_engage_after IS NULL OR l.re_engage_after <= NOW())
             AND NOT EXISTS (
               SELECT 1 FROM agent_decisions ad
               WHERE ad.subject_email = l.email
                 AND ad.agent_name = 'prospect_researcher'
                 AND ad.created_at > NOW() - INTERVAL '7 days'
             )
-          ORDER BY l.created_at DESC
+          ORDER BY (COALESCE(l.pipeline_stage, 'Neu') = 'Neu') DESC, l.created_at DESC
           LIMIT ${limit}
         `;
         return NextResponse.json({ leads: rows, count: rows.length });
@@ -198,7 +201,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { type, payload } = body as {
-      type: 'decision' | 'log' | 'report' | 'partner' | 'linkedin_message' | 'instruction_response';
+      type: 'decision' | 'log' | 'report' | 'partner' | 'linkedin_message' | 'instruction_response' | 'update_pipeline_stage';
       payload: Record<string, unknown>;
     };
 
@@ -319,6 +322,19 @@ export async function POST(req: NextRequest) {
           RETURNING id
         `;
         return NextResponse.json({ ok: true, id: rows[0].id });
+      }
+
+      // Update lead pipeline stage (used by Prospect Researcher after scoring)
+      case 'update_pipeline_stage': {
+        await sql`
+          UPDATE leads SET
+            pipeline_stage = ${payload.stage as string},
+            pipeline_stage_updated_at = NOW(),
+            pipeline_notes = ${payload.notes as string ?? null},
+            re_engage_after = ${payload.re_engage_after as string ?? null}
+          WHERE id = ${payload.lead_id as number}
+        `;
+        return NextResponse.json({ ok: true });
       }
 
       default:

@@ -17,6 +17,7 @@ import {
   type FunctionDeclaration,
   type Tool,
   type Part,
+  type GenerateContentResult,
   SchemaType,
 } from '@google/generative-ai';
 import sql from '@/lib/db';
@@ -360,20 +361,42 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
 
 // ─── Gemini Agentic Loop ──────────────────────────────────────────────────────
 
+// Hilfsfunktion: Gemini-Call mit automatischem Retry bei 429
+async function sendWithRetry(
+  fn: () => Promise<GenerateContentResult>,
+  maxRetries = 3,
+): Promise<GenerateContentResult> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const isRateLimit = err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 429;
+      if (isRateLimit && attempt < maxRetries) {
+        const waitMs = 45000 + attempt * 15000; // 45s, 60s, 75s
+        console.log(`[morning-agents] 429 Rate Limit - warte ${waitMs / 1000}s und versuche erneut (Versuch ${attempt + 1}/${maxRetries})...`);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 async function runAgent(
   systemPrompt: string,
   taskDescription: string,
-  maxIterations = 25,
+  maxIterations = 10,
 ): Promise<{ success: boolean; iterations: number; summary: string }> {
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     systemInstruction: systemPrompt,
     tools: TOOLS,
   });
 
   const chat = model.startChat();
-  let response = await chat.sendMessage(taskDescription);
+  let response = await sendWithRetry(() => chat.sendMessage(taskDescription));
   let iterations = 0;
   let summary = '';
 
@@ -409,8 +432,8 @@ async function runAgent(
       }),
     );
 
-    // Ergebnisse zurück an Gemini
-    response = await chat.sendMessage(toolResults as Part[]);
+    // Ergebnisse zurück an Gemini (mit Retry bei 429)
+    response = await sendWithRetry(() => chat.sendMessage(toolResults as Part[]));
   }
 
   return {
@@ -521,6 +544,9 @@ export async function GET(request: NextRequest) {
     console.error('[morning-agents] Prospect Researcher Fehler:', err);
   }
 
+  // Pause zwischen Agenten (Rate Limit: 15 RPM)
+  await new Promise(r => setTimeout(r, 30000));
+
   // 2. Partner Researcher
   console.log('[morning-agents] Starte Partner Researcher (Gemini Flash)...');
   try {
@@ -531,6 +557,9 @@ export async function GET(request: NextRequest) {
     results.partner_researcher = { success: false, error: String(err) };
     console.error('[morning-agents] Partner Researcher Fehler:', err);
   }
+
+  // Pause zwischen Agenten (Rate Limit: 15 RPM)
+  await new Promise(r => setTimeout(r, 30000));
 
   // 3. Operations Manager
   console.log('[morning-agents] Starte Operations Manager (Gemini Flash)...');
@@ -579,5 +608,5 @@ export async function GET(request: NextRequest) {
     }).catch(e => console.error('[morning-agents] Fehler-Email konnte nicht gesendet werden:', e));
   }
 
-  return NextResponse.json({ ok: true, model: 'gemini-2.0-flash', elapsed_seconds: elapsed, results, failed_agents: failedAgents });
+  return NextResponse.json({ ok: true, model: 'gemini-2.5-flash', elapsed_seconds: elapsed, results, failed_agents: failedAgents });
 }

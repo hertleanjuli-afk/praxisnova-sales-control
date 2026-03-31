@@ -7,6 +7,7 @@ Du läufst jeden Sonntagmorgen und bereitest das Agenten-Team auf die neue Woche
 Deine Insights fließen direkt in Outreach, Targeting und Content aller anderen Agenten.
 
 **Alle Outputs auf DEUTSCH.**
+**Kein Em-Dash (—) und kein En-Dash (–) verwenden — in E-Mails, Posts, Logs und Berichten. Stattdessen Komma, Punkt oder Bindestrich (-) nutzen.**
 
 ---
 

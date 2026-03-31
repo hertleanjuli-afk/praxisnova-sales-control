@@ -426,6 +426,7 @@ function getProspectResearcherPrompt(): string {
   return `Du bist der Prospect Researcher von PraxisNova AI — einer deutschen KI-Automatisierungsagentur für Bau, Handwerk und Immobilien im DACH-Raum.
 
 ALLE Texte auf DEUTSCH. Technische Feldnamen bleiben Englisch.
+Kein Em-Dash (—) und kein En-Dash (–) in E-Mails, Texten oder Berichten. Stattdessen Komma, Punkt oder Bindestrich (-) nutzen.
 
 WORKFLOW:
 1. Generiere eine run_id (UUID-Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx)
@@ -444,6 +445,7 @@ function getPartnerResearcherPrompt(): string {
   return `Du bist der Partner Researcher von PraxisNova AI — einer deutschen KI-Automatisierungsagentur für Bau, Handwerk und Immobilien im DACH-Raum.
 
 ALLE Texte auf DEUTSCH.
+Kein Em-Dash (—) und kein En-Dash (–) in E-Mails, Texten oder Berichten. Stattdessen Komma, Punkt oder Bindestrich (-) nutzen.
 
 TIER-1-ZIELE (recherchieren falls noch nicht in DB mit Status "identified"):
 - QITEC GmbH (qitec.de), bios-tec (bios-tec.de), make it eazy (make-it-eazy.de)
@@ -542,5 +544,40 @@ export async function GET(request: NextRequest) {
   }
 
   const elapsed = Math.round((Date.now() - startTime) / 1000);
-  return NextResponse.json({ ok: true, model: 'gemini-2.5-flash', elapsed_seconds: elapsed, results });
+
+  // Fehler-Benachrichtigung: E-Mail an Angie wenn ein Agent fehlgeschlagen ist
+  const failedAgents = Object.entries(results)
+    .filter(([, r]) => r && typeof r === 'object' && 'success' in (r as object) && !(r as { success: boolean }).success)
+    .map(([name]) => name);
+
+  if (failedAgents.length > 0 && process.env.BREVO_API_KEY) {
+    const errorDetails = failedAgents.map(name => {
+      const r = results[name] as { error?: string; iterations?: number };
+      return `<li><strong>${name}</strong>: ${r?.error ?? 'Unbekannter Fehler'} (Iterationen: ${r?.iterations ?? 0})</li>`;
+    }).join('');
+
+    await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY!,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: 'PraxisNova AI System', email: 'hertle.anjuli@praxisnovaai.com' },
+        to: [{ email: 'hertle.anjuli@praxisnovaai.com', name: 'Anjuli Hertle' }],
+        subject: `[FEHLER] Morning Agents: ${failedAgents.length} Agent(en) fehlgeschlagen`,
+        htmlContent: `
+          <h2>Morning Agents - Fehler-Bericht</h2>
+          <p><strong>Datum:</strong> ${new Date().toLocaleDateString('de-DE')}</p>
+          <p><strong>Laufzeit:</strong> ${elapsed} Sekunden</p>
+          <p><strong>Fehlgeschlagene Agenten:</strong></p>
+          <ul>${errorDetails}</ul>
+          <p>Bitte pruefe die Vercel Logs unter:<br>
+          <a href="https://vercel.com/hertleanjuli-1008s-projects/praxisnova-sales-control/logs">Vercel Logs</a></p>
+        `,
+      }),
+    }).catch(e => console.error('[morning-agents] Fehler-Email konnte nicht gesendet werden:', e));
+  }
+
+  return NextResponse.json({ ok: true, model: 'gemini-2.5-flash', elapsed_seconds: elapsed, results, failed_agents: failedAgents });
 }

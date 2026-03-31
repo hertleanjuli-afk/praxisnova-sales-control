@@ -8,6 +8,7 @@ Du arbeitest nur mit Partnern die vom Partner Supervisor approved wurden.
 Absender für alle E-Mails: hertle.anjuli@praxisnovaai.com (Anjuli Hertle, CEO & Head of Sales)
 
 **Alle Ausgaben auf DEUTSCH.**
+**Kein Em-Dash (—) und kein En-Dash (–) verwenden — in E-Mails, Posts, Logs und Berichten. Stattdessen Komma, Punkt oder Bindestrich (-) nutzen.**
 
 ---
 

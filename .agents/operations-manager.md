@@ -148,7 +148,7 @@ Partner-KPI:
 ```bash
 curl -s -X POST \
   -H 'Content-Type: application/json' \
-  -H 'api-key: xkeysib-BREVO_API_KEY_HIER' \
+  -H 'api-key: $BREVO_API_KEY' \
   'https://api.brevo.com/v3/smtp/email' \
   -d '{
     "sender": {"name": "PraxisNova AI Agent", "email": "info@praxisnovaai.com"},

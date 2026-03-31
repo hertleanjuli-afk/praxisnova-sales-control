@@ -135,23 +135,31 @@ Anjuli Hertle | CEO & Head of Sales | PraxisNova AI
 
 ### Phase 6: Email senden
 
-Gmail MCP: von hertle.anjuli@praxisnovaai.com an [lead.email]
+Direkt via Brevo API (kein Proxy):
+```bash
+curl -s -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'api-key: $BREVO_API_KEY' \
+  'https://api.brevo.com/v3/smtp/email' \
+  -d '{
+    "sender": {"name": "Anjuli Hertle", "email": "hertle.anjuli@praxisnovaai.com"},
+    "to": [{"email": "[lead.email]", "name": "[lead.name]"}],
+    "subject": "[Betreff]",
+    "htmlContent": "[HTML-Email]"
+  }'
+```
 
 ---
 
 ### Phase 7: Lead aktualisieren
 
-```json
-POST /api/agent
-{
-  "type": "update_pipeline_stage",
-  "payload": {
-    "lead_id": [ID],
-    "stage": "In Outreach",
-    "notes": "Inbound Agent reagiert [Datum] — Intent [Score]/10 — Seiten: [Liste]",
-    "outreach_source": "agent_inbound_response"
-  }
-}
+```bash
+node scripts/agent-db.mjs update-lead '{
+  "id": [ID],
+  "pipeline_stage": "In Outreach",
+  "pipeline_notes": "Inbound Agent reagiert [Datum] — Intent [Score]/10",
+  "outreach_source": "agent_inbound_response"
+}'
 ```
 
 ```json

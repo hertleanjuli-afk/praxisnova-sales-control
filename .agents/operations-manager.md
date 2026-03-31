@@ -44,7 +44,16 @@ BREVO_API: https://api.brevo.com/v3 (direkt — kein Proxy)
 
 ## Täglicher Workflow
 
-### Phase 0: Market Intelligence prüfen (nur montags relevant)
+### Phase 0: Run starten
+
+Generiere eine UUID für diesen Lauf (run_id). Dann sofort:
+```bash
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"operations_manager","action":"started","status":"started","details":{"message":"Operations Manager gestartet — Briefing wird erstellt"}}'
+```
+
+---
+
+### Phase 0b: Market Intelligence prüfen (nur montags relevant)
 
 ```bash
 node scripts/agent-db.mjs read-intel
@@ -68,6 +77,9 @@ Falls kein intel_update → Abschnitt weglassen.
 **Schritt 1 — Letzte 24h Entscheidungen:**
 ```bash
 node scripts/agent-db.mjs read-decisions '{"hours":24}'
+```
+```bash
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"operations_manager","action":"load_leads","status":"completed","details":{"decisions_loaded":[n]}}'
 ```
 
 **Schritt 2 — Letzte 24h Berichte:**
@@ -156,10 +168,11 @@ node scripts/agent-db.mjs send-email '{
 }'
 ```
 
-Danach Bericht in DB speichern:
+Danach Bericht + Abschluss-Log schreiben:
 ```bash
 node scripts/agent-db.mjs write-report '{"team":"sales","report_type":"morning_briefing","summary":"[1-Satz-Zusammenfassung]"}'
-node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"operations_manager","action":"morning_briefing_sent","status":"completed"}'
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"operations_manager","action":"morning_briefing_sent","status":"completed","details":{"recipient":"hertle.anjuli@praxisnovaai.com","leads_in_outreach":[n],"kpi_on_track":true}}'
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"operations_manager","action":"completed","status":"completed","details":{"message":"Operations Manager abgeschlossen"}}'
 ```
 
 **An:** hertle.anjuli@praxisnovaai.com (Standard-Empfänger im Endpunkt)

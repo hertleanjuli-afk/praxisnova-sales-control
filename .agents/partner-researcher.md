@@ -38,7 +38,16 @@ HELPER: node scripts/agent-db.mjs <action> [json-payload]
 
 ## Workflow
 
-### Phase 0: Market Intelligence lesen (NEU)
+### Phase 0: Run starten
+
+Generiere eine UUID (run_id). Dann sofort:
+```bash
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"partner_researcher","action":"started","status":"started","details":{"message":"Partner Researcher gestartet"}}'
+```
+
+---
+
+### Phase 0b: Market Intelligence lesen
 
 ```bash
 node scripts/agent-db.mjs read-intel
@@ -235,25 +244,9 @@ POST /api/agent
 }
 ```
 
-**Lauf-Log schreiben:**
-```json
-POST /api/agent
-{
-  "type": "log",
-  "payload": {
-    "run_id": "<UUID>",
-    "agent_name": "partner_researcher",
-    "action": "partner_run_complete",
-    "status": "success",
-    "details": {
-      "partners_researched": 20,
-      "tier1_qualified": 5,
-      "pipeline_total": 35,
-      "ansatz_used": "A",
-      "kpi_on_track": true
-    }
-  }
-}
+**Lauf abschließen:**
+```bash
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"partner_researcher","action":"completed","status":"completed","details":{"partners_researched":[n],"tier1_qualified":[n],"pipeline_total":[n],"ansatz_used":"A|B|C","kpi_on_track":true}}'
 ```
 
 ---

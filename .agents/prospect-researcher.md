@@ -37,7 +37,17 @@ HELPER: node scripts/agent-db.mjs <action> [json-payload]
 
 ## Workflow
 
-### Phase 0: Market Intelligence lesen (NEU)
+### Phase 0: Run starten — Log schreiben
+
+Generiere eine UUID für diesen Lauf (run_id). Dann:
+
+```bash
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"prospect_researcher","action":"started","status":"started","details":{"message":"Prospect Researcher gestartet"}}'
+```
+
+---
+
+### Phase 0b: Market Intelligence lesen (NEU)
 
 ```bash
 node scripts/agent-db.mjs read-intel
@@ -62,6 +72,11 @@ Falls kein intel_update vorhanden (z.B. erster Lauf) → mit Standardwerten weit
 node scripts/agent-db.mjs pipeline-health
 ```
 `in_outreach` Wert → Ansatz bestimmen. `approach` Feld direkt nutzen (A/B/C).
+
+Dann sofort loggen:
+```bash
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"prospect_researcher","action":"pipeline_health","status":"completed","details":{"in_outreach":[n],"approach":"A|B|C","healthy":true|false}}'
+```
 
 **2. Feedback vom Outreach Strategist lesen:**
 ```bash
@@ -96,13 +111,23 @@ node scripts/agent-db.mjs read-leads '{"limit":30,"stage":"Neu"}'
 
 Die API liefert **ausschließlich** Leads mit `pipeline_stage = 'Neu'` oder `NULL` (frisch, nie berührt).
 
+Dann sofort loggen:
+```bash
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"prospect_researcher","action":"load_leads","status":"completed","details":{"total_leads":[Anzahl],"stage":"Neu"}}'
+```
+
 **WICHTIG**: Du arbeitest NIEMALS mit `Wieder aufnehmen`-Leads. Diese gehören exklusiv dem zukünftigen Re-Engagement Agent. Wenn du einen Lead mit diesem Status siehst, überspringe ihn.
 
 ---
 
 ### Phase 3: Leads recherchieren und scoren
 
-**Für jeden Lead:**
+**Für jeden Lead — zuerst loggen BEVOR du recherchierst:**
+```bash
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"prospect_researcher","action":"research_lead","status":"started","details":{"company":"[Firmenname]","email":"[email]","lead_id":[id]}}'
+```
+
+**Dann recherchieren:**
 
 1. **Unternehmen recherchieren** (WebFetch/WebSearch):
    - Website analysieren: Branche, Größe, digitale Reife
@@ -150,73 +175,32 @@ Die API liefert **ausschließlich** Leads mit `pipeline_stage = 'Neu'` oder `NUL
 #### Score 8-10 → `In Outreach`
 ```bash
 node scripts/agent-db.mjs update-lead '{"id":[ID],"pipeline_stage":"In Outreach","agent_score":[X],"pipeline_notes":"Score [X]/10 — bereit für personalisierten Outreach"}'
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"prospect_researcher","action":"score_lead","status":"completed","details":{"company":"[Firma]","score":[X],"stage":"In Outreach","reasoning":"[1 Satz Begründung]"}}'
 ```
-→ Dieser Lead wird vom Outreach Strategist aufgegriffen.
 
 #### Score 5-7 → `Nurture`
 ```bash
 node scripts/agent-db.mjs update-lead '{"id":[ID],"pipeline_stage":"Nurture","agent_score":[X],"pipeline_notes":"Score [X]/10 — [Grund]. Re-Engagement in 90 Tagen."}'
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"prospect_researcher","action":"score_lead","status":"completed","details":{"company":"[Firma]","score":[X],"stage":"Nurture","reasoning":"[1 Satz Begründung]"}}'
 ```
 
 #### Score 1-4 → `Nicht qualifiziert`
 ```bash
 node scripts/agent-db.mjs update-lead '{"id":[ID],"pipeline_stage":"Nicht qualifiziert","agent_score":[X],"pipeline_notes":"Score [X]/10 — [Disqualifizierungsgrund]"}'
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"prospect_researcher","action":"score_lead","status":"completed","details":{"company":"[Firma]","score":[X],"stage":"Nicht qualifiziert","reasoning":"[1 Satz Begründung]"}}'
 ```
 
-**Zusätzlich: Decision schreiben (für jedes Lead):**
-```json
-POST /api/agent
-{
-  "type": "decision",
-  "payload": {
-    "run_id": "<UUID>",
-    "agent_name": "prospect_researcher",
-    "decision_type": "qualify_lead",
-    "subject_type": "lead",
-    "subject_id": [lead_id],
-    "subject_email": "[email]",
-    "subject_company": "[company]",
-    "score": [1-10],
-    "reasoning": "2-3 Sätze auf Deutsch — Branchen-Fit, Automatisierungsbedarf, Empfehlung",
-    "data_payload": {
-      "industry_fit_score": [n],
-      "automation_need_score": [n],
-      "decision_maker_score": [n],
-      "timing_score": [n],
-      "pipeline_stage_set": "In Outreach|Nurture|Nicht qualifiziert",
-      "ansatz_used": "A|B|C",
-      "kpi_pipeline_count": [n]
-    },
-    "status": "pending"
-  }
-}
+**Zusätzlich Decision schreiben (für jeden Lead):**
+```bash
+node scripts/agent-db.mjs write-decision '{"run_id":"[UUID]","agent_name":"prospect_researcher","decision_type":"qualify_lead","subject_type":"lead","subject_id":[lead_id],"subject_email":"[email]","subject_company":"[company]","score":[1-10],"reasoning":"2-3 Sätze auf Deutsch — Branchen-Fit, Automatisierungsbedarf, Empfehlung","data_payload":{"industry_fit_score":[n],"automation_need_score":[n],"decision_maker_score":[n],"timing_score":[n],"pipeline_stage_set":"In Outreach|Nurture|Nicht qualifiziert","ansatz_used":"A|B|C"},"status":"completed"}'
 ```
 
 ---
 
-### Phase 5: Lauf-Log schreiben
+### Phase 5: Lauf abschließen
 
-```json
-POST /api/agent
-{
-  "type": "log",
-  "payload": {
-    "run_id": "<UUID>",
-    "agent_name": "prospect_researcher",
-    "action": "prospect_run_complete",
-    "status": "success",
-    "details": {
-      "leads_researched": [n],
-      "score_8_plus": [n],
-      "in_outreach": [n],
-      "nurture": [n],
-      "not_qualified": [n],
-      "pipeline_total": [n],
-      "ansatz_used": "A|B|C",
-      "kpi_on_track": true|false
-    }
-  }
-}
+```bash
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"prospect_researcher","action":"completed","status":"completed","details":{"leads_researched":[n],"score_8_plus":[n],"in_outreach":[n],"nurture":[n],"not_qualified":[n],"ansatz_used":"A|B|C","kpi_on_track":true}}'
 ```
 
 ---

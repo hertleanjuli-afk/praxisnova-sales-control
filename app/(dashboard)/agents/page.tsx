@@ -28,14 +28,21 @@ interface Agent {
   thinking_trail: AgentDecision[];
 }
 
-interface QueueEntry {
+interface LiveLogEntry {
   id: number;
+  run_id: string;
   agent_name: string;
-  decision_type: string;
-  subject_company: string | null;
-  score: number | null;
+  action: string;
   status: string;
+  details: Record<string, unknown> | null;
   created_at: string;
+}
+
+interface AgentRunStatus {
+  running: boolean;
+  started_at: string | null;
+  finished_at: string | null;
+  recent_logs: number;
 }
 
 interface Instruction {
@@ -48,29 +55,16 @@ interface Instruction {
 
 /* ─── Constants ─── */
 
-const AGENTS_FALLBACK: Agent[] = [];
+const AGENTS_CONFIG = [
+  { id: 'prospect_researcher', name: 'Prospect Researcher', emoji: '🔍', schedule: '08:00 täglich', role: 'Leads qualifizieren & scoren' },
+  { id: 'partner_researcher', name: 'Partner Researcher', emoji: '🤝', schedule: '08:00 täglich', role: 'Partner recherchieren & bewerten' },
+  { id: 'operations_manager', name: 'Operations Manager', emoji: '📊', schedule: '08:00 täglich', role: 'Morgen-Briefing & KPI-Tracking' },
+  { id: 'outreach_strategist', name: 'Outreach Strategist', emoji: '✉️', schedule: '12:00 täglich', role: 'Personalisierte Lead-E-Mails' },
+  { id: 'inbound_response_agent', name: 'Inbound Response', emoji: '⚡', schedule: 'Webhook (sofort)', role: 'Reagiert auf neue Leads' },
+  { id: 'market_intelligence', name: 'Market Intelligence', emoji: '🌍', schedule: 'Sonntag 08:00', role: 'Wöchentliche Branchenanalyse' },
+];
 
-const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-  active:    { label: 'Aktiv',         bg: '#22C55E', color: '#000' },
-  idle:      { label: 'Bereit',        bg: '#555',    color: '#F0F0F5' },
-  never_run: { label: 'Nie gelaufen',  bg: '#EAB308', color: '#000' },
-};
-
-const DECISION_TYPE_COLOR: Record<string, string> = {
-  approve:  '#22C55E',
-  reject:   '#EF4444',
-  qualify:  '#3B82F6',
-  feedback: '#EAB308',
-};
-
-const DECISION_STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  pending:   { bg: '#EAB308', color: '#000' },
-  approved:  { bg: '#22C55E', color: '#000' },
-  rejected:  { bg: '#EF4444', color: '#FFF' },
-  completed: { bg: '#3B82F6', color: '#FFF' },
-};
-
-const AGENT_EMOJI_MAP: Record<string, string> = {
+const AGENT_EMOJI: Record<string, string> = {
   prospect_researcher: '🔍',
   partner_researcher: '🤝',
   operations_manager: '📊',
@@ -82,144 +76,220 @@ const AGENT_EMOJI_MAP: Record<string, string> = {
   market_intelligence: '🌍',
 };
 
+const AGENT_NAME: Record<string, string> = {
+  prospect_researcher: 'Prospect Researcher',
+  partner_researcher: 'Partner Researcher',
+  operations_manager: 'Operations Manager',
+  sales_supervisor: 'Sales Supervisor',
+  partner_supervisor: 'Partner Supervisor',
+  outreach_strategist: 'Outreach Strategist',
+  partner_outreach_strategist: 'Partner Outreach',
+  inbound_response_agent: 'Inbound Response',
+  market_intelligence: 'Market Intelligence',
+};
+
+const ACTION_STYLE: Record<string, { color: string; icon: string }> = {
+  started:          { color: '#3B82F6', icon: '▶' },
+  completed:        { color: '#22C55E', icon: '✓' },
+  finished:         { color: '#22C55E', icon: '✓' },
+  research_lead:    { color: '#8B5CF6', icon: '🔍' },
+  score_lead:       { color: '#8B5CF6', icon: '⭐' },
+  qualify_lead:     { color: '#8B5CF6', icon: '📋' },
+  send_email:       { color: '#E8472A', icon: '✉' },
+  morning_briefing_sent: { color: '#22C55E', icon: '📧' },
+  pipeline_health:  { color: '#EAB308', icon: '📊' },
+  load_leads:       { color: '#555', icon: '📥' },
+  load_partners:    { color: '#555', icon: '📥' },
+  write_decision:   { color: '#3B82F6', icon: '📝' },
+  partial:          { color: '#EAB308', icon: '⚠' },
+  error:            { color: '#EF4444', icon: '✗' },
+};
+
 /* ─── Helpers ─── */
 
-function formatTime(iso: string): string {
+function ts(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+function elapsed(start: string, end?: string | null): string {
+  const ms = new Date(end ?? new Date()).getTime() - new Date(start).getTime();
+  if (ms < 60000) return `${Math.round(ms / 1000)}s`;
+  return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
 }
 
-/* ─── Sub-components ─── */
-
-function Badge({ label, bg, color, fontSize = 10 }: { label: string; bg: string; color: string; fontSize?: number }) {
+function Badge({ label, bg, color, size = 10 }: { label: string; bg: string; color: string; size?: number }) {
   return (
-    <span style={{
-      display: 'inline-block',
-      padding: '2px 8px',
-      borderRadius: 4,
-      fontSize,
-      fontWeight: 600,
-      background: bg,
-      color,
-      whiteSpace: 'nowrap',
-    }}>
+    <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, fontSize: size, fontWeight: 700, background: bg, color, whiteSpace: 'nowrap' }}>
       {label}
     </span>
   );
 }
 
-/* ─── Agent Card ─── */
+/* ─── Live Log Entry ─── */
+function LogRow({ entry }: { entry: LiveLogEntry }) {
+  const [open, setOpen] = useState(false);
+  const style = ACTION_STYLE[entry.action] ?? ACTION_STYLE[entry.status] ?? { color: '#555', icon: '·' };
+  const emoji = AGENT_EMOJI[entry.agent_name] ?? '🤖';
+  const name = AGENT_NAME[entry.agent_name] ?? entry.agent_name;
 
-function AgentCard({ agent, selected, onClick }: { agent: Agent; selected: boolean; onClick: () => void }) {
-  const s = STATUS_BADGE[agent.status] ?? STATUS_BADGE.idle;
+  const hasDetails = entry.details && Object.keys(entry.details).length > 0;
+
+  // Build a human-readable summary from details
+  let summary = '';
+  if (entry.details) {
+    const d = entry.details;
+    if (d.company) summary = String(d.company);
+    else if (d.total_leads) summary = `${d.total_leads} Leads geladen`;
+    else if (d.processed) summary = `${d.processed} verarbeitet`;
+    else if (d.score !== undefined) summary = `Score: ${d.score}/10`;
+    else if (d.stage) summary = String(d.stage);
+    else if (d.email) summary = String(d.email);
+  }
+
   return (
     <div
-      onClick={onClick}
+      onClick={() => hasDetails && setOpen(!open)}
       style={{
-        background: '#111',
-        border: selected ? '1.5px solid #E8472A' : '1px solid #1E1E1E',
-        borderRadius: 10,
-        padding: 12,
-        cursor: 'pointer',
-        transition: 'border-color 0.15s',
-        marginBottom: 8,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 10,
+        padding: '7px 0',
+        borderBottom: '1px solid #111',
+        cursor: hasDetails ? 'pointer' : 'default',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: '#F0F0F5' }}>
-          {agent.emoji} {agent.name}
-        </span>
-        <Badge label={s.label} bg={s.bg} color={s.color} />
+      {/* Timeline dot */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20, flexShrink: 0, paddingTop: 2 }}>
+        <span style={{ fontSize: 12, color: style.color, lineHeight: 1 }}>{style.icon}</span>
+        <div style={{ width: 1, flex: 1, background: '#1E1E1E', marginTop: 4 }} />
       </div>
-      <p style={{ fontSize: 11, color: '#888', margin: '2px 0 0' }}>{agent.role}</p>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-        <span style={{ fontSize: 10, color: '#555' }}>{agent.schedule}</span>
-        {agent.decisions_today > 0 && (
-          <span style={{
-            fontSize: 10,
-            fontWeight: 700,
-            background: '#E8472A',
-            color: '#FFF',
-            borderRadius: 10,
-            padding: '1px 7px',
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', flexShrink: 0 }}>{ts(entry.created_at)}</span>
+          <span style={{ fontSize: 12, color: '#888', flexShrink: 0 }}>{emoji} {name}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: style.color }}>{entry.action.replace(/_/g, ' ')}</span>
+          {summary && <span style={{ fontSize: 12, color: '#F0F0F5' }}>— {summary}</span>}
+          {entry.status === 'error' && <Badge label="FEHLER" bg="#EF4444" color="#FFF" />}
+          {entry.status === 'partial' && <Badge label="PARTIAL" bg="#EAB308" color="#000" />}
+        </div>
+        {open && entry.details && (
+          <pre style={{
+            marginTop: 6,
+            padding: '8px 10px',
+            background: '#111',
+            borderRadius: 6,
+            fontSize: 11,
+            color: '#888',
+            overflowX: 'auto',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
           }}>
-            {agent.decisions_today} heute
-          </span>
+            {JSON.stringify(entry.details, null, 2)}
+          </pre>
         )}
       </div>
     </div>
   );
 }
 
-/* ─── Thinking Trail Entry ─── */
-
-function TrailEntry({ decision }: { decision: AgentDecision }) {
-  const [expanded, setExpanded] = useState(false);
-  const typeColor = DECISION_TYPE_COLOR[decision.decision_type] ?? '#555';
-  const statusStyle = DECISION_STATUS_COLOR[decision.status] ?? { bg: '#555', color: '#F0F0F5' };
+/* ─── Agent Status Card ─── */
+function AgentStatusCard({ agent, runStatus, onClick, selected }: {
+  agent: typeof AGENTS_CONFIG[0];
+  runStatus?: AgentRunStatus;
+  onClick: () => void;
+  selected: boolean;
+}) {
+  const isRunning = runStatus?.running ?? false;
+  const hasRun = !!(runStatus?.started_at);
 
   return (
-    <div style={{
-      background: '#111',
-      border: '1px solid #1E1E1E',
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 8,
-    }}>
+    <div
+      onClick={onClick}
+      style={{
+        background: '#111',
+        border: selected ? '1.5px solid #E8472A' : isRunning ? '1.5px solid #3B82F6' : '1px solid #1E1E1E',
+        borderRadius: 10,
+        padding: '10px 12px',
+        cursor: 'pointer',
+        marginBottom: 8,
+        transition: 'border-color 0.15s',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#F0F0F5' }}>
+          {agent.emoji} {agent.name}
+        </span>
+        {isRunning ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#3B82F6', display: 'inline-block', animation: 'pulse 1s infinite' }} />
+            <span style={{ fontSize: 10, color: '#3B82F6', fontWeight: 700 }}>LÄUFT</span>
+          </span>
+        ) : hasRun ? (
+          <Badge label="Bereit" bg="#1E1E1E" color="#888" />
+        ) : (
+          <Badge label="Nie gelaufen" bg="#EAB308" color="#000" />
+        )}
+      </div>
+      <p style={{ fontSize: 11, color: '#555', margin: '2px 0 0' }}>{agent.role}</p>
+      {isRunning && runStatus?.started_at && (
+        <p style={{ fontSize: 10, color: '#3B82F6', margin: '4px 0 0' }}>
+          ⏱ Läuft seit {elapsed(runStatus.started_at)}
+        </p>
+      )}
+      {!isRunning && runStatus?.finished_at && (
+        <p style={{ fontSize: 10, color: '#555', margin: '4px 0 0' }}>
+          ✓ Fertig um {ts(runStatus.finished_at)}
+          {runStatus.started_at && ` (${elapsed(runStatus.started_at, runStatus.finished_at)})`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Thinking Trail Entry ─── */
+function TrailEntry({ decision }: { decision: AgentDecision }) {
+  const [expanded, setExpanded] = useState(false);
+  const scoreColor = decision.score !== null
+    ? (decision.score >= 7 ? '#22C55E' : decision.score >= 4 ? '#EAB308' : '#EF4444')
+    : '#888';
+
+  return (
+    <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 8, padding: 12, marginBottom: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: '#888', fontFamily: 'monospace' }}>
-            {formatTime(decision.created_at)}
+          <span style={{ fontSize: 11, color: '#555', fontFamily: 'monospace' }}>{ts(decision.created_at)}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#888', background: '#1A1A1A', padding: '1px 7px', borderRadius: 4 }}>
+            {decision.decision_type.replace(/_/g, ' ')}
           </span>
-          <Badge label={decision.decision_type} bg={typeColor} color="#FFF" />
         </div>
-        <Badge label={decision.status} bg={statusStyle.bg} color={statusStyle.color} />
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-        {decision.subject_company && (
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#F0F0F5' }}>
-            {decision.subject_company}
-          </span>
-        )}
-        {decision.subject_email && !decision.subject_company && (
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#F0F0F5' }}>
-            {decision.subject_email}
-          </span>
-        )}
-        {decision.score !== null && decision.score !== undefined && (
-          <span style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: decision.score >= 7 ? '#22C55E' : decision.score >= 4 ? '#EAB308' : '#EF4444',
-          }}>
-            {decision.score}/10
-          </span>
+        {decision.score !== null && (
+          <span style={{ fontSize: 15, fontWeight: 800, color: scoreColor }}>{decision.score}/10</span>
         )}
       </div>
-
+      {(decision.subject_company || decision.subject_email) && (
+        <p style={{ fontSize: 13, fontWeight: 600, color: '#F0F0F5', margin: '0 0 4px' }}>
+          {decision.subject_company ?? decision.subject_email}
+        </p>
+      )}
       {decision.reasoning && (
         <p
           onClick={() => setExpanded(!expanded)}
           style={{
-            fontSize: 12,
-            color: '#888',
-            margin: '4px 0 0',
-            cursor: 'pointer',
-            display: '-webkit-box',
-            WebkitLineClamp: expanded ? 'unset' as unknown as number : 2,
-            WebkitBoxOrient: 'vertical' as const,
-            overflow: expanded ? 'visible' : 'hidden',
-            lineHeight: '1.4',
+            fontSize: 12, color: '#888', margin: 0, cursor: 'pointer', lineHeight: 1.4,
+            display: '-webkit-box', WebkitLineClamp: expanded ? undefined : 3,
+            WebkitBoxOrient: 'vertical' as const, overflow: expanded ? 'visible' : 'hidden',
           }}
         >
           {decision.reasoning}
         </p>
+      )}
+      {decision.reasoning && !expanded && (
+        <span style={{ fontSize: 10, color: '#444', cursor: 'pointer' }} onClick={() => setExpanded(true)}>
+          mehr anzeigen ▾
+        </span>
       )}
     </div>
   );
@@ -227,322 +297,284 @@ function TrailEntry({ decision }: { decision: AgentDecision }) {
 
 /* ─── Main Page ─── */
 
+type Tab = 'live' | 'trail' | 'chat';
+
 export default function AgentDashboardPage() {
-  const [agents, setAgents] = useState<Agent[]>(AGENTS_FALLBACK);
-  const [queue, setQueue] = useState<QueueEntry[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [liveLogs, setLiveLogs] = useState<LiveLogEntry[]>([]);
+  const [agentRunStatus, setAgentRunStatus] = useState<Record<string, AgentRunStatus>>({});
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('live');
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const liveRef = useRef<HTMLDivElement>(null);
+  const prevLogCount = useRef(0);
 
-  /* ─ Fetch agents data ─ */
-  const fetchData = useCallback(async () => {
+  const fetchAgents = useCallback(async () => {
     try {
       const res = await fetch('/api/agents');
-      if (!res.ok) return;
-      const data = await res.json();
-      setAgents(data.agents ?? []);
-      setQueue(data.queue ?? []);
-      if (!selectedId && data.agents?.length > 0) {
-        setSelectedId(data.agents[0].id);
+      if (res.ok) {
+        const data = await res.json();
+        setAgents(data.agents ?? []);
+        if (!selectedAgent && data.agents?.length > 0) setSelectedAgent(data.agents[0].id);
+      }
+    } catch { /* silent */ }
+  }, [selectedAgent]);
+
+  const fetchLive = useCallback(async () => {
+    try {
+      const res = await fetch('/api/agents/live-log?hours=24&limit=200');
+      if (res.ok) {
+        const data = await res.json();
+        const logs: LiveLogEntry[] = data.logs ?? [];
+        setLiveLogs(logs);
+        setAgentRunStatus(data.agentStatus ?? {});
+        setLastUpdate(new Date());
+        // Auto-scroll live feed if new entries arrived
+        if (logs.length > prevLogCount.current && liveRef.current) {
+          liveRef.current.scrollTop = 0;
+        }
+        prevLogCount.current = logs.length;
       }
     } catch { /* silent */ }
     setLoading(false);
-  }, [selectedId]);
+  }, []);
 
-  /* ─ Fetch instructions ─ */
   const fetchInstructions = useCallback(async () => {
     try {
       const res = await fetch('/api/manager-instructions');
-      if (!res.ok) return;
-      const data = await res.json();
-      setInstructions(data.instructions ?? []);
+      if (res.ok) {
+        const data = await res.json();
+        setInstructions(data.instructions ?? []);
+      }
     } catch { /* silent */ }
   }, []);
 
-  /* ─ Initial load + 30s refresh ─ */
   useEffect(() => {
-    fetchData();
+    fetchAgents();
+    fetchLive();
     fetchInstructions();
-    intervalRef.current = setInterval(() => {
-      fetchData();
-      fetchInstructions();
-    }, 30000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [fetchData, fetchInstructions]);
+    // Live feed: 5s refresh
+    const liveTimer = setInterval(fetchLive, 5000);
+    // Agents: 30s refresh
+    const agentTimer = setInterval(() => { fetchAgents(); fetchInstructions(); }, 30000);
+    return () => { clearInterval(liveTimer); clearInterval(agentTimer); };
+  }, [fetchAgents, fetchLive, fetchInstructions]);
 
-  /* ─ Send instruction ─ */
   const sendInstruction = async () => {
     if (!msgText.trim()) return;
-    const selected = agents.find(a => a.id === selectedId);
-    const prefix = selected ? `${selected.id}: ` : '';
+    const prefix = selectedAgent ? `${selectedAgent}: ` : '';
     const fullMessage = prefix + msgText.trim();
-
-    // Optimistic update
-    const optimistic: Instruction = {
-      id: Date.now(),
-      message: fullMessage,
-      status: 'unread',
-      response: null,
-      created_at: new Date().toISOString(),
-    };
+    const optimistic: Instruction = { id: Date.now(), message: fullMessage, status: 'unread', response: null, created_at: new Date().toISOString() };
     setInstructions(prev => [optimistic, ...prev]);
     setMsgText('');
     setSending(true);
-
     try {
-      await fetch('/api/manager-instructions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: fullMessage }),
-      });
+      await fetch('/api/manager-instructions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: fullMessage }) });
       await fetchInstructions();
     } catch { /* keep optimistic */ }
     setSending(false);
   };
 
-  /* ─ Derived state ─ */
-  const selectedAgent = agents.find(a => a.id === selectedId) ?? null;
-  const trail = selectedAgent?.thinking_trail ?? [];
-  const recentInstructions = instructions.slice(0, 5);
+  const anyRunning = Object.values(agentRunStatus).some(s => s.running);
+  const selectedAgentObj = agents.find(a => a.id === selectedAgent) ?? null;
+  const trail = selectedAgentObj?.thinking_trail ?? [];
+
+  const TAB_STYLE = (active: boolean): React.CSSProperties => ({
+    padding: '6px 16px',
+    fontSize: 12,
+    fontWeight: 700,
+    border: 'none',
+    borderRadius: 6,
+    cursor: 'pointer',
+    background: active ? '#E8472A' : '#111',
+    color: active ? '#FFF' : '#555',
+    transition: 'background 0.15s',
+  });
 
   if (loading) {
-    return (
-      <div style={{ padding: 32 }}>
-        <p style={{ color: '#888', fontSize: 14 }}>Laden...</p>
-      </div>
-    );
+    return <div style={{ padding: 32 }}><p style={{ color: '#555', fontSize: 14 }}>Laden...</p></div>;
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%', minHeight: '80vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: '80vh' }}>
+
       {/* ─── Header ─── */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>
-          Agent Dashboard
-        </h1>
-        <p style={{ fontSize: 12, color: '#555', margin: '4px 0 0' }}>
-          Mission Control — {agents.length} Agenten | Letzte Aktualisierung alle 30s
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>
+            Agent Dashboard
+          </h1>
+          <p style={{ fontSize: 12, color: '#444', margin: '4px 0 0' }}>
+            {anyRunning
+              ? <span style={{ color: '#3B82F6' }}>● Agent läuft gerade…</span>
+              : <span>Alle Agenten bereit</span>}
+            {lastUpdate && <span style={{ marginLeft: 12, color: '#333' }}>Aktualisiert {ts(lastUpdate.toISOString())}</span>}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button style={TAB_STYLE(tab === 'live')} onClick={() => setTab('live')}>
+            {anyRunning ? '🔴 ' : ''}Live Feed
+          </button>
+          <button style={TAB_STYLE(tab === 'trail')} onClick={() => setTab('trail')}>
+            🧠 Thinking Trail
+          </button>
+          <button style={TAB_STYLE(tab === 'chat')} onClick={() => setTab('chat')}>
+            💬 Anweisungen
+          </button>
+        </div>
       </div>
 
-      {/* ─── Top: 3-Column Layout ─── */}
-      <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
+      {/* ─── Main Layout ─── */}
+      <div style={{ display: 'flex', gap: 16 }}>
 
-        {/* ── Section 1: Agent-Liste ── */}
-        <div style={{
-          width: 300,
-          minWidth: 300,
-          overflowY: 'auto',
-          paddingRight: 4,
-        }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#F0F0F5', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 1 }}>
-            Agent-Liste
-          </h2>
-          {agents.map(agent => (
-            <AgentCard
+        {/* ── Agent List (left) ── */}
+        <div style={{ width: 240, minWidth: 240, flexShrink: 0 }}>
+          <p style={{ fontSize: 10, fontWeight: 700, color: '#444', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
+            Agenten
+          </p>
+          {AGENTS_CONFIG.map(agent => (
+            <AgentStatusCard
               key={agent.id}
               agent={agent}
-              selected={agent.id === selectedId}
-              onClick={() => setSelectedId(agent.id)}
+              runStatus={agentRunStatus[agent.id]}
+              onClick={() => setSelectedAgent(agent.id)}
+              selected={selectedAgent === agent.id}
             />
           ))}
         </div>
 
-        {/* ── Section 2: Thinking Trail ── */}
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          background: '#0A0A0A',
-          border: '1px solid #1E1E1E',
-          borderRadius: 12,
-          padding: 16,
-        }}>
-          {selectedAgent ? (
-            <>
-              <h2 style={{ fontSize: 15, fontWeight: 700, color: '#F0F0F5', margin: '0 0 16px' }}>
-                {'🧠'} Thinking Trail — {selectedAgent.emoji} {selectedAgent.name}
+        {/* ── Main Panel (right) ── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+
+          {/* ── LIVE FEED TAB ── */}
+          {tab === 'live' && (
+            <div style={{ background: '#0A0A0A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20, height: '70vh', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <h2 style={{ fontSize: 15, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>
+                    📡 Live Feed
+                  </h2>
+                  <p style={{ fontSize: 11, color: '#444', margin: '3px 0 0' }}>
+                    Echtzeit-Log aller Agenten · Aktualisiert alle 5s
+                  </p>
+                </div>
+                <span style={{ fontSize: 11, color: '#333', fontFamily: 'monospace' }}>
+                  {liveLogs.length} Einträge heute
+                </span>
+              </div>
+
+              <div ref={liveRef} style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
+                {liveLogs.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '60px 0' }}>
+                    <p style={{ color: '#333', fontSize: 24, margin: '0 0 12px' }}>📭</p>
+                    <p style={{ color: '#444', fontSize: 14, margin: '0 0 8px' }}>Noch keine Aktivität heute</p>
+                    <p style={{ color: '#333', fontSize: 12 }}>
+                      Sobald ein Agent läuft, erscheint hier jeder Schritt live —<br />
+                      welcher Lead gerade recherchiert wird, welchen Score er bekommt,<br />
+                      wann die Email verschickt wird, etc.
+                    </p>
+                  </div>
+                ) : (
+                  liveLogs.map(entry => <LogRow key={entry.id} entry={entry} />)
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── THINKING TRAIL TAB ── */}
+          {tab === 'trail' && (
+            <div style={{ background: '#0A0A0A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20, height: '70vh', display: 'flex', flexDirection: 'column' }}>
+              <h2 style={{ fontSize: 15, fontWeight: 700, color: '#F0F0F5', margin: '0 0 6px' }}>
+                🧠 Thinking Trail
+                {selectedAgentObj && <span style={{ fontWeight: 400, color: '#555', marginLeft: 8 }}>— {selectedAgentObj.emoji} {selectedAgentObj.name}</span>}
               </h2>
-              {trail.length === 0 ? (
-                <p style={{ color: '#555', fontSize: 13 }}>Keine Entscheidungen vorhanden.</p>
-              ) : (
-                trail.map(d => <TrailEntry key={d.id} decision={d} />)
-              )}
-            </>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <p style={{ color: '#555', fontSize: 14 }}>
-                {'W\u00E4hle einen Agenten aus der Liste'}
+              <p style={{ fontSize: 11, color: '#444', margin: '0 0 16px' }}>
+                Jede Entscheidung mit Score & Begründung · Klicke auf einen Agenten links
               </p>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {trail.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '60px 0' }}>
+                    <p style={{ color: '#444', fontSize: 14 }}>
+                      {selectedAgentObj ? `${selectedAgentObj.name} hat noch keine Entscheidungen getroffen.` : 'Wähle einen Agenten aus der Liste.'}
+                    </p>
+                  </div>
+                ) : (
+                  trail.map(d => <TrailEntry key={d.id} decision={d} />)
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── CHAT / INSTRUCTIONS TAB ── */}
+          {tab === 'chat' && (
+            <div style={{ background: '#0A0A0A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 20, height: '70vh', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>
+                  💬 Anweisungen an Agenten
+                </h2>
+                <p style={{ fontSize: 11, color: '#444', margin: '3px 0 0' }}>
+                  Der Agent liest diese beim nächsten Run · Wähle einen Agenten links für spezifische Anweisungen
+                </p>
+              </div>
+
+              <textarea
+                value={msgText}
+                onChange={e => setMsgText(e.target.value)}
+                placeholder={selectedAgentObj ? `Anweisung an ${selectedAgentObj.emoji} ${selectedAgentObj.name}...` : 'Anweisung an alle Agenten...'}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendInstruction(); } }}
+                style={{
+                  width: '100%', minHeight: 100, background: '#111', border: '1px solid #1E1E1E',
+                  borderRadius: 8, color: '#F0F0F5', fontSize: 13, padding: 12, resize: 'vertical',
+                  outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                }}
+              />
+              <button
+                onClick={sendInstruction}
+                disabled={sending || !msgText.trim()}
+                style={{
+                  padding: '9px 0', background: sending || !msgText.trim() ? '#333' : '#E8472A',
+                  color: '#FFF', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700,
+                  cursor: sending || !msgText.trim() ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {sending ? 'Wird gesendet…' : '→ Senden'}
+              </button>
+
+              {/* History */}
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#333', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 10px' }}>
+                  Gesendete Anweisungen
+                </p>
+                {instructions.length === 0 ? (
+                  <p style={{ fontSize: 12, color: '#444' }}>Noch keine Anweisungen gesendet.</p>
+                ) : (
+                  instructions.map(instr => (
+                    <div key={instr.id} style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontSize: 10, color: '#444', fontFamily: 'monospace' }}>{ts(instr.created_at)}</span>
+                        <Badge
+                          label={instr.status === 'actioned' ? '✓ Bearbeitet' : 'Ungelesen'}
+                          bg={instr.status === 'actioned' ? '#22C55E' : '#1E1E1E'}
+                          color={instr.status === 'actioned' ? '#000' : '#555'}
+                        />
+                      </div>
+                      <p style={{ fontSize: 13, color: '#F0F0F5', margin: 0 }}>{instr.message}</p>
+                      {instr.response && (
+                        <p style={{ fontSize: 12, color: '#888', margin: '8px 0 0', borderTop: '1px solid #1E1E1E', paddingTop: 8 }}>
+                          Agent: {instr.response}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
-
-        {/* ── Section 3: Chat Panel ── */}
-        <div style={{
-          width: 320,
-          minWidth: 320,
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#0A0A0A',
-          border: '1px solid #1E1E1E',
-          borderRadius: 12,
-          padding: 16,
-        }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#F0F0F5', margin: '0 0 12px' }}>
-            {'💬'} Anweisung an {selectedAgent ? `${selectedAgent.emoji} ${selectedAgent.name}` : 'Agenten'}
-          </h2>
-
-          <textarea
-            value={msgText}
-            onChange={e => setMsgText(e.target.value)}
-            placeholder="Schreib dem Agenten eine Anweisung..."
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendInstruction(); } }}
-            style={{
-              width: '100%',
-              minHeight: 80,
-              background: '#111',
-              border: '1px solid #1E1E1E',
-              borderRadius: 8,
-              color: '#F0F0F5',
-              fontSize: 13,
-              padding: 10,
-              resize: 'vertical',
-              outline: 'none',
-              fontFamily: 'inherit',
-              boxSizing: 'border-box',
-            }}
-          />
-          <button
-            onClick={sendInstruction}
-            disabled={sending || !msgText.trim()}
-            style={{
-              marginTop: 8,
-              width: '100%',
-              padding: '8px 0',
-              background: sending || !msgText.trim() ? '#555' : '#E8472A',
-              color: '#FFF',
-              border: 'none',
-              borderRadius: 6,
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: sending || !msgText.trim() ? 'not-allowed' : 'pointer',
-              transition: 'background 0.15s',
-            }}
-          >
-            {sending ? 'Wird gesendet...' : 'Senden'}
-          </button>
-
-          {/* Recent instructions */}
-          <div style={{ marginTop: 16, flex: 1, overflowY: 'auto' }}>
-            <p style={{ fontSize: 10, fontWeight: 600, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 8px' }}>
-              Letzte Anweisungen
-            </p>
-            {recentInstructions.length === 0 ? (
-              <p style={{ fontSize: 12, color: '#555' }}>Keine Anweisungen.</p>
-            ) : (
-              recentInstructions.map(instr => (
-                <div key={instr.id} style={{
-                  background: '#111',
-                  border: '1px solid #1E1E1E',
-                  borderRadius: 6,
-                  padding: 10,
-                  marginBottom: 6,
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <span style={{ fontSize: 10, color: '#555' }}>{formatTime(instr.created_at)}</span>
-                    <Badge
-                      label={instr.status === 'actioned' ? 'Bearbeitet' : 'Ungelesen'}
-                      bg={instr.status === 'actioned' ? '#22C55E' : '#555'}
-                      color={instr.status === 'actioned' ? '#000' : '#F0F0F5'}
-                      fontSize={9}
-                    />
-                  </div>
-                  <p style={{ fontSize: 12, color: '#F0F0F5', margin: 0, lineHeight: 1.3 }}>
-                    {instr.message}
-                  </p>
-                  {instr.response && (
-                    <p style={{ fontSize: 11, color: '#888', margin: '6px 0 0', borderTop: '1px solid #1E1E1E', paddingTop: 6 }}>
-                      {instr.response}
-                    </p>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Section 4: Queue (full width) ─── */}
-      <div style={{
-        marginTop: 16,
-        background: '#0A0A0A',
-        border: '1px solid #1E1E1E',
-        borderRadius: 12,
-        padding: 16,
-      }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, color: '#F0F0F5', margin: '0 0 12px' }}>
-          {'📋'} Heutige Aktivit&auml;t
-        </h2>
-        {queue.length === 0 ? (
-          <p style={{ color: '#555', fontSize: 13 }}>Noch keine Aktivit&auml;t heute</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-              <thead>
-                <tr>
-                  {['Zeit', 'Agent', 'Typ', 'Unternehmen', 'Score', 'Status'].map(h => (
-                    <th key={h} style={{
-                      textAlign: 'left',
-                      padding: '6px 10px',
-                      borderBottom: '1px solid #1E1E1E',
-                      color: '#555',
-                      fontSize: 10,
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.5,
-                    }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {queue.map(entry => {
-                  const agentObj = agents.find(a => a.id === entry.agent_name);
-                  const emoji = AGENT_EMOJI_MAP[entry.agent_name] ?? '';
-                  const typeColor = DECISION_TYPE_COLOR[entry.decision_type] ?? '#555';
-                  const statusStyle = DECISION_STATUS_COLOR[entry.status] ?? { bg: '#555', color: '#F0F0F5' };
-
-                  return (
-                    <tr key={entry.id} style={{ borderBottom: '1px solid #1A1A1A' }}>
-                      <td style={{ padding: '6px 10px', color: '#888', fontFamily: 'monospace' }}>
-                        {formatDateTime(entry.created_at)}
-                      </td>
-                      <td style={{ padding: '6px 10px', color: '#F0F0F5' }}>
-                        {emoji} {agentObj?.name ?? entry.agent_name}
-                      </td>
-                      <td style={{ padding: '6px 10px' }}>
-                        <Badge label={entry.decision_type} bg={typeColor} color="#FFF" />
-                      </td>
-                      <td style={{ padding: '6px 10px', color: '#F0F0F5' }}>
-                        {entry.subject_company ?? '—'}
-                      </td>
-                      <td style={{ padding: '6px 10px', color: entry.score !== null && entry.score >= 7 ? '#22C55E' : entry.score !== null && entry.score >= 4 ? '#EAB308' : '#888', fontWeight: 600 }}>
-                        {entry.score !== null ? `${entry.score}/10` : '—'}
-                      </td>
-                      <td style={{ padding: '6px 10px' }}>
-                        <Badge label={entry.status} bg={statusStyle.bg} color={statusStyle.color} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );

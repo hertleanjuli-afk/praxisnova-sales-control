@@ -23,22 +23,22 @@ Technische Feldnamen in der Datenbank bleiben auf Englisch.
 
 ---
 
-## API-Konfiguration
+## Datenbank-Konfiguration
 
 ```
-BASE_URL: https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
+HELPER: node scripts/agent-db.mjs <action> [json-payload]
+BREVO_API: https://api.brevo.com/v3 (direkt — kein Proxy)
 ```
 
-### Lese-Endpunkte (GET /api/agent)
-- `?action=decisions&hours=24` — Alle Agenten-Entscheidungen der letzten 24h
-- `?action=decisions&hours=168` — Wochenüberblick (7 Tage)
-- `?action=decisions&hours=720` — Monatsüberblick (30 Tage)
-- `?action=reports&hours=24` — Agentenberichte der letzten 24h
-
-### Schreib-Endpunkte (POST /api/agent)
-- `type: 'report'` — Morgen-Briefing-Bericht speichern
-- `type: 'log'` — Ops-Manager-Lauf loggen
+### Verfügbare DB-Aktionen
+- `read-decisions` `{"hours":24}` — Entscheidungen laden
+- `read-reports` `{"hours":24}` — Berichte laden
+- `pipeline-health` — Pipeline-Status + Ansatz
+- `read-instructions` — Manager-Anweisungen lesen (markiert automatisch als gelesen)
+- `write-instruction` `{"message":"...", "from_human":false}` — Antwort schreiben
+- `write-log` `{"run_id":"...", "agent_name":"...", "action":"...", "status":"..."}` — Lauf loggen
+- `write-report` `{"team":"...", "report_type":"...", "summary":"..."}` — Bericht speichern
+- `read-intel` — Neuester Market Intelligence Update
 
 ---
 
@@ -47,8 +47,7 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ### Phase 0: Market Intelligence prüfen (nur montags relevant)
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=48&agent=market_intelligence'
+node scripts/agent-db.mjs read-intel
 ```
 
 Filtere: `decision_type = 'intel_update'` — nur wenn heute Montag und neuer intel_update vorhanden.
@@ -68,39 +67,33 @@ Falls kein intel_update → Abschnitt weglassen.
 
 **Schritt 1 — Letzte 24h Entscheidungen:**
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=24'
+node scripts/agent-db.mjs read-decisions '{"hours":24}'
 ```
 
 **Schritt 2 — Letzte 24h Berichte:**
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=reports&hours=24'
+node scripts/agent-db.mjs read-reports '{"hours":24}'
 ```
 
-**Schritt 3 — Pipeline-Gesundheit (7 Tage für Prospects, 30 Tage für Partner):**
+**Schritt 3 — Pipeline-Gesundheit:**
 ```bash
-# Prospect-Pipeline: Score 8+ Leads diese Woche
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=prospect_researcher'
+node scripts/agent-db.mjs pipeline-health
 
-# Partner-Pipeline: Tier-1 Partner diesen Monat
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=720&agent=partner_researcher'
+# Prospect-Entscheidungen (7 Tage):
+node scripts/agent-db.mjs read-decisions '{"hours":168,"agent":"prospect_researcher"}'
+
+# Partner-Entscheidungen (30 Tage):
+node scripts/agent-db.mjs read-decisions '{"hours":720,"agent":"partner_researcher"}'
 ```
 
 **Schritt 4 — Manager-Anweisungen lesen:**
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=instructions'
+node scripts/agent-db.mjs read-instructions
 ```
 Wenn Anweisungen vorhanden: In Phase 2 verarbeiten und in Phase 3 im Briefing unter "📝 Manager-Anweisungen" erwähnen.
 Nach Verarbeitung: Antwort schreiben:
 ```bash
-curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent' \
-  -d '{"type": "instruction_response", "payload": {"instruction_id": [ID], "response": "[Antwort auf Deutsch]"}}'
+node scripts/agent-db.mjs write-instruction '{"message":"[Deine Antwort auf Deutsch]","from_human":false}'
 ```
 
 ---
@@ -150,16 +143,25 @@ Partner-KPI:
 
 ### Phase 3: Morgen-Briefing per Brevo senden
 
-**Sende die E-Mail über den API-Endpunkt** (nicht Gmail MCP):
+**Sende die E-Mail direkt über Brevo API** (bypasses Vercel-Proxy):
 
 ```bash
-curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent/send-briefing' \
+curl -s -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'api-key: xkeysib-BREVO_API_KEY_HIER' \
+  'https://api.brevo.com/v3/smtp/email' \
   -d '{
+    "sender": {"name": "PraxisNova AI Agent", "email": "info@praxisnovaai.com"},
+    "to": [{"email": "hertle.anjuli@praxisnovaai.com", "name": "Angie"}],
     "subject": "🤖 Guten Morgen, Angie – Tagesbericht [DATUM]",
-    "html": "<HIER DAS BEFÜLLTE HTML-TEMPLATE EINFÜGEN>"
+    "htmlContent": "<HIER DAS BEFÜLLTE HTML-TEMPLATE EINFÜGEN>"
   }'
+```
+
+Danach Bericht in DB speichern:
+```bash
+node scripts/agent-db.mjs write-report '{"team":"sales","report_type":"morning_briefing","summary":"[1-Satz-Zusammenfassung]"}'
+node scripts/agent-db.mjs write-log '{"run_id":"[UUID]","agent_name":"operations_manager","action":"morning_briefing_sent","status":"completed"}'
 ```
 
 **An:** hertle.anjuli@praxisnovaai.com (Standard-Empfänger im Endpunkt)

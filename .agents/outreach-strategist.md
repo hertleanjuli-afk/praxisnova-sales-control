@@ -20,8 +20,8 @@ Läuft täglich um 12:00 Uhr Berlin (nach den Supervisors um 10:00).
 ## API-Konfiguration
 
 ```
-BASE_URL: https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
+HELPER: node scripts/agent-db.mjs <action> [json-payload]
+BREVO_API: https://api.brevo.com/v3 (direkt — kein Proxy)
 ```
 
 ---
@@ -31,8 +31,7 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ### Phase 0: Market Intelligence lesen (NEU)
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=market_intelligence'
+node scripts/agent-db.mjs read-intel
 ```
 
 Filtere: `decision_type = 'intel_update'` — neuesten Eintrag nehmen.
@@ -51,9 +50,10 @@ Falls kein intel_update vorhanden → Standardvorgehen ohne Anpassung.
 ### Phase 1: Approved Leads laden
 
 ```bash
-# Supervisor-approved decisions from last 24h
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=48&agent=sales_supervisor'
+# Approved Leads: pipeline_stage = 'In Outreach'
+node scripts/agent-db.mjs read-leads '{"limit":10,"stage":"In Outreach"}'
+# Supervisor decisions (last 48h):
+node scripts/agent-db.mjs read-decisions '{"hours":48,"agent":"sales_supervisor"}'
 ```
 
 Filtere: `decision_type = 'review_prospect'`, `status = 'approved'`, `score >= 8`
@@ -100,19 +100,23 @@ Anjuli Hertle
 CEO & Head of Sales | PraxisNova AI
 ```
 
-3. **E-Mail senden** via Brevo-Endpunkt:
+3. **E-Mail senden** direkt via Brevo API:
 ```bash
-curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent/send-briefing' \
-  -d '{"subject": "<Betreff>", "html": "<HTML-formatierte E-Mail>", "recipient": "<lead_email>"}'
+curl -s -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'api-key: xkeysib-BREVO_API_KEY_HIER' \
+  'https://api.brevo.com/v3/smtp/email' \
+  -d '{
+    "sender": {"name": "Anjuli Hertle", "email": "hertle.anjuli@praxisnovaai.com"},
+    "to": [{"email": "<lead_email>", "name": "<lead_name>"}],
+    "subject": "<Betreff>",
+    "htmlContent": "<HTML-formatierte E-Mail>"
+  }'
 ```
 
-WICHTIG: Der send-briefing Endpunkt sendet standardmäßig an Angie. Für Lead-E-Mails MUSS das `recipient`-Feld mit der Lead-E-Mail-Adresse gesetzt werden.
-
 4. **Entscheidung schreiben**:
-```json
-POST /api/agent { "type": "decision", "payload": {
+```bash
+node scripts/agent-db.mjs write-decision '{
   "run_id": "<UUID>",
   "agent_name": "outreach_strategist",
   "decision_type": "send_email",

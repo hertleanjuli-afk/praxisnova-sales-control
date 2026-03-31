@@ -18,22 +18,20 @@ Technische Feldnamen in der Datenbank bleiben auf Englisch.
 
 ---
 
-## API-Konfiguration
+## Datenbank-Konfiguration
 
 ```
-BASE_URL: https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
+HELPER: node scripts/agent-db.mjs <action> [json-payload]
 ```
 
-### Lese-Endpunkte (GET /api/agent)
-- `?action=leads-to-research&limit=30` — Leads zur Recherche (Pipeline-Stage-aware)
-- `?action=decisions&hours=168&agent=prospect_researcher` — Eigene Entscheidungen (7 Tage)
-- `?action=decisions&hours=168&agent=outreach_strategist` — Feedback vom Outreach-Strategist
-
-### Schreib-Endpunkte (POST /api/agent)
-- `type: 'decision'` — Bewertungsentscheidung schreiben
-- `type: 'update_pipeline_stage'` — Pipeline-Stage des Leads aktualisieren
-- `type: 'log'` — Lauf-Log schreiben
+### Verfügbare DB-Aktionen
+- `read-leads` `{"limit":30,"stage":"Neu"}` — Leads laden
+- `update-lead` `{"id":123,"pipeline_stage":"In Outreach","agent_score":9,"pipeline_notes":"..."}` — Lead aktualisieren
+- `read-decisions` `{"hours":168,"agent":"prospect_researcher"}` — Eigene Entscheidungen
+- `write-decision` `{"run_id":"...","agent_name":"prospect_researcher","decision_type":"qualify_lead",...}` — Decision schreiben
+- `write-log` `{"run_id":"...","agent_name":"prospect_researcher","action":"...","status":"..."}` — Log
+- `pipeline-health` — Pipeline-Status + Ansatz
+- `read-intel` — Market Intelligence
 
 ---
 
@@ -42,8 +40,7 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ### Phase 0: Market Intelligence lesen (NEU)
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=market_intelligence'
+node scripts/agent-db.mjs read-intel
 ```
 
 Filtere: `decision_type = 'intel_update'` — neuesten Eintrag nehmen.
@@ -62,15 +59,13 @@ Falls kein intel_update vorhanden (z.B. erster Lauf) → mit Standardwerten weit
 
 **1. Pipeline-Gesundheit prüfen:**
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=prospect_researcher'
+node scripts/agent-db.mjs pipeline-health
 ```
-Filtern: `score >= 8` — qualifizierte High-Priority-Leads zählen.
+`in_outreach` Wert → Ansatz bestimmen. `approach` Feld direkt nutzen (A/B/C).
 
 **2. Feedback vom Outreach Strategist lesen:**
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=outreach_strategist'
+node scripts/agent-db.mjs read-decisions '{"hours":168,"agent":"outreach_strategist"}'
 ```
 Filtern: `decision_type = 'feedback_to_prospect_researcher'`
 
@@ -96,8 +91,7 @@ Filtern: `decision_type = 'feedback_to_prospect_researcher'`
 ### Phase 2: Leads laden
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=leads-to-research&limit=30'
+node scripts/agent-db.mjs read-leads '{"limit":30,"stage":"Neu"}'
 ```
 
 Die API liefert **ausschließlich** Leads mit `pipeline_stage = 'Neu'` oder `NULL` (frisch, nie berührt).
@@ -155,41 +149,18 @@ Die API liefert **ausschließlich** Leads mit `pipeline_stage = 'Neu'` oder `NUL
 
 #### Score 8-10 → `In Outreach`
 ```bash
-curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent' \
-  -d '{"type": "update_pipeline_stage", "payload": {
-    "lead_id": [ID],
-    "stage": "In Outreach",
-    "notes": "Score [X]/10 — bereit für personalisierten Outreach"
-  }}'
+node scripts/agent-db.mjs update-lead '{"id":[ID],"pipeline_stage":"In Outreach","agent_score":[X],"pipeline_notes":"Score [X]/10 — bereit für personalisierten Outreach"}'
 ```
-→ Dieser Lead wird vom Outreach Strategist (Phase 2) aufgegriffen.
+→ Dieser Lead wird vom Outreach Strategist aufgegriffen.
 
 #### Score 5-7 → `Nurture`
 ```bash
-curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent' \
-  -d '{"type": "update_pipeline_stage", "payload": {
-    "lead_id": [ID],
-    "stage": "Nurture",
-    "notes": "Score [X]/10 — [Grund warum noch nicht bereit]. Für Re-Engagement vorgemerkt.",
-    "re_engage_after": "[Datum: 90 Tage ab heute, Format YYYY-MM-DD]"
-  }}'
+node scripts/agent-db.mjs update-lead '{"id":[ID],"pipeline_stage":"Nurture","agent_score":[X],"pipeline_notes":"Score [X]/10 — [Grund]. Re-Engagement in 90 Tagen."}'
 ```
-→ Lead wird nach 90 Tagen automatisch wieder im Pool erscheinen (`Wieder aufnehmen`).
 
 #### Score 1-4 → `Nicht qualifiziert`
 ```bash
-curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent' \
-  -d '{"type": "update_pipeline_stage", "payload": {
-    "lead_id": [ID],
-    "stage": "Nicht qualifiziert",
-    "notes": "Score [X]/10 — [Disqualifizierungsgrund]"
-  }}'
+node scripts/agent-db.mjs update-lead '{"id":[ID],"pipeline_stage":"Nicht qualifiziert","agent_score":[X],"pipeline_notes":"Score [X]/10 — [Disqualifizierungsgrund]"}'
 ```
 
 **Zusätzlich: Decision schreiben (für jedes Lead):**

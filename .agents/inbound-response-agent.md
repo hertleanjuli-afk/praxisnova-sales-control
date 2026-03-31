@@ -19,8 +19,8 @@ Cron: `*/15 6-22 * * *`
 ## API-Konfiguration
 
 ```
-BASE_URL: https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
+HELPER: node scripts/agent-db.mjs <action> [json-payload]
+BREVO_API: https://api.brevo.com/v3 (direkt — kein Proxy)
 ```
 
 ---
@@ -30,18 +30,12 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ### Phase 1: Neue Inbound-Leads finden
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=engagement'
+node scripts/agent-db.mjs read-inbound-leads '{"minutes":30}'
 ```
 
-Filtere client-side:
-- `sequence_type = 'inbound'`
-- `sequence_status IN ('pending_optin', 'active')`
-- `enrolled_at > jetzt minus 30 Minuten`
-- `outreach_source IS NULL` (noch nicht vom Agenten kontaktiert)
-- `permanently_blocked IS NOT TRUE`
+Filtert automatisch: `sequence_type = 'inbound'`, `outreach_source IS NULL`, `created_at > jetzt minus 30 Minuten`
 
-Wenn keine neuen Leads → kurzes Log: "Kein neuer Inbound-Lead." → beenden.
+Wenn keine neuen Leads → kurzes Log schreiben → beenden.
 Max. 5 Leads pro Lauf, älteste zuerst.
 
 ---
@@ -49,11 +43,9 @@ Max. 5 Leads pro Lauf, älteste zuerst.
 ### Phase 2: Market Intelligence lesen
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=market_intelligence'
+node scripts/agent-db.mjs read-intel
 ```
 
-Filtere: `decision_type = 'intel_update'` — neuesten Eintrag nehmen.
 Nutze `hot_topic_*` und `stat_of_the_week` für Personalisierung der Email.
 
 ---

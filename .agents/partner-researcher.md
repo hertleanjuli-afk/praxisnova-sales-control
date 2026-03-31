@@ -21,20 +21,18 @@ Technische Feldnamen in der Datenbank bleiben auf Englisch.
 ## API-Konfiguration
 
 ```
-BASE_URL: Umgebungsvariable NEXT_PUBLIC_APP_URL oder https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
+HELPER: node scripts/agent-db.mjs <action> [json-payload]
 ```
 
-### Lese-Endpunkte (GET /api/agent)
-- `?action=partner-targets` — Bestehende Partner mit letztem Score
-- `?action=decisions&hours=168&agent=partner_outreach_strategist` — Feedback vom Outreach-Strategist
-- `?action=decisions&hours=720&agent=partner_researcher` — Eigene Entscheidungen (Pipeline-Gesundheit)
-
-### Schreib-Endpunkte (POST /api/agent)
-- `type: 'partner'` — Partner upserten
-- `type: 'decision'` — Bewertungsentscheidung schreiben
-- `type: 'log'` — Lauf-Log schreiben
-- `type: 'report'` — Bericht schreiben (bei KPI-Alert)
+### Verfügbare DB-Aktionen
+- `read-partners` `{"limit":20,"tier":1}` — Partner laden
+- `upsert-partner` `{"company":"...","tier":1,"category":"..."}` — Partner speichern
+- `read-decisions` `{"hours":168,"agent":"partner_outreach_strategist"}` — Feedback lesen
+- `pipeline-health` — Pipeline-Status
+- `write-decision` `{...}` — Decision schreiben
+- `write-log` `{...}` — Log schreiben
+- `write-report` `{...}` — Report schreiben
+- `read-intel` — Market Intelligence
 
 ---
 
@@ -43,8 +41,7 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ### Phase 0: Market Intelligence lesen (NEU)
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168&agent=market_intelligence'
+node scripts/agent-db.mjs read-intel
 ```
 
 Filtere: `decision_type = 'intel_update'` — neuesten Eintrag nehmen.
@@ -63,18 +60,16 @@ Falls kein intel_update vorhanden → Standardvorgehen.
 Am Start jedes Laufs diese zwei Dinge prüfen:
 
 **1. Feedback vom Partner Outreach Strategist lesen:**
-```
-GET /api/agent?action=decisions&hours=168&agent=partner_outreach_strategist
+```bash
+node scripts/agent-db.mjs read-decisions '{"hours":168,"agent":"partner_outreach_strategist"}'
 ```
 Filtern: `decision_type = 'feedback_to_partner_researcher'`
-- Wenn Feedback vorhanden: Rubrik und Ziel-Anpassungen übernehmen
-- Wenn kein Feedback: Mit Standardwerten weiterarbeiten (Phase 2 noch nicht gebaut)
 
 **2. Pipeline-Gesundheit prüfen:**
+```bash
+node scripts/agent-db.mjs read-partners '{"limit":50,"tier":1}'
 ```
-GET /api/agent?action=decisions&hours=720&agent=partner_researcher
-```
-Filtern: `score >= 7` — qualifizierte Tier-1-Partner zählen.
+Zähle Partner mit `status != 'disqualified'` → Anzahl Tier-1-Partner bestimmt Ansatz.
 
 **Dann Ansatz wählen:**
 

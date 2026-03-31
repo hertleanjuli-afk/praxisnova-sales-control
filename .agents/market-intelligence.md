@@ -20,8 +20,7 @@ Cron: `0 7 * * 0`
 ## API-Konfiguration
 
 ```
-BASE_URL: https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
+HELPER: node scripts/agent-db.mjs <action> [json-payload]
 ```
 
 ---
@@ -31,8 +30,7 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ### Phase 1: Website-Analytics auswerten (letzte 7 Tage)
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=engagement'
+node scripts/agent-db.mjs website-analytics '{"days":7}'
 ```
 
 Kategorisiere Website-Klicks nach Branche/Thema:
@@ -58,8 +56,7 @@ Berechne:
 ### Phase 2: Email-Performance auswerten
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
-  'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=168'
+node scripts/agent-db.mjs read-decisions '{"hours":168}'
 ```
 
 Berechne:

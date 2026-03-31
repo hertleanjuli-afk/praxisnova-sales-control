@@ -367,7 +367,7 @@ async function runAgent(
 ): Promise<{ success: boolean; iterations: number; summary: string }> {
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.0-flash',
     systemInstruction: systemPrompt,
     tools: TOOLS,
   });
@@ -579,5 +579,5 @@ export async function GET(request: NextRequest) {
     }).catch(e => console.error('[morning-agents] Fehler-Email konnte nicht gesendet werden:', e));
   }
 
-  return NextResponse.json({ ok: true, model: 'gemini-2.5-flash', elapsed_seconds: elapsed, results, failed_agents: failedAgents });
+  return NextResponse.json({ ok: true, model: 'gemini-2.0-flash', elapsed_seconds: elapsed, results, failed_agents: failedAgents });
 }

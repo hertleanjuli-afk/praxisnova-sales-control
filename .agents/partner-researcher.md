@@ -199,49 +199,13 @@ Zähle Partner mit `status != 'disqualified'` → Anzahl Tier-1-Partner bestimmt
 ### Phase 4: Daten schreiben
 
 **Partner upserten:**
-```json
-POST /api/agent
-{
-  "type": "partner",
-  "payload": {
-    "company": "<Name>",
-    "website": "<URL>",
-    "contact_name": "<Ansprechpartner>",
-    "contact_title": "<Position>",
-    "linkedin_url": "<LinkedIn-URL>",
-    "category": "<Kategorie>",
-    "tier": 1
-  }
-}
+```bash
+node scripts/agent-db.mjs upsert-partner '{"company":"<Name>","website":"<URL>","contact_name":"<Ansprechpartner>","contact_title":"<Position>","linkedin_url":"<LinkedIn-URL>","category":"<Kategorie>","tier":1}'
 ```
 
 **Bewertungsentscheidung schreiben:**
-```json
-POST /api/agent
-{
-  "type": "decision",
-  "payload": {
-    "run_id": "<UUID>",
-    "agent_name": "partner_researcher",
-    "decision_type": "qualify_partner",
-    "subject_type": "partner",
-    "subject_company": "<Name>",
-    "score": 8,
-    "reasoning": "2-3 Sätze auf Deutsch — Fit, Reichweite, empfohlenes Partnermodell",
-    "data_payload": {
-      "client_base_score": 8,
-      "digital_maturity_score": 7,
-      "reach_score": 9,
-      "economics_score": 7,
-      "recommended_model": "referral",
-      "contact_found": true,
-      "partnership_program_exists": false,
-      "ansatz_used": "A",
-      "kpi_pipeline_count": 35
-    },
-    "status": "pending"
-  }
-}
+```bash
+node scripts/agent-db.mjs write-decision '{"run_id":"<UUID>","agent_name":"partner_researcher","decision_type":"qualify_partner","subject_type":"partner","subject_company":"<Name>","score":8,"reasoning":"2-3 Sätze auf Deutsch — Fit, Reichweite, empfohlenes Partnermodell","data_payload":{"client_base_score":8,"digital_maturity_score":7,"reach_score":9,"economics_score":7,"recommended_model":"referral","contact_found":true,"partnership_program_exists":false,"ansatz_used":"A","kpi_pipeline_count":35},"status":"pending"}'
 ```
 
 **Lauf abschließen:**

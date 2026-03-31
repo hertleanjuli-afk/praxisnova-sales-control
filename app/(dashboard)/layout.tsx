@@ -14,6 +14,7 @@ const navGroups: NavGroup[] = [
     title: 'Übersicht',
     items: [
       { label: 'Dashboard', href: '/', emoji: '📊' },
+      { label: 'Agenten', href: '/agents', emoji: '🤖' },
     ],
   },
   {
@@ -49,7 +50,7 @@ const navGroups: NavGroup[] = [
 ];
 
 const PAGE_TITLES: Record<string, string> = {
-  '/': 'Dashboard', '/leads': 'Lead-Suche', '/sequences': 'Sequenzen',
+  '/': 'Dashboard', '/agents': 'Agenten', '/leads': 'Lead-Suche', '/sequences': 'Sequenzen',
   '/inbound': 'Eingehende Leads', '/linkedin': 'LinkedIn', '/website-clicks': 'Website-Klicks', '/email-tracking': 'Email-Tracking',
   '/unsubscribes': 'Abmeldungen', '/analytics': 'Analytics', '/changelog': 'Change Log',
   '/linkedin-queue': 'LinkedIn Warteschlange', '/agent-metrics': 'Agent-Metriken',

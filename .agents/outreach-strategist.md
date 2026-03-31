@@ -100,18 +100,16 @@ Anjuli Hertle
 CEO & Head of Sales | PraxisNova AI
 ```
 
-3. **E-Mail senden** direkt via Brevo API:
+3. **E-Mail senden** via agent-db.mjs (Brevo direkt):
 ```bash
-curl -s -X POST \
-  -H 'Content-Type: application/json' \
-  -H 'api-key: $BREVO_API_KEY' \
-  'https://api.brevo.com/v3/smtp/email' \
-  -d '{
-    "sender": {"name": "Anjuli Hertle", "email": "hertle.anjuli@praxisnovaai.com"},
-    "to": [{"email": "<lead_email>", "name": "<lead_name>"}],
-    "subject": "<Betreff>",
-    "htmlContent": "<HTML-formatierte E-Mail>"
-  }'
+node scripts/agent-db.mjs send-email '{
+  "to": "<lead_email>",
+  "toName": "<lead_name>",
+  "subject": "<Betreff>",
+  "from": "hertle.anjuli@praxisnovaai.com",
+  "fromName": "Anjuli Hertle",
+  "html": "<HTML-formatierte E-Mail>"
+}'
 ```
 
 4. **Entscheidung schreiben**:

@@ -146,16 +146,14 @@ Partner-KPI:
 **Sende die E-Mail direkt über Brevo API** (bypasses Vercel-Proxy):
 
 ```bash
-curl -s -X POST \
-  -H 'Content-Type: application/json' \
-  -H 'api-key: $BREVO_API_KEY' \
-  'https://api.brevo.com/v3/smtp/email' \
-  -d '{
-    "sender": {"name": "PraxisNova AI Agent", "email": "info@praxisnovaai.com"},
-    "to": [{"email": "hertle.anjuli@praxisnovaai.com", "name": "Angie"}],
-    "subject": "🤖 Guten Morgen, Angie – Tagesbericht [DATUM]",
-    "htmlContent": "<HIER DAS BEFÜLLTE HTML-TEMPLATE EINFÜGEN>"
-  }'
+node scripts/agent-db.mjs send-email '{
+  "to": "hertle.anjuli@praxisnovaai.com",
+  "toName": "Angie",
+  "subject": "🤖 Guten Morgen, Angie – Tagesbericht [DATUM]",
+  "from": "info@praxisnovaai.com",
+  "fromName": "PraxisNova AI Agent",
+  "html": "<HIER DAS BEFÜLLTE HTML-TEMPLATE EINFÜGEN>"
+}'
 ```
 
 Danach Bericht in DB speichern:

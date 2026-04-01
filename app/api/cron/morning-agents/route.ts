@@ -2,7 +2,7 @@
  * morning-agents — Vercel Cron Endpoint
  *
  * Führt alle 3 Morgen-Agenten aus via Google Gemini Flash API (kostenlos).
- * Gemini Free Tier: 250 Requests/Tag, 10 RPM — reicht für alle 3 Agenten.
+ * Gemini Free Tier (gemini-1.5-flash): 1.500 Requests/Tag, 15 RPM — reicht für alle 3 Agenten.
  *
  * Ablauf: Gemini Flash → Tool-Calling → DB-Reads/Writes → E-Mail via Brevo
  * Schedule: 06:30 täglich (vercel.json)
@@ -390,7 +390,7 @@ async function runAgent(
 ): Promise<{ success: boolean; iterations: number; summary: string }> {
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-1.5-flash',
     systemInstruction: systemPrompt,
     tools: TOOLS,
   });
@@ -608,5 +608,5 @@ export async function GET(request: NextRequest) {
     }).catch(e => console.error('[morning-agents] Fehler-Email konnte nicht gesendet werden:', e));
   }
 
-  return NextResponse.json({ ok: true, model: 'gemini-2.5-flash', elapsed_seconds: elapsed, results, failed_agents: failedAgents });
+  return NextResponse.json({ ok: true, model: 'gemini-1.5-flash', elapsed_seconds: elapsed, results, failed_agents: failedAgents });
 }

@@ -4,7 +4,7 @@
  * Runs as an independent Gemini agent with its own 300s budget.
  * Qualifies new leads (pipeline_stage = "Neu") with a 4-dimension scoring rubric.
  *
- * Schedule: 06:30 Mon/Wed/Fri (via vercel.json)
+ * Schedule: 06:30 daily (via vercel.json)
  * maxIterations: 30 — enough for 20 leads with web_fetch + update + decision per lead
  */
 

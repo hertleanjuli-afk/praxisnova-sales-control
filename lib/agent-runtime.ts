@@ -197,6 +197,60 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ['subject', 'html'],
     },
   },
+  {
+    name: 'send_outreach_email',
+    description: 'Sendet eine personalisierte Outreach-E-Mail an einen Lead oder Partner via Brevo. Absender ist immer hertle.anjuli@praxisnovaai.com.',
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        to_email: { type: SchemaType.STRING, description: 'E-Mail-Adresse des Empfaengers' },
+        to_name: { type: SchemaType.STRING, description: 'Name des Empfaengers' },
+        subject: { type: SchemaType.STRING, description: 'E-Mail-Betreff' },
+        html: { type: SchemaType.STRING, description: 'HTML-Inhalt der E-Mail' },
+        from_name: { type: SchemaType.STRING, description: 'Absender-Name (default: Anjuli Hertle)' },
+      },
+      required: ['to_email', 'to_name', 'subject', 'html'],
+    },
+  },
+  {
+    name: 'write_linkedin_queue',
+    description: 'Schreibt eine LinkedIn-Nachricht in die Warteschlange. Angie sendet manuell.',
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        recipient_name: { type: SchemaType.STRING, description: 'Name des Empfaengers' },
+        recipient_linkedin_url: { type: SchemaType.STRING, description: 'LinkedIn-Profil-URL' },
+        message: { type: SchemaType.STRING, description: 'Nachrichtentext (max 300 Zeichen)' },
+        context: { type: SchemaType.STRING, description: 'Kontext fuer Angie: warum diese Nachricht' },
+        subject_type: { type: SchemaType.STRING, description: 'lead | partner' },
+        subject_id: { type: SchemaType.NUMBER, description: 'Lead- oder Partner-ID' },
+      },
+      required: ['recipient_name', 'message', 'subject_type'],
+    },
+  },
+  {
+    name: 'read_inbound_leads',
+    description: 'Liest neue Inbound-Leads der letzten 30 Minuten die noch nicht kontaktiert wurden.',
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        minutes: { type: SchemaType.NUMBER, description: 'Zeitfenster in Minuten (default 30)' },
+        limit: { type: SchemaType.NUMBER, description: 'Max. Anzahl (default 5)' },
+      },
+    },
+  },
+  {
+    name: 'web_search',
+    description: 'Sucht im Internet nach einem Suchbegriff. Gibt Titel, URLs und Snippets zurueck.',
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        query: { type: SchemaType.STRING, description: 'Suchbegriff' },
+        num_results: { type: SchemaType.NUMBER, description: 'Anzahl Ergebnisse (default 5)' },
+      },
+      required: ['query'],
+    },
+  },
 ];
 
 export const TOOLS: Tool[] = [{ functionDeclarations: FUNCTION_DECLARATIONS }];
@@ -397,6 +451,84 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
         const data = await res.json() as { messageId?: string };
         if (!res.ok) throw new Error(`Brevo ${res.status}: ${JSON.stringify(data)}`);
         return { ok: true, messageId: data.messageId };
+      }
+
+      case 'send_outreach_email': {
+        const { to_email, to_name, subject, html, from_name = 'Anjuli Hertle' } = args as {
+          to_email: string; to_name: string; subject: string; html: string; from_name?: string;
+        };
+        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'api-key': process.env.BREVO_API_KEY!,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: from_name, email: 'hertle.anjuli@praxisnovaai.com' },
+            to: [{ email: to_email, name: to_name }],
+            subject,
+            htmlContent: html,
+          }),
+        });
+        const data = await res.json() as { messageId?: string };
+        if (!res.ok) throw new Error(`Brevo ${res.status}: ${JSON.stringify(data)}`);
+        return { ok: true, messageId: data.messageId, to: to_email };
+      }
+
+      case 'write_linkedin_queue': {
+        const {
+          recipient_name, recipient_linkedin_url = null, message,
+          context = null, subject_type, subject_id = null,
+        } = args as Record<string, unknown>;
+        const rows = await sql`
+          INSERT INTO linkedin_queue
+            (recipient_name, recipient_linkedin_url, message, context, subject_type, subject_id, status)
+          VALUES
+            (${recipient_name as string}, ${recipient_linkedin_url as string | null},
+             ${message as string}, ${context as string | null},
+             ${subject_type as string}, ${subject_id as number | null}, 'pending')
+          RETURNING id
+        `;
+        return { ok: true, id: rows[0].id, recipient: recipient_name };
+      }
+
+      case 'read_inbound_leads': {
+        const minutes = (args.minutes as number) || 30;
+        const limit = (args.limit as number) || 5;
+        const rows = await sql`
+          SELECT id, email, first_name, last_name, company, title, industry,
+                 employee_count, website_url, source, utm_source, utm_medium,
+                 utm_campaign, created_at
+          FROM leads
+          WHERE created_at >= NOW() - INTERVAL '1 minute' * ${minutes}
+            AND (outreach_source IS NULL OR outreach_source = '')
+            AND pipeline_stage IN ('Neu', NULL)
+          ORDER BY created_at ASC
+          LIMIT ${limit}
+        `;
+        return { leads: rows, count: rows.length };
+      }
+
+      case 'web_search': {
+        const query = args.query as string;
+        const numResults = (args.num_results as number) || 5;
+        // Use Google Custom Search API if available, otherwise return guidance
+        if (process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_CX) {
+          const url = `https://www.googleapis.com/customsearch/v1?key=${process.env.GOOGLE_SEARCH_API_KEY}&cx=${process.env.GOOGLE_SEARCH_CX}&q=${encodeURIComponent(query)}&num=${numResults}`;
+          const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+          const data = await res.json() as { items?: Array<{ title: string; link: string; snippet: string }> };
+          return {
+            results: (data.items || []).map(item => ({
+              title: item.title,
+              url: item.link,
+              snippet: item.snippet,
+            })),
+            count: data.items?.length || 0,
+          };
+        }
+        // Fallback: use web_fetch on common search-friendly URLs
+        return { error: 'Google Search API nicht konfiguriert. Nutze web_fetch mit konkreten URLs statt web_search.' };
       }
 
       default:

@@ -5,7 +5,7 @@
  * Researches and qualifies potential partners (IT consultants, tax advisors,
  * cloud accounting platforms) for PraxisNova's partner program.
  *
- * Schedule: 06:30 Tue/Thu (via vercel.json)
+ * Schedule: 06:30 daily (via vercel.json)
  * maxIterations: 25 — enough for 10-14 partners with web_fetch + upsert + decision
  */
 

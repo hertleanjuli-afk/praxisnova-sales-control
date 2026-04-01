@@ -637,6 +637,63 @@ export async function runAgent(
   };
 }
 
+// ─── Direct DB log writer (call BEFORE Gemini, so runs are always visible) ───
+
+export async function writeStartLog(runId: string, agentName: string): Promise<void> {
+  try {
+    await sql`
+      INSERT INTO agent_logs (run_id, agent_name, action, status)
+      VALUES (${runId}, ${agentName}, 'started', 'started')
+    `;
+  } catch (e) {
+    console.error(`[${agentName}] Failed to write start log:`, e);
+  }
+}
+
+export async function writeEndLog(
+  runId: string,
+  agentName: string,
+  status: 'completed' | 'partial' | 'error',
+  details?: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await sql`
+      INSERT INTO agent_logs (run_id, agent_name, action, status, details)
+      VALUES (${runId}, ${agentName}, 'completed', ${status}, ${details ? JSON.stringify(details) : null})
+    `;
+  } catch (e) {
+    console.error(`[${agentName}] Failed to write end log:`, e);
+  }
+}
+
+/** Returns true if this agent already started a run in the last windowMinutes (concurrent-run guard) */
+export async function isAlreadyRunning(agentName: string, windowMinutes = 8): Promise<boolean> {
+  try {
+    const rows = await sql`
+      SELECT id FROM agent_logs
+      WHERE agent_name = ${agentName}
+        AND action = 'started'
+        AND created_at > NOW() - INTERVAL '1 minute' * ${windowMinutes}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    if (rows.length === 0) return false;
+    // Check if a matching completed/error log also exists after that start
+    const startId = rows[0].id;
+    const done = await sql`
+      SELECT id FROM agent_logs
+      WHERE agent_name = ${agentName}
+        AND action = 'completed'
+        AND id > ${startId}
+        AND created_at > NOW() - INTERVAL '1 minute' * ${windowMinutes}
+      LIMIT 1
+    `;
+    return done.length === 0; // started but not yet completed = still running
+  } catch {
+    return false; // on DB error, allow the run
+  }
+}
+
 // ─── Auth helper ─────────────────────────────────────────────────────────────
 
 export function isAuthorized(request: Request): boolean {

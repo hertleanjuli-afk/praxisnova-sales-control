@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { runAgent, isAuthorized, sendErrorNotification } from '@/lib/agent-runtime';
+import { runAgent, isAuthorized, sendErrorNotification, writeStartLog, writeEndLog, isAlreadyRunning } from '@/lib/agent-runtime';
 
 export const maxDuration = 300;
 
@@ -68,8 +68,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'GEMINI_API_KEY nicht konfiguriert' }, { status: 500 });
   }
 
+  if (await isAlreadyRunning('partner_researcher', 8)) {
+    console.log('[partner-researcher] Bereits aktiv — überspringe diesen Lauf.');
+    return NextResponse.json({ ok: true, skipped: true, reason: 'already_running' });
+  }
+
+  const runId = crypto.randomUUID();
   const startTime = Date.now();
-  console.log('[partner-researcher] Starte als eigenstaendiger Agent (max 25 Iterationen, 300s Budget)...');
+  console.log(`[partner-researcher] Starte run ${runId} (max 25 Iterationen, 300s Budget)...`);
+  await writeStartLog(runId, 'partner_researcher');
 
   try {
     const result = await runAgent(
@@ -81,6 +88,7 @@ export async function GET(request: NextRequest) {
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.log(`[partner-researcher] Fertig in ${elapsed}s — ${result.iterations} Iterationen, success=${result.success}`);
+    await writeEndLog(runId, 'partner_researcher', result.success ? 'completed' : 'partial', { iterations: result.iterations });
 
     if (!result.success) {
       await sendErrorNotification('Partner Researcher', `Maximale Iterationen erreicht (${result.iterations}/25)`, elapsed);
@@ -96,6 +104,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.error('[partner-researcher] Fehler:', err);
+    await writeEndLog(runId, 'partner_researcher', 'error', { error: String(err) });
     await sendErrorNotification('Partner Researcher', String(err), elapsed);
 
     return NextResponse.json({

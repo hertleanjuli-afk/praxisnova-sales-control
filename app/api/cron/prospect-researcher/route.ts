@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { runAgent, isAuthorized, sendErrorNotification } from '@/lib/agent-runtime';
+import { runAgent, isAuthorized, sendErrorNotification, writeStartLog, writeEndLog, isAlreadyRunning } from '@/lib/agent-runtime';
 
 export const maxDuration = 300;
 
@@ -55,8 +55,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'GEMINI_API_KEY nicht konfiguriert' }, { status: 500 });
   }
 
+  // Concurrent-run guard — skip if another instance is already running
+  if (await isAlreadyRunning('prospect_researcher', 8)) {
+    console.log('[prospect-researcher] Bereits aktiv — überspringe diesen Lauf.');
+    return NextResponse.json({ ok: true, skipped: true, reason: 'already_running' });
+  }
+
+  const runId = crypto.randomUUID();
   const startTime = Date.now();
-  console.log('[prospect-researcher] Starte als eigenstaendiger Agent (max 30 Iterationen, 300s Budget)...');
+  console.log(`[prospect-researcher] Starte run ${runId} (max 30 Iterationen, 300s Budget)...`);
+
+  // Write started log BEFORE calling Gemini so the run is always visible in the dashboard
+  await writeStartLog(runId, 'prospect_researcher');
 
   try {
     const result = await runAgent(
@@ -68,6 +78,8 @@ export async function GET(request: NextRequest) {
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.log(`[prospect-researcher] Fertig in ${elapsed}s — ${result.iterations} Iterationen, success=${result.success}`);
+
+    await writeEndLog(runId, 'prospect_researcher', result.success ? 'completed' : 'partial', { iterations: result.iterations });
 
     if (!result.success) {
       await sendErrorNotification('Prospect Researcher', `Maximale Iterationen erreicht (${result.iterations}/30)`, elapsed);
@@ -83,6 +95,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.error('[prospect-researcher] Fehler:', err);
+    await writeEndLog(runId, 'prospect_researcher', 'error', { error: String(err) });
     await sendErrorNotification('Prospect Researcher', String(err), elapsed);
 
     return NextResponse.json({

@@ -4,8 +4,8 @@
  * Responds to new website form submissions within 15 minutes.
  * Scores click-path intent, researches company, sends personalized response.
  *
- * Schedule: Every 15 minutes, 06:00-22:00 Berlin time
- * maxIterations: 15 (needs to be fast — 15min cycle)
+ * Schedule: 10:00, 14:00, 17:00 Berlin time (3x daily on Hobby plan)
+ * maxIterations: 15
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,7 +22,7 @@ ALLE Texte auf DEUTSCH. Kein Em-Dash oder En-Dash.
 ZIEL: Antwort innerhalb von 15 Minuten nach Formular-Einsendung. Geschwindigkeit vor Perfektion!
 
 VERFUEGBARE TOOLS:
-- read_inbound_leads {minutes: 30, limit: 5} - Neue Inbound-Leads laden
+- read_inbound_leads {minutes: 360, limit: 5} - Neue Inbound-Leads der letzten 6 Stunden laden
 - read_intel - Market Intelligence (hot_topics, stat_of_the_week)
 - web_fetch {url} - Firmen-Website recherchieren
 - send_outreach_email {to_email, to_name, subject, html} - Personalisierte Antwort senden
@@ -33,7 +33,7 @@ VERFUEGBARE TOOLS:
 WORKFLOW:
 1. Generiere run_id (UUID)
 2. write_log: started
-3. read_inbound_leads {minutes: 30, limit: 5} - Neue Leads der letzten 30 Minuten
+3. read_inbound_leads {minutes: 360, limit: 5} - Neue Leads der letzten 6 Stunden
 4. Wenn keine neuen Leads: write_log completed, fertig.
 5. read_intel - aktuelle Themen laden (falls vorhanden)
 6. Fuer jeden neuen Lead (max 5, aelteste zuerst):

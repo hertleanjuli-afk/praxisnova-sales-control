@@ -375,7 +375,7 @@ async function sendWithRetry(
         (err instanceof Error && err.message.includes('429'))
       );
       if (isRateLimit && attempt < maxRetries) {
-        const waitMs = 45000 + attempt * 15000; // 45s, 60s, 75s
+        const waitMs = 15000 + attempt * 10000; // 15s, 25s, 35s
         console.log(`[morning-agents] 429 Rate Limit - warte ${waitMs / 1000}s und versuche erneut (Versuch ${attempt + 1}/${maxRetries})...`);
         await new Promise(r => setTimeout(r, waitMs));
         continue;
@@ -389,7 +389,7 @@ async function sendWithRetry(
 async function runAgent(
   systemPrompt: string,
   taskDescription: string,
-  maxIterations = 10,
+  maxIterations = 6,
 ): Promise<{ success: boolean; iterations: number; summary: string }> {
 
   const model = genAI.getGenerativeModel({
@@ -548,7 +548,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Pause zwischen Agenten (Rate Limit: 15 RPM)
-  await new Promise(r => setTimeout(r, 30000));
+  await new Promise(r => setTimeout(r, 15000));
 
   // 2. Partner Researcher
   console.log('[morning-agents] Starte Partner Researcher (Gemini Flash)...');
@@ -562,7 +562,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Pause zwischen Agenten (Rate Limit: 15 RPM)
-  await new Promise(r => setTimeout(r, 30000));
+  await new Promise(r => setTimeout(r, 15000));
 
   // 3. Operations Manager
   console.log('[morning-agents] Starte Operations Manager (Gemini Flash)...');

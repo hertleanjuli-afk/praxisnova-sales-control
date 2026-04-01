@@ -68,6 +68,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
         pipeline_stage: { type: SchemaType.STRING, description: 'Neue Stage: In Outreach | Nurture | Nicht qualifiziert' },
         agent_score: { type: SchemaType.NUMBER, description: 'Score 1-10' },
         pipeline_notes: { type: SchemaType.STRING, description: 'Begründung auf Deutsch' },
+        outreach_source: { type: SchemaType.STRING, description: 'z.B. agent_inbound_response, agent_outreach_strategist — verhindert Doppelkontakt' },
       },
       required: ['id'],
     },
@@ -291,17 +292,20 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
         const stage = (args.stage as string) || 'Neu';
         const rows = await sql`
           SELECT id, email, first_name, last_name, company, title, industry,
-                 employee_count, website_url, agent_score, pipeline_stage, created_at
-          FROM leads WHERE pipeline_stage = ${stage}
-            AND (sequence_status = 'none' OR sequence_status IS NULL)
-          ORDER BY created_at DESC LIMIT ${limit}
+                 employee_count, website_url, agent_score, pipeline_stage, pipeline_notes,
+                 linkedin_url, source, created_at, sequence_status
+          FROM leads
+          WHERE pipeline_stage = ${stage}
+            AND (permanently_blocked IS NULL OR permanently_blocked = FALSE)
+            AND sequence_status NOT IN ('unsubscribed', 'bounced', 'active', 'cooldown')
+          ORDER BY created_at ASC LIMIT ${limit}
         `;
         return { leads: rows, count: rows.length };
       }
 
       case 'update_lead': {
-        const { id, pipeline_stage, agent_score, pipeline_notes } = args as {
-          id: number; pipeline_stage?: string; agent_score?: number; pipeline_notes?: string;
+        const { id, pipeline_stage, agent_score, pipeline_notes, outreach_source } = args as {
+          id: number; pipeline_stage?: string; agent_score?: number; pipeline_notes?: string; outreach_source?: string;
         };
         await sql`
           UPDATE leads SET
@@ -309,6 +313,7 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
             agent_score = COALESCE(${agent_score ?? null}, agent_score),
             agent_scored_at = CASE WHEN ${agent_score ?? null} IS NOT NULL THEN NOW() ELSE agent_scored_at END,
             pipeline_notes = COALESCE(${pipeline_notes ?? null}, pipeline_notes),
+            outreach_source = COALESCE(${outreach_source ?? null}, outreach_source),
             pipeline_stage_updated_at = CASE WHEN ${pipeline_stage ?? null} IS NOT NULL THEN NOW() ELSE pipeline_stage_updated_at END
           WHERE id = ${id}
         `;
@@ -503,7 +508,7 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
           FROM leads
           WHERE created_at >= NOW() - INTERVAL '1 minute' * ${minutes}
             AND (outreach_source IS NULL OR outreach_source = '')
-            AND pipeline_stage IN ('Neu', NULL)
+            AND (pipeline_stage = 'Neu' OR pipeline_stage IS NULL)
           ORDER BY created_at ASC
           LIMIT ${limit}
         `;

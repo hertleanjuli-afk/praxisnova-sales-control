@@ -2,7 +2,7 @@
  * morning-agents — Vercel Cron Endpoint
  *
  * Führt alle 3 Morgen-Agenten aus via Google Gemini Flash API (kostenlos).
- * Gemini Free Tier (gemini-1.5-flash): 1.500 Requests/Tag, 15 RPM — reicht für alle 3 Agenten.
+ * Gemini Free Tier (gemini-2.0-flash-lite): freies Kontingent — mit Retry-Logik bei 429.
  *
  * Ablauf: Gemini Flash → Tool-Calling → DB-Reads/Writes → E-Mail via Brevo
  * Schedule: 06:30 täglich (vercel.json)
@@ -370,7 +370,10 @@ async function sendWithRetry(
     try {
       return await fn();
     } catch (err: unknown) {
-      const isRateLimit = err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 429;
+      const isRateLimit = err && typeof err === 'object' && (
+        ('status' in err && (err as { status: number }).status === 429) ||
+        (err instanceof Error && err.message.includes('429'))
+      );
       if (isRateLimit && attempt < maxRetries) {
         const waitMs = 45000 + attempt * 15000; // 45s, 60s, 75s
         console.log(`[morning-agents] 429 Rate Limit - warte ${waitMs / 1000}s und versuche erneut (Versuch ${attempt + 1}/${maxRetries})...`);
@@ -390,7 +393,7 @@ async function runAgent(
 ): Promise<{ success: boolean; iterations: number; summary: string }> {
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.0-flash-lite',
     systemInstruction: systemPrompt,
     tools: TOOLS,
   });
@@ -608,5 +611,5 @@ export async function GET(request: NextRequest) {
     }).catch(e => console.error('[morning-agents] Fehler-Email konnte nicht gesendet werden:', e));
   }
 
-  return NextResponse.json({ ok: true, model: 'gemini-1.5-flash', elapsed_seconds: elapsed, results, failed_agents: failedAgents });
+  return NextResponse.json({ ok: true, model: 'gemini-2.0-flash-lite', elapsed_seconds: elapsed, results, failed_agents: failedAgents });
 }

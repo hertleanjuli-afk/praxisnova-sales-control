@@ -214,6 +214,21 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
+    name: 'block_lead',
+    description: 'Blockiert einen Lead und optional alle Leads der gleichen Firma. Gruende: manual_stop, no_interest, wrong_timing, replied, company_block',
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        lead_id: { type: SchemaType.NUMBER, description: 'ID des Leads' },
+        reason: { type: SchemaType.STRING, description: 'Grund: manual_stop | no_interest | wrong_timing | replied | company_block' },
+        duration_months: { type: SchemaType.NUMBER, description: 'Blockdauer in Monaten (default: 9)' },
+        block_company: { type: SchemaType.BOOLEAN, description: 'Auch alle anderen Leads der Firma blockieren (default: true)' },
+        notes: { type: SchemaType.STRING, description: 'Optionaler Kommentar' },
+      },
+      required: ['lead_id', 'reason'],
+    },
+  },
+  {
     name: 'write_linkedin_queue',
     description: 'Schreibt eine LinkedIn-Nachricht in die Warteschlange. Angie sendet manuell.',
     parameters: {
@@ -293,11 +308,17 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
         const rows = await sql`
           SELECT id, email, first_name, last_name, company, title, industry,
                  employee_count, website_url, agent_score, pipeline_stage, pipeline_notes,
-                 linkedin_url, source, created_at, sequence_status
+                 linkedin_url, source, created_at, sequence_status,
+               blocked_until, block_reason, phone, phone_source,
+               signal_email_reply, signal_linkedin_interest
           FROM leads
           WHERE pipeline_stage = ${stage}
             AND (permanently_blocked IS NULL OR permanently_blocked = FALSE)
             AND sequence_status NOT IN ('unsubscribed', 'bounced', 'active', 'cooldown')
+            AND (signal_email_reply IS NULL OR signal_email_reply = FALSE)
+            AND (signal_linkedin_interest IS NULL OR signal_linkedin_interest = FALSE)
+            AND pipeline_stage NOT IN ('Blocked', 'Replied', 'Booked')
+            AND (blocked_until IS NULL OR blocked_until < NOW())
           ORDER BY created_at ASC LIMIT ${limit}
         `;
         return { leads: rows, count: rows.length };
@@ -462,7 +483,16 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
         const { to_email, to_name, subject, html, from_name = 'Anjuli Hertle' } = args as {
           to_email: string; to_name: string; subject: string; html: string; from_name?: string;
         };
-        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        // --- EMAIL SANITIZATION (Issues #3, #4, #5) ---
+      let cleanHtml = html.replace(/,,/g, ',').replace(/\.\./g, '.').replace(/!!/g, '!');
+      if (!cleanHtml.includes('<p>') && !cleanHtml.includes('<p ')) {
+        cleanHtml = cleanHtml.split(/\n\n+/).map(p => '<p>' + p.trim() + '</p>').filter(p => p !== '<p></p>').join('\n');
+      }
+      let cleanSubject = subject.replace(/\{Spintax:\s*/gi, '').replace(/\{[^}]*\|([^}]*)\}/g, '$1').replace(/[{}|]/g, '');
+      cleanSubject = cleanSubject.replace(/[\u2013\u2014]/g, '-');
+      cleanHtml = cleanHtml.replace(/[\u2013\u2014]/g, '-');
+
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
             'accept': 'application/json',
@@ -472,13 +502,47 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
           body: JSON.stringify({
             sender: { name: from_name, email: 'hertle.anjuli@praxisnovaai.com' },
             to: [{ email: to_email, name: to_name }],
-            subject,
-            htmlContent: html,
+            subject: cleanSubject,
+            htmlContent: cleanHtml,
           }),
         });
         const data = await res.json() as { messageId?: string };
         if (!res.ok) throw new Error(`Brevo ${res.status}: ${JSON.stringify(data)}`);
         return { ok: true, messageId: data.messageId, to: to_email };
+      }
+
+      case 'block_lead': {
+        const { lead_id, reason, duration_months = 9, block_company = true, notes = '' } = args as {
+          lead_id: number; reason: string; duration_months?: number; block_company?: boolean; notes?: string;
+        };
+        const effectiveDuration = reason === 'wrong_timing' ? 3 : (duration_months || 9);
+        await sql`
+          UPDATE leads SET
+            pipeline_stage = ${reason === 'replied' ? 'Replied' : 'Blocked'},
+            block_reason = ${reason},
+            blocked_until = NOW() + INTERVAL '1 month' * ${effectiveDuration},
+            pipeline_notes = CONCAT(COALESCE(pipeline_notes, ''), ' | Blocked: ', ${reason}, ' bis ', (NOW() + INTERVAL '1 month' * ${effectiveDuration})::text, ' ', ${notes})
+          WHERE id = ${lead_id}
+        `;
+        let companyBlockCount = 0;
+        if (block_company) {
+          const leadRow = await sql`SELECT company FROM leads WHERE id = ${lead_id}`;
+          if (leadRow.length > 0 && leadRow[0].company) {
+            const companyName = leadRow[0].company;
+            const result = await sql`
+              UPDATE leads SET
+                pipeline_stage = 'Blocked',
+                block_reason = 'company_block',
+                blocked_until = NOW() + INTERVAL '1 month' * ${effectiveDuration},
+                pipeline_notes = CONCAT(COALESCE(pipeline_notes, ''), ' | Firmen-Block: Anderer Kontakt ', ${reason})
+              WHERE LOWER(company) = LOWER(${companyName})
+                AND id != ${lead_id}
+                AND pipeline_stage NOT IN ('Replied', 'Booked', 'Customer')
+            `;
+            companyBlockCount = result.count || 0;
+          }
+        }
+        return { ok: true, lead_id, reason, duration_months: effectiveDuration, company_leads_blocked: companyBlockCount };
       }
 
       case 'write_linkedin_queue': {
@@ -705,6 +769,37 @@ export function isAuthorized(request: Request): boolean {
   const validAgent = agentSecret === process.env.AGENT_SECRET;
 
   return validCron || validAgent;
+}
+
+// ─── Email Reply Handler (Brevo Webhook) ──────────────────────────────────
+export async function handleEmailReply(leadEmail: string) {
+  const leads = await sql`
+    SELECT id, company FROM leads WHERE LOWER(email) = LOWER(${leadEmail})
+  `;
+  if (leads.length === 0) return { ok: false, reason: 'lead_not_found' };
+  const lead = leads[0];
+  await sql`
+    UPDATE leads SET
+      signal_email_reply = true,
+      pipeline_stage = 'Replied',
+      pipeline_notes = CONCAT(COALESCE(pipeline_notes, ''), ' | Antwort erhalten am ', NOW()::text)
+    WHERE id = ${lead.id}
+  `;
+  let companyBlockCount = 0;
+  if (lead.company) {
+    const result = await sql`
+      UPDATE leads SET
+        pipeline_stage = 'Blocked',
+        block_reason = 'company_block',
+        blocked_until = NOW() + INTERVAL '9 months',
+        pipeline_notes = CONCAT(COALESCE(pipeline_notes, ''), ' | Firmen-Block: Kontakt hat geantwortet am ', NOW()::text)
+      WHERE LOWER(company) = LOWER(${lead.company})
+        AND id != ${lead.id}
+        AND pipeline_stage NOT IN ('Replied', 'Booked', 'Customer')
+    `;
+    companyBlockCount = result.count || 0;
+  }
+  return { ok: true, lead_id: lead.id, company_leads_blocked: companyBlockCount };
 }
 
 // ─── Error notification helper ───────────────────────────────────────────────

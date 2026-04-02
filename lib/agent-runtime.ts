@@ -7,8 +7,8 @@
  * Provides:
  *  - TOOLS (Gemini function declarations)
  *  - handleTool() dispatcher
- *  - sendWithRetry() for 429 rate-limit handling
- *  - runAgent() agentic loop
+ *  - sendWithRetry() for 429 rate-limit handlin
+ *  - runAgent() agentic loo
  */
 
 import {
@@ -580,7 +580,7 @@ export async function runAgent(
 ): Promise<{ success: boolean; iterations: number; summary: string }> {
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.0-flash',
     systemInstruction: systemPrompt,
     tools: TOOLS,
   });

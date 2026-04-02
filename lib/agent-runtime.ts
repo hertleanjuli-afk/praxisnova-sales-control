@@ -23,7 +23,7 @@ import sql from '@/lib/db';
 
 // ─── Gemini Client ───────────────────────────────────────────────────────────
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const genAI = new GoogleGenerativeAI(process.env.Gemini_API_Key_Sales_Agent || process.env.GEMINI_API_KEY!);
 
 // ─── Tool-Definitionen (Gemini Function Declarations) ────────────────────────
 

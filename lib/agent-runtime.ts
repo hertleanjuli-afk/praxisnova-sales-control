@@ -580,7 +580,7 @@ export async function runAgent(
 ): Promise<{ success: boolean; iterations: number; summary: string }> {
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.0-flash-lite',
     systemInstruction: systemPrompt,
     tools: TOOLS,
   });

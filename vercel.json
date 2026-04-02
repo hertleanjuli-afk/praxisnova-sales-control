@@ -6,27 +6,31 @@
     },
     {
       "path": "/api/cron/partner-researcher",
-      "schedule": "30 6 * * *"
+      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/cron/operations-manager",
-      "schedule": "35 6 * * *"
-    },
-    {
-      "path": "/api/cron/sales-supervisor",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/partner-supervisor",
-      "schedule": "0 8 * * *"
+      "schedule": "15 7 * * *"
     },
     {
       "path": "/api/cron/outreach-strategist",
-      "schedule": "0 10 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/partner-outreach-strategist",
-      "schedule": "0 10 * * *"
+      "schedule": "15 8 * * *"
+    },
+    {
+      "path": "/api/cron/process-sequences",
+      "schedule": "30 8 * * *"
+    },
+    {
+      "path": "/api/cron/partner-supervisor",
+      "schedule": "45 8 * * *"
+    },
+    {
+      "path": "/api/cron/sales-supervisor",
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/cron/market-intelligence",
@@ -43,10 +47,6 @@
     {
       "path": "/api/cron/inbound-response",
       "schedule": "0 15 * * *"
-    },
-    {
-      "path": "/api/cron/process-sequences",
-      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/daily-summary",

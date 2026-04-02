@@ -556,7 +556,7 @@ export async function sendWithRetry(
     } catch (err: unknown) {
       const isRateLimit = err && typeof err === 'object' && (
         ('status' in err && (err as { status: number }).status === 429) ||
-        (err instanceof Error && err.message.includes('429'))
+        (err instanceof Error && err.message.includes('429') || err.message.includes('503'))
       );
       if (isRateLimit && attempt < maxRetries) {
         const waitMs = 15000 + attempt * 10000; // 15s, 25s, 35s

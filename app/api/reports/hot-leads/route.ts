@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import sql from '@/lib/db';
 
 /**
  * GET /api/reports/hot-leads?week=current&min_score=9

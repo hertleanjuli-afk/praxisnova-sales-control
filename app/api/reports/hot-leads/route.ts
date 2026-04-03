@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const week = searchParams.get('week') || 'current';
 
     // Zeitraum bestimmen
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let dateFilter = '';
     if (week === 'current') {
       dateFilter = "AND l.created_at >= NOW() - INTERVAL '7 days'";

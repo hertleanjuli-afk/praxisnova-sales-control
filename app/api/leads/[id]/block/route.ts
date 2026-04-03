@@ -83,7 +83,7 @@ export async function POST(
             AND id != ${leadId}
             AND pipeline_stage NOT IN ('Replied', 'Booked', 'Customer')
         `;
-        companyBlockCount = result.count || 0;
+        companyBlockCount = result[0].count || 0;
 
         // Auch aus aktiven Sequences entfernen
         await sql`

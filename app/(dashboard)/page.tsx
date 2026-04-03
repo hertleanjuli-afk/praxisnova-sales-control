@@ -312,7 +312,7 @@ export default function DashboardPage() {
               </span>
               <Trend delta={item.kpi.trend.delta} direction={item.kpi.trend.direction} />
             </div>
-            {data.sparkline.length > 0 && i === 1 && (
+            {(data.sparkline ?? []).length > 0 && i === 1 && (
               <div style={{ marginTop: 8 }}>
                 <ResponsiveContainer width="100%" height={30}>
                   <LineChart data={data.sparkline}>
@@ -333,12 +333,12 @@ export default function DashboardPage() {
             <span style={{ fontSize: 18 }}>🔥</span> Heiße Leads
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
-            {data.hotLeads.length === 0 && data.recentClicks.length === 0 && data.inboundLeads.length === 0 && (
+            {(data.hotLeads ?? []).length === 0 && (data.recentClicks ?? []).length === 0 && (data.inboundLeads ?? []).length === 0 && (
               <p style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: 24 }}>Keine heißen Leads im gewählten Zeitraum.</p>
             )}
 
             {/* Email opens */}
-            {data.hotLeads.map((lead: any, i: number) => (
+            {(data.hotLeads ?? []).map((lead: any, i: number) => (
               <div key={`open-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E' }}>
                 <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#22C55E20', color: '#22C55E', fontWeight: 600, whiteSpace: 'nowrap' }}>Email geöffnet</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -358,7 +358,7 @@ export default function DashboardPage() {
             ))}
 
             {/* Website clicks */}
-            {data.recentClicks.filter((c: any) => c.lead_id).map((click: any, i: number) => (
+            {(data.recentClicks ?? []).filter((c: any) => c.lead_id).map((click: any, i: number) => (
               <div key={`click-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E' }}>
                 <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#3B82F620', color: '#3B82F6', fontWeight: 600, whiteSpace: 'nowrap' }}>Website Klick</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -373,7 +373,7 @@ export default function DashboardPage() {
             ))}
 
             {/* Inbound */}
-            {data.inboundLeads.slice(0, 5).map((lead: any, i: number) => (
+            {(data.inboundLeads ?? []).slice(0, 5).map((lead: any, i: number) => (
               <div key={`inbound-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E' }}>
                 <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#EAB30820', color: '#EAB308', fontWeight: 600, whiteSpace: 'nowrap' }}>Neue Anfrage</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -396,9 +396,9 @@ export default function DashboardPage() {
           {/* Meetings */}
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>Meetings</p>
-            {data.meetings.length === 0 ? (
+            {(data.meetings ?? []).length === 0 ? (
               <p style={{ fontSize: 13, color: '#555' }}>Keine Meetings geplant.</p>
-            ) : data.meetings.slice(0, 4).map((m: any, i: number) => (
+            ) : (data.meetings ?? []).slice(0, 4).map((m: any, i: number) => (
               <div key={i} style={{ padding: '8px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E', marginBottom: 6 }}>
                 <p style={{ fontSize: 13, fontWeight: 600, color: '#F0F0F5', margin: 0 }}>
                   {m.first_name} {m.last_name} <span style={{ color: '#888', fontWeight: 400 }}>· {m.company || SECTOR_LABELS[m.sequence_type] || ''}</span>
@@ -429,10 +429,10 @@ export default function DashboardPage() {
           </div>
 
           {/* LinkedIn Tasks */}
-          {data.linkedinTasks.length > 0 && (
+          {(data.linkedinTasks ?? []).length > 0 && (
             <div>
               <p style={{ fontSize: 12, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>LinkedIn-Aufgaben</p>
-              {data.linkedinTasks.slice(0, 3).map((task: any, i: number) => (
+              {(data.linkedinTasks ?? []).slice(0, 3).map((task: any, i: number) => (
                 <div key={i} style={{ padding: '6px 12px', background: '#0A0A0A', borderRadius: 8, border: '1px solid #1E1E1E', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 13, color: '#F0F0F5' }}>{task.first_name} {task.last_name}</span>
                   <span style={{ fontSize: 11, color: '#555' }}>· {task.company}</span>
@@ -468,9 +468,9 @@ export default function DashboardPage() {
           <h3 style={{ fontSize: 15, fontWeight: 600, color: '#F0F0F5', margin: '0 0 16px' }}>Leads nach Branche</h3>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
-              <Pie data={data.sectorBreakdown} dataKey="count" nameKey="sector" cx="50%" cy="50%" innerRadius={55} outerRadius={85}
+              <Pie data={data.sectorBreakdown ?? []} dataKey="count" nameKey="sector" cx="50%" cy="50%" innerRadius={55} outerRadius={85}
                 label={({ name, value }: any) => `${SECTOR_LABELS[name] || name}: ${value}`} labelLine={false}>
-                {data.sectorBreakdown.map((entry: any, i: number) => (
+                {(data.sectorBreakdown ?? []).map((entry: any, i: number) => (
                   <Cell key={i} fill={SECTOR_COLORS[entry.sector] || '#555'} />
                 ))}
               </Pie>
@@ -513,10 +513,10 @@ export default function DashboardPage() {
           Letzte Aktivitäten
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
-          {data.activity.length === 0 && (
+          {(data.activity ?? []).length === 0 && (
             <p style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: 16 }}>Keine Aktivitäten im gewählten Zeitraum.</p>
           )}
-          {data.activity.map((item: any, i: number) => {
+          {(data.activity ?? []).map((item: any, i: number) => {
             const config = ACTIVITY_CONFIG[item.type] || { label: item.type, color: '#888', bg: '#88888820' };
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: '#0A0A0A', border: '1px solid #1E1E1E' }}>

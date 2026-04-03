@@ -55,9 +55,9 @@ export async function GET(req: NextRequest) {
     // Zusammenfassung
     const summary = {
       total: hotLeads.length,
-      with_email_reply: hotLeads.filter((l: { signal_email_reply: boolean }) => l.signal_email_reply).length,
-      with_linkedin_interest: hotLeads.filter((l: { signal_linkedin_interest: boolean }) => l.signal_linkedin_interest).length,
-      with_phone: hotLeads.filter((l: { phone: string | null }) => l.phone).length,
+      with_email_reply: hotLeads.filter((l: any) => l.signal_email_reply).length,
+      with_linkedin_interest: hotLeads.filter((l: any) => l.signal_linkedin_interest).length,
+      with_phone: hotLeads.filter((l: any) => l.phone).length,
       generated_at: new Date().toISOString(),
     };
 

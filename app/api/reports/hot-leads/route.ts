@@ -14,14 +14,6 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const minScore = parseInt(searchParams.get('min_score') || '9', 10);
-    const week = searchParams.get('week') || 'current';
-
-    // Zeitraum bestimmen
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    let dateFilter = '';
-    if (week === 'current') {
-      dateFilter = "AND l.created_at >= NOW() - INTERVAL '7 days'";
-    }
 
     const hotLeads = await sql`
       SELECT

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import sql from '@/lib/db';
 
 /**
  * GET /api/leads/manage?search=text&stage=In+Outreach&limit=50

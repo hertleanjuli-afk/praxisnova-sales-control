@@ -53,7 +53,7 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       lead_id: leadId,
-      sequences_paused: result.count || 0,
+      sequences_paused: result[0].count || 0,
       resume_date,
       reason,
     });
@@ -103,7 +103,7 @@ export async function DELETE(
     return NextResponse.json({
       ok: true,
       lead_id: leadId,
-      sequences_resumed: result.count || 0,
+      sequences_resumed: result[0].count || 0,
     });
   } catch (error) {
     console.error('Resume lead error:', error);

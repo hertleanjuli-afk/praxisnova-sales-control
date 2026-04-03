@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     try {
       // Check if lead already exists in DB
       const existing = await sql`
-        SELECT id, sequence_status, cooldown_until FROM leads WHERE email = ${lead.email}
+        SELECT id, sequence_status, cooldown_until, permanently_blocked FROM leads WHERE email = ${lead.email}
       `;
 
       if (existing.length > 0) {

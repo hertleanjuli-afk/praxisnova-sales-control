@@ -539,7 +539,7 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
                 AND id != ${lead_id}
                 AND pipeline_stage NOT IN ('Replied', 'Booked', 'Customer')
             `;
-            companyBlockCount = result.count || 0;
+            companyBlockCount = result[0].count || 0;
           }
         }
         return { ok: true, lead_id, reason, duration_months: effectiveDuration, company_leads_blocked: companyBlockCount };
@@ -797,7 +797,7 @@ export async function handleEmailReply(leadEmail: string) {
         AND id != ${lead.id}
         AND pipeline_stage NOT IN ('Replied', 'Booked', 'Customer')
     `;
-    companyBlockCount = result.count || 0;
+    companyBlockCount = result[0].count || 0;
   }
   return { ok: true, lead_id: lead.id, company_leads_blocked: companyBlockCount };
 }

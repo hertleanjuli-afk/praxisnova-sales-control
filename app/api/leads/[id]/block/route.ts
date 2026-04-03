@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import sql from '@/lib/db';
 import { getBlockDuration, OUTREACH_CONFIG } from '@/lib/config/outreach-rules';
 
 /**

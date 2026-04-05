@@ -214,11 +214,11 @@ export async function initializeDatabase(): Promise<void> {
       answer_1 TEXT,
       question_2 TEXT DEFAULT 'Was lief nicht gut?',
       answer_2 TEXT,
-      question_3 TEXT DEFAULT 'Haben wir etwas geändert?',
+      question_3 TEXT DEFAULT 'Haben wir etwas geÃ¤ndert?',
       answer_3 TEXT,
       question_4 TEXT DEFAULT 'Welche Reaktionen haben wir von Leads bekommen?',
       answer_4 TEXT,
-      question_5 TEXT DEFAULT 'Was wollen wir nächste Woche testen?',
+      question_5 TEXT DEFAULT 'Was wollen wir nÃ¤chste Woche testen?',
       answer_5 TEXT,
       submitted_by TEXT NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
@@ -256,8 +256,8 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS agent_score INTEGER`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS agent_scored_at TIMESTAMPTZ`;
 
-  // ── Agent System Tables ──────────────────────────────────────────────────
-  // Partners table (separate from leads — different scoring, different pipeline)
+  // ââ Agent System Tables ââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // Partners table (separate from leads â different scoring, different pipeline)
   await sql`
     CREATE TABLE IF NOT EXISTS partners (
       id SERIAL PRIMARY KEY,
@@ -275,7 +275,7 @@ export async function initializeDatabase(): Promise<void> {
   `;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_partners_company ON partners(company)`;
 
-  // Agent decisions — every scored qualification or outreach plan
+  // Agent decisions â every scored qualification or outreach plan
   await sql`
     CREATE TABLE IF NOT EXISTS agent_decisions (
       id SERIAL PRIMARY KEY,
@@ -299,7 +299,7 @@ export async function initializeDatabase(): Promise<void> {
   await sql`CREATE INDEX IF NOT EXISTS idx_agent_decisions_date ON agent_decisions(created_at)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_agent_decisions_status ON agent_decisions(status)`;
 
-  // Agent logs — operational trace of every agent action
+  // Agent logs â operational trace of every agent action
   await sql`
     CREATE TABLE IF NOT EXISTS agent_logs (
       id SERIAL PRIMARY KEY,
@@ -314,7 +314,7 @@ export async function initializeDatabase(): Promise<void> {
   await sql`CREATE INDEX IF NOT EXISTS idx_agent_logs_run ON agent_logs(run_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_logs(agent_name)`;
 
-  // Agent reports — supervisor and operations manager reports
+  // Agent reports â supervisor and operations manager reports
   await sql`
     CREATE TABLE IF NOT EXISTS agent_reports (
       id SERIAL PRIMARY KEY,
@@ -374,6 +374,9 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS signal_company_news TEXT`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS signal_notes TEXT`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_signal_at TIMESTAMPTZ`;
+
+  // Phone number for leads (Issue #11)
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS phone TEXT`;
 }
 
 export interface Lead {

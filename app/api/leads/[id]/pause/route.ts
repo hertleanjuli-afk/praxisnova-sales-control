@@ -6,7 +6,7 @@ import sql from '@/lib/db';
  * OOO Handling - Sequence pausieren (Issue #9)
  *
  * Body: {
- *   resume_date: '2026-04-15',  // Datum der Rueckkehr
+ *   resume_date: '2026-04-15', // Datum der Rueckkehr
  *   reason?: 'ooo' | 'manual_pause'
  * }
  */
@@ -30,30 +30,26 @@ export async function POST(
       );
     }
 
-    // Aktive Sequence-Eintraege pausieren (NICHT stoppen!)
+    // Lead pausieren (NICHT stoppen!) - direkt in leads Tabelle
     const result = await sql`
-      UPDATE sequence_entries SET
+      UPDATE leads SET
+        sequence_status = 'paused',
         paused_at = NOW(),
         resume_at = ${resume_date}::timestamp,
-        pause_reason = ${reason}
-      WHERE lead_id = ${leadId}
-        AND status IN ('active', 'pending')
-    `;
-
-    // Lead-Notiz aktualisieren
-    await sql`
-      UPDATE leads SET
+        pause_reason = ${reason},
         pipeline_notes = CONCAT(
           COALESCE(pipeline_notes, ''),
           ' | Pausiert (', ${reason}, ') bis ', ${resume_date}, ' am ', NOW()::text
         )
       WHERE id = ${leadId}
+        AND sequence_status = 'active'
+      RETURNING id
     `;
 
     return NextResponse.json({
       ok: true,
       lead_id: leadId,
-      sequences_paused: (result.length > 0 ? result[0].count : 0) || 0,
+      sequences_paused: result.length,
       resume_date,
       reason,
     });
@@ -80,30 +76,26 @@ export async function DELETE(
       return NextResponse.json({ error: 'Ungueltige Lead-ID' }, { status: 400 });
     }
 
-    // Pause aufheben - Sequences wieder aktivieren
+    // Pause aufheben - Lead wieder aktivieren
     const result = await sql`
-      UPDATE sequence_entries SET
+      UPDATE leads SET
+        sequence_status = 'active',
         paused_at = NULL,
         resume_at = NULL,
-        pause_reason = NULL
-      WHERE lead_id = ${leadId}
-        AND paused_at IS NOT NULL
-        AND status IN ('active', 'pending')
-    `;
-
-    await sql`
-      UPDATE leads SET
+        pause_reason = NULL,
         pipeline_notes = CONCAT(
           COALESCE(pipeline_notes, ''),
           ' | Pause aufgehoben am ', NOW()::text
         )
       WHERE id = ${leadId}
+        AND sequence_status = 'paused'
+      RETURNING id
     `;
 
     return NextResponse.json({
       ok: true,
       lead_id: leadId,
-      sequences_resumed: (result.length > 0 ? result[0].count : 0) || 0,
+      sequences_resumed: result.length,
     });
   } catch (error) {
     console.error('Resume lead error:', error);

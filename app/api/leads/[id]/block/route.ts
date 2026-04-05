@@ -71,6 +71,7 @@ export async function POST(
         const result = await sql`
           UPDATE leads SET
             pipeline_stage = 'Blocked',
+            sequence_status = 'blocked',
             block_reason = 'company_block',
             blocked_until = NOW() + INTERVAL '1 month' * ${effectiveDuration},
             pipeline_notes = CONCAT(
@@ -85,17 +86,14 @@ export async function POST(
         `;
         companyBlockCount = (result.length > 0 ? result[0].count : 0) || 0;
 
-        // Auch aus aktiven Sequences entfernen
-        await sql`
-          UPDATE sequence_entries SET
-            status = 'blocked',
-            stopped_at = NOW()
-          WHERE lead_id IN (
-            SELECT id FROM leads
+        // Sequence-Status fuer alle Firmen-Leads auf blocked setzen
+          await sql`
+            UPDATE leads SET
+              sequence_status = 'blocked'
             WHERE LOWER(company) = LOWER(${companyName})
-          )
-          AND status IN ('active', 'pending', 'paused')
-        `;
+              AND id != ${leadId}
+              AND sequence_status IN ('active', 'pending', 'paused')
+          `;
       }
     }
 

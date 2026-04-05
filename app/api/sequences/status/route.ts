@@ -13,39 +13,33 @@ export async function GET(request: NextRequest) {
   const sector = searchParams.get('sector');
   const status = searchParams.get('status');
 
-  // When filtering by 'completed', include ALL terminal/done states
+  // Status filter mapping
   const statusesToQuery: string[] =
     status === 'completed'
       ? ['completed', 'replied', 'booked', 'stopped', 'unsubscribed']
+      : status === 'paused'
+      ? ['paused']
+      : status === 'blocked'
+      ? ['blocked']
+      : status === 'all'
+      ? ['active', 'paused', 'blocked', 'completed', 'replied', 'booked', 'stopped', 'unsubscribed', 'bounced', 'cooldown']
       : status
       ? [status]
-      : ['active'];
+      : ['active', 'paused', 'blocked'];
 
   let leads;
-  if (sector && status) {
+
+  if (sector && sector !== 'all') {
     leads = await sql`
       SELECT * FROM leads
       WHERE sequence_type = ${sector}
         AND sequence_status = ANY(${statusesToQuery})
       ORDER BY enrolled_at DESC
     `;
-  } else if (sector) {
-    leads = await sql`
-      SELECT * FROM leads
-      WHERE sequence_type = ${sector}
-        AND sequence_status = 'active'
-      ORDER BY enrolled_at DESC
-    `;
-  } else if (status) {
-    leads = await sql`
-      SELECT * FROM leads
-      WHERE sequence_status = ANY(${statusesToQuery})
-      ORDER BY enrolled_at DESC
-    `;
   } else {
     leads = await sql`
       SELECT * FROM leads
-      WHERE sequence_status = 'active'
+      WHERE sequence_status = ANY(${statusesToQuery})
       ORDER BY enrolled_at DESC
     `;
   }

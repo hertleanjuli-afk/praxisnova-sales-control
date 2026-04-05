@@ -519,6 +519,7 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
         await sql`
           UPDATE leads SET
             pipeline_stage = ${reason === 'replied' ? 'Replied' : 'Blocked'},
+            sequence_status = 'blocked',
             block_reason = ${reason},
             blocked_until = NOW() + INTERVAL '1 month' * ${effectiveDuration},
             pipeline_notes = CONCAT(COALESCE(pipeline_notes, ''), ' | Blocked: ', ${reason}, ' bis ', (NOW() + INTERVAL '1 month' * ${effectiveDuration})::text, ' ', ${notes})
@@ -532,6 +533,7 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
             const result = await sql`
               UPDATE leads SET
                 pipeline_stage = 'Blocked',
+                sequence_status = 'blocked',
                 block_reason = 'company_block',
                 blocked_until = NOW() + INTERVAL '1 month' * ${effectiveDuration},
                 pipeline_notes = CONCAT(COALESCE(pipeline_notes, ''), ' | Firmen-Block: Anderer Kontakt ', ${reason})
@@ -782,6 +784,7 @@ export async function handleEmailReply(leadEmail: string) {
     UPDATE leads SET
       signal_email_reply = true,
       pipeline_stage = 'Replied',
+      sequence_status = 'blocked',
       pipeline_notes = CONCAT(COALESCE(pipeline_notes, ''), ' | Antwort erhalten am ', NOW()::text)
     WHERE id = ${lead.id}
   `;
@@ -790,6 +793,7 @@ export async function handleEmailReply(leadEmail: string) {
     const result = await sql`
       UPDATE leads SET
         pipeline_stage = 'Blocked',
+        sequence_status = 'blocked',
         block_reason = 'company_block',
         blocked_until = NOW() + INTERVAL '9 months',
         pipeline_notes = CONCAT(COALESCE(pipeline_notes, ''), ' | Firmen-Block: Kontakt hat geantwortet am ', NOW()::text)

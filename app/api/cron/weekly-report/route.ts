@@ -201,6 +201,28 @@ export async function GET(request: NextRequest) {
     const recentSent = Number(recentSentRows[0]?.count || 0);
     const estimatedDailyLimit = Math.max(Math.round(recentSent / 3), 1);
 
+    // Hot Leads (Issue #12)
+    const hotLeadsRows = await sql`
+      SELECT
+        l.id, l.first_name, l.last_name, l.email, l.phone, l.company, l.title,
+        l.agent_score, l.signal_email_reply, l.signal_linkedin_interest, l.linkedin_url,
+        CASE
+          WHEN l.signal_email_reply = TRUE THEN 'Email-Antwort'
+          WHEN l.signal_linkedin_interest = TRUE THEN 'LinkedIn-Interesse'
+          ELSE 'Hoher Score'
+        END as hot_reason
+      FROM leads l
+      WHERE l.agent_score >= 9
+        AND (l.signal_email_reply = TRUE OR l.signal_linkedin_interest = TRUE OR l.agent_score >= 9)
+        AND l.pipeline_stage NOT IN ('Blocked', 'Nicht qualifiziert')
+        AND (l.permanently_blocked IS NULL OR l.permanently_blocked = FALSE)
+      ORDER BY
+        CASE WHEN l.signal_email_reply = TRUE THEN 0 ELSE 1 END,
+        CASE WHEN l.signal_linkedin_interest = TRUE THEN 0 ELSE 1 END,
+        l.agent_score DESC
+      LIMIT 10
+    `;
+
     // Open tasks
     const noLinkedinRows = await sql`
       SELECT COUNT(*) as count FROM leads
@@ -219,7 +241,7 @@ export async function GET(request: NextRequest) {
 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc; padding: 24px;">
   <div style="background: #1E3A5F; color: white; padding: 24px; border-radius: 8px 8px 0 0; text-align: center;">
     <h1 style="margin: 0; font-size: 22px;">PraxisNova Weekly Report</h1>
-    <p style="margin: 8px 0 0; opacity: 0.85; font-size: 14px;">KW ${kw} – ${formatDate(weekStart)} bis ${formatDate(weekEnd)}</p>
+    <p style="margin: 8px 0 0; opacity: 0.85; font-size: 14px;">KW ${kw} â ${formatDate(weekStart)} bis ${formatDate(weekEnd)}</p>
   </div>
 
   <div style="background: white; padding: 24px; border: 1px solid #e2e8f0;">
@@ -328,7 +350,28 @@ export async function GET(request: NextRequest) {
       <p style="margin: 4px 0 0; font-size: 12px; color: #6b7280;">Basierend auf den letzten 3 Tagen (${recentSent} E-Mails gesendet)</p>
     </div>
 
-    <!-- OFFENE AUFGABEN -->
+    <!-- HOT LEADS -->
+    <h2 style="color: #1E3A5F; font-size: 16px; margin: 0 0 12px; border-bottom: 2px solid #FF6B35; padding-bottom: 6px;">HOT LEADS (Top ${hotLeadsRows.length})</h2>
+    ${hotLeadsRows.length === 0 ? '<p style="font-size: 13px; color: #6b7280; margin-bottom: 24px;">Keine Hot Leads diese Woche.</p>' : `
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 12px;">
+      <tr style="background: #1E3A5F; color: white;">
+        <th style="padding: 8px 10px; text-align: left;">Name</th>
+        <th style="padding: 8px 10px; text-align: left;">Firma</th>
+        <th style="padding: 8px 10px; text-align: center;">Score</th>
+        <th style="padding: 8px 10px; text-align: left;">Grund</th>
+        <th style="padding: 8px 10px; text-align: left;">Kontakt</th>
+      </tr>
+      ${hotLeadsRows.map((hl: any, idx: number) => `
+      <tr style="background: ${idx % 2 === 0 ? '#fff7ed' : 'white'};">
+        <td style="padding: 8px 10px; font-weight: 600;">${hl.first_name} ${hl.last_name}</td>
+        <td style="padding: 8px 10px;">${hl.company || '-'}</td>
+        <td style="padding: 8px 10px; text-align: center; font-weight: 700; color: #FF6B35;">${hl.agent_score}</td>
+        <td style="padding: 8px 10px;">${hl.hot_reason}</td>
+        <td style="padding: 8px 10px;">${hl.phone ? hl.phone : hl.email}</td>
+      </tr>`).join('')}
+    </table>`}
+
+        <!-- OFFENE AUFGABEN -->
     <h2 style="color: #1E3A5F; font-size: 16px; margin: 0 0 12px; border-bottom: 2px solid #ef4444; padding-bottom: 6px;">OFFENE AUFGABEN</h2>
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
       <tr style="background: #fef2f2;">
@@ -343,12 +386,12 @@ export async function GET(request: NextRequest) {
   </div>
 
   <div style="background: #1E3A5F; color: white; padding: 16px; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; opacity: 0.9;">
-    PraxisNova AI Sales Control – Automatisch generiert
+    PraxisNova AI Sales Control â Automatisch generiert
   </div>
 </div>`;
 
     // Send to both recipients
-    const subject = `PraxisNova Weekly Report KW ${kw} – ${formatDate(weekStart)}`;
+    const subject = `PraxisNova Weekly Report KW ${kw} â ${formatDate(weekStart)}`;
     const recipients = ['hertle.anjuli@praxisnovaai.com', 'meyer.samantha@praxisnovaai.com'];
     for (const to of recipients) {
       await sendTransactionalEmail({

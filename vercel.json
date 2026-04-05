@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/daily-summary",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-report",
+      "schedule": "0 6 * * 1"
     }
   ]
 }

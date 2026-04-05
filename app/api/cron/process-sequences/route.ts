@@ -69,11 +69,11 @@ function getSenderForSequence(sequenceType: string, leadId?: number): { email: s
 // Calendly URL mapping per sender email
 function getCalendlyUrl(senderEmail: string): string {
   const calendlyMap: Record<string, string> = {
-    'hertle.anjuli@praxisnovaai.com': 'https://calendly.com/hertle-anjuli-praxisnovaai/erstgesprach',
-    'info@praxisnovaai.com': 'https://calendly.com/hertle-anjuli-praxisnovaai/erstgesprach',
-    'meyer.samantha@praxisnovaai.com': 'https://calendly.com/meyer-samantha-praxisnovaai/erstgesprach',
+    'hertle.anjuli@praxisnovaai.com': 'https://calendly.com/hertle-anjuli-praxisnovaai/erstgespraech',
+    'info@praxisnovaai.com': 'https://calendly.com/hertle-anjuli-praxisnovaai/erstgespraech',
+    'meyer.samantha@praxisnovaai.com': 'https://calendly.com/meyer-samantha-praxisnovaai/erstgespraech',
   };
-  return calendlyMap[senderEmail] || 'https://calendly.com/hertle-anjuli-praxisnovaai/erstgesprach';
+  return calendlyMap[senderEmail] || 'https://calendly.com/hertle-anjuli-praxisnovaai/erstgespraech';
 }
 
 function buildSignature(sender: { name: string; title: string; email?: string }): string {
@@ -83,6 +83,26 @@ ${sender.name}<br>
 ${sender.title} | PraxisNova AI<br>
 <a href="https://www.praxisnovaai.com">www.praxisnovaai.com</a><br>
 <a href="${calendlyUrl}">Termin buchen</a></p>`;
+}
+
+
+// Email sanitization: fix double commas, spintax, ensure proper spacing
+function sanitizeEmail(body: string): string {
+  let cleaned = body;
+  cleaned = cleaned.replace(/,,/g, ',');
+  cleaned = cleaned.replace(/\.\./g, '.');
+  cleaned = cleaned.replace(/!!/g, '!');
+  cleaned = cleaned.replace(/\{Spintax:\s*([^|}]+)\|[^}]*\}/g, '$1');
+  cleaned = cleaned.replace(/\{([^|}]+)\|[^}]*\}/g, '$1');
+  return cleaned;
+}
+
+function sanitizeSubject(subject: string): string {
+  let cleaned = subject;
+  cleaned = cleaned.replace(/\{Spintax:\s*([^|}]+)\|[^}]*\}/g, '$1');
+  cleaned = cleaned.replace(/\{([^|}]+)\|[^}]*\}/g, '$1');
+  cleaned = cleaned.replace(/[{}]/g, '');
+  return cleaned;
 }
 
 export async function GET(request: NextRequest) {
@@ -108,16 +128,33 @@ export async function GET(request: NextRequest) {
   // STEP_SEND_HOURS: { 1: 8, 2: 10, 3: 14, 4: 9, 5: 11 } (MEZ)
   // Enable by upgrading to Pro and setting cron to "30 7,8,9,10,12,13 * * 1-4"
 
-  const stats = { processed: 0, sent: 0, failed: 0, completed: 0, linkedin_tasks: 0 };
+  const stats = { processed: 0, sent: 0, failed: 0, completed: 0, linkedin_tasks: 0, resumed: 0 };
 
   try {
-    // Get all active leads (exclude permanently blocked – DSGVO safety check)
+    // Auto-resume paused leads (OOO) where resume_at has passed
+    const resumedLeads = await sql`
+      UPDATE leads SET
+        sequence_status = 'active',
+        paused_at = NULL,
+        resume_at = NULL,
+        pause_reason = NULL,
+        pipeline_notes = CONCAT(COALESCE(pipeline_notes, ''), ' | Auto-resumed from OOO pause at ', NOW())
+      WHERE sequence_status = 'paused'
+        AND resume_at IS NOT NULL
+        AND resume_at <= NOW()
+      RETURNING id
+    `;
+    stats.resumed = resumedLeads.length;
+
+    // Get all active leads (exclude permanently blocked, time-blocked, and paused) (exclude permanently blocked – DSGVO safety check)
     const activeLeads = await sql`
       SELECT * FROM leads
       WHERE sequence_status = 'active'
       AND sequence_type IS NOT NULL
       AND enrolled_at IS NOT NULL
       AND (permanently_blocked IS NULL OR permanently_blocked = FALSE)
+        AND (blocked_until IS NULL OR blocked_until < NOW())
+        AND (paused_at IS NULL)
       ORDER BY enrolled_at ASC
     `;
 
@@ -199,7 +236,7 @@ export async function GET(request: NextRequest) {
       const senderConfig = getSenderForSequence(lead.sequence_type, lead.id);
       const signature = buildSignature(senderConfig);
       const salutation = formatSalutation(lead.first_name, lead.last_name);
-      const emailBody = step.bodyTemplate
+      let emailBody = step.bodyTemplate
         .replace(/\{\{SALUTATION\}\}/g, salutation)
         .replace(/\{\{SIGNATURE\}\}/g, signature)
         .replace(/\{\{first_name\}\}/g, lead.first_name || '')
@@ -211,10 +248,13 @@ export async function GET(request: NextRequest) {
           return `href="${url}${separator}vid=${lead.id}"`;
         });
 
-      const subject = (step.subject || '')
+      let subject = (step.subject || '')
         .replace(/\{\{first_name\}\}/g, lead.first_name || '')
         .replace(/\{\{last_name\}\}/g, lead.last_name || '')
         .replace(/\{\{company_name\}\}/g, lead.company || '');
+
+      // Sanitize subject line
+      subject = sanitizeSubject(subject);
 
       try {
         const result = await sendTransactionalEmail({

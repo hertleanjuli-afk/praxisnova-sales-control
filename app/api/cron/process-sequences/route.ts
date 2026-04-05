@@ -248,6 +248,9 @@ export async function GET(request: NextRequest) {
           return `href="${url}${separator}vid=${lead.id}"`;
         });
 
+      // Sanitize email body (fix double commas, spintax remnants)
+      emailBody = sanitizeEmail(emailBody);
+
       let subject = (step.subject || '')
         .replace(/\{\{first_name\}\}/g, lead.first_name || '')
         .replace(/\{\{last_name\}\}/g, lead.last_name || '')

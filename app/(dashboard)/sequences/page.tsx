@@ -54,6 +54,7 @@ interface Lead {
   block_reason: string | null;
   blocked_until: string | null;
   pipeline_stage: string;
+  phone: string | null;
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -352,7 +353,7 @@ export default function SequencesPage() {
               <p style={{ fontSize: 12, color: SECTOR_COLORS[s], fontWeight: 600, margin: '0 0 6px' }}>{SECTOR_LABELS[s]}</p>
               <p style={{ fontSize: 22, fontWeight: 700, color: '#F0F0F5', margin: '0 0 4px' }}>{st.active}</p>
               <p style={{ fontSize: 11, color: '#555', margin: 0 }}>
-                aktiv Â· {st.paused > 0 ? `${st.paused} pausiert Â· ` : ''}{st.blocked > 0 ? `${st.blocked} blockiert Â· ` : ''}Ã Step {avgStep}
+                aktiv ÃÂ· {st.paused > 0 ? `${st.paused} pausiert ÃÂ· ` : ''}{st.blocked > 0 ? `${st.blocked} blockiert ÃÂ· ` : ''}ÃÂ Step {avgStep}
               </p>
             </button>
           );
@@ -498,7 +499,7 @@ export default function SequencesPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <div>
                 <h2 style={{ fontSize: 20, fontWeight: 700, color: '#F0F0F5', margin: 0 }}>{selectedLead.first_name} {selectedLead.last_name}</h2>
-                <p style={{ fontSize: 13, color: '#888', margin: '4px 0 0' }}>{selectedLead.company} - {selectedLead.title} - {selectedLead.email}</p>
+                <p style={{ fontSize: 13, color: '#888', margin: '4px 0 0' }}>{selectedLead.company} - {selectedLead.title} - {selectedLead.email}{selectedLead.phone ? ` - ${selectedLead.phone}` : ''}</p>
               </div>
               <button onClick={() => setSelectedLead(null)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 24, cursor: 'pointer' }}>x</button>
             </div>
@@ -586,6 +587,12 @@ export default function SequencesPage() {
                 style={{ flex: 1, textAlign: 'center', padding: 10, background: '#1E1E1E', borderRadius: 8, color: '#ccc', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
                 Email senden
               </a>
+              {selectedLead.phone && (
+                <a href={`tel:${selectedLead.phone}`}
+                  style={{ flex: 1, textAlign: 'center', padding: '10px', background: '#1E1E1E', borderRadius: 8, color: '#ccc', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+                  {selectedLead.phone}
+                </a>
+              )}
               {selectedLead.linkedin_url && (
                 <a href={selectedLead.linkedin_url} target="_blank" rel="noreferrer"
                   style={{ flex: 1, textAlign: 'center', padding: 10, background: '#1E1E1E', borderRadius: 8, color: '#ccc', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>

@@ -62,20 +62,15 @@ export async function POST(
 
     // 1. Lead blockieren
     const newStage = reason === 'replied' ? 'Replied' : 'Blocked';
+    const noteText = ` | Blocked: ${reason} (${effectiveDuration} Monate) am ${new Date().toISOString()}${notes ? ' - ' + notes : ''}`;
     await sql`
       UPDATE leads SET
         sequence_status = 'blocked',
-        pipeline_stage = ${newStage},
-        block_reason = ${reason},
+        pipeline_stage = ${newStage}::text,
+        block_reason = ${reason}::text,
         blocked_until = NOW() + INTERVAL '1 month' * ${effectiveDuration},
         exited_at = NOW(),
-        pipeline_notes = CONCAT(
-          COALESCE(pipeline_notes, ''),
-          ' | Blocked: ', ${reason},
-          ' (', ${effectiveDuration}::text, ' Monate)',
-          ' am ', NOW()::text,
-          CASE WHEN ${notes} != '' THEN CONCAT(' - ', ${notes}) ELSE '' END
-        )
+        pipeline_notes = COALESCE(pipeline_notes, '') || ${noteText}::text
       WHERE id = ${leadId}
     `;
 
@@ -88,6 +83,7 @@ export async function POST(
       if (leadRow.length > 0 && leadRow[0].company) {
         const companyName = leadRow[0].company;
 
+        const companyNote = ` | Firmen-Block: Anderer Kontakt ${reason} am ${new Date().toISOString()}`;
         const result = await sql`
           UPDATE leads SET
             sequence_status = 'blocked',
@@ -95,13 +91,8 @@ export async function POST(
             block_reason = 'company_block',
             blocked_until = NOW() + INTERVAL '1 month' * ${effectiveDuration},
             exited_at = NOW(),
-            pipeline_notes = CONCAT(
-              COALESCE(pipeline_notes, ''),
-              ' | Firmen-Block: Anderer Kontakt ',
-              ${reason},
-              ' am ', NOW()::text
-            )
-          WHERE LOWER(company) = LOWER(${companyName})
+            pipeline_notes = COALESCE(pipeline_notes, '') || ${companyNote}::text
+          WHERE LOWER(company) = LOWER(${companyName}::text)
             AND id != ${leadId}
             AND pipeline_stage NOT IN ('Replied', 'Booked', 'Customer')
         `;
@@ -149,10 +140,7 @@ export async function DELETE(
         block_reason = NULL,
         blocked_until = NULL,
         exited_at = NULL,
-        pipeline_notes = CONCAT(
-          COALESCE(pipeline_notes, ''),
-          ' | Block aufgehoben am ', NOW()::text
-        )
+        pipeline_notes = COALESCE(pipeline_notes, '') || ${` | Block aufgehoben am ${new Date().toISOString()}`}::text
       WHERE id = ${leadId}
     `;
 

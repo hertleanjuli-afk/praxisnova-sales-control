@@ -48,16 +48,14 @@ export async function POST(
     }
 
     // Lead pausieren - direkt in leads-Tabelle
+    const noteText = ` | Pausiert (${reason}) bis ${resume_date} am ${new Date().toISOString()}`;
     await sql`
       UPDATE leads SET
         sequence_status = 'paused',
         paused_at = NOW(),
         resume_at = ${resume_date}::timestamp,
-        pause_reason = ${reason},
-        pipeline_notes = CONCAT(
-          COALESCE(pipeline_notes, ''),
-          ' | Pausiert (', ${reason}, ') bis ', ${resume_date}, ' am ', NOW()::text
-        )
+        pause_reason = ${reason}::text,
+        pipeline_notes = COALESCE(pipeline_notes, '') || ${noteText}::text
       WHERE id = ${leadId}
     `;
 
@@ -93,16 +91,14 @@ export async function DELETE(
     }
 
     // Pause aufheben - Lead wieder aktivieren
+    const noteText = ` | Pause aufgehoben am ${new Date().toISOString()}`;
     await sql`
       UPDATE leads SET
         sequence_status = 'active',
         paused_at = NULL,
         resume_at = NULL,
         pause_reason = NULL,
-        pipeline_notes = CONCAT(
-          COALESCE(pipeline_notes, ''),
-          ' | Pause aufgehoben am ', NOW()::text
-        )
+        pipeline_notes = COALESCE(pipeline_notes, '') || ${noteText}::text
       WHERE id = ${leadId}
     `;
 

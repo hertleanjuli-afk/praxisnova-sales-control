@@ -30,8 +30,8 @@ export async function POST(
       );
     }
 
-    // Lead pausieren (NICHT stoppen!) - direkt in leads Tabelle
-    const result = await sql`
+    // Lead pausieren - direkt in leads-Tabelle
+    await sql`
       UPDATE leads SET
         sequence_status = 'paused',
         paused_at = NOW(),
@@ -42,14 +42,11 @@ export async function POST(
           ' | Pausiert (', ${reason}, ') bis ', ${resume_date}, ' am ', NOW()::text
         )
       WHERE id = ${leadId}
-        AND sequence_status = 'active'
-      RETURNING id
     `;
 
     return NextResponse.json({
       ok: true,
       lead_id: leadId,
-      sequences_paused: result.length,
       resume_date,
       reason,
     });
@@ -77,7 +74,7 @@ export async function DELETE(
     }
 
     // Pause aufheben - Lead wieder aktivieren
-    const result = await sql`
+    await sql`
       UPDATE leads SET
         sequence_status = 'active',
         paused_at = NULL,
@@ -88,14 +85,11 @@ export async function DELETE(
           ' | Pause aufgehoben am ', NOW()::text
         )
       WHERE id = ${leadId}
-        AND sequence_status = 'paused'
-      RETURNING id
     `;
 
     return NextResponse.json({
       ok: true,
       lead_id: leadId,
-      sequences_resumed: result.length,
     });
   } catch (error) {
     console.error('Resume lead error:', error);

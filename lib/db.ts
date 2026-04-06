@@ -377,6 +377,13 @@ export async function initializeDatabase(): Promise<void> {
 
   // Phone number for leads (Issue #11)
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS phone TEXT`;
+
+  // Block/Pause columns for sequences UI (Issues #6, #7, #9)
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS blocked_until TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS block_reason TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS resume_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pause_reason TEXT`;
 }
 
 export interface Lead {

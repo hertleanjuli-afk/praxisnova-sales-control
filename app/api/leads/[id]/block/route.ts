@@ -46,9 +46,11 @@ export async function POST(
     const newStage = reason === 'replied' ? 'Replied' : 'Blocked';
     await sql`
       UPDATE leads SET
+        sequence_status = 'blocked',
         pipeline_stage = ${newStage},
         block_reason = ${reason},
         blocked_until = NOW() + INTERVAL '1 month' * ${effectiveDuration},
+        exited_at = NOW(),
         pipeline_notes = CONCAT(
           COALESCE(pipeline_notes, ''),
           ' | Blocked: ', ${reason},
@@ -70,10 +72,11 @@ export async function POST(
 
         const result = await sql`
           UPDATE leads SET
-            pipeline_stage = 'Blocked',
             sequence_status = 'blocked',
+            pipeline_stage = 'Blocked',
             block_reason = 'company_block',
             blocked_until = NOW() + INTERVAL '1 month' * ${effectiveDuration},
+            exited_at = NOW(),
             pipeline_notes = CONCAT(
               COALESCE(pipeline_notes, ''),
               ' | Firmen-Block: Anderer Kontakt ',
@@ -85,15 +88,6 @@ export async function POST(
             AND pipeline_stage NOT IN ('Replied', 'Booked', 'Customer')
         `;
         companyBlockCount = (result.length > 0 ? result[0].count : 0) || 0;
-
-        // Sequence-Status fuer alle Firmen-Leads auf blocked setzen
-          await sql`
-            UPDATE leads SET
-              sequence_status = 'blocked'
-            WHERE LOWER(company) = LOWER(${companyName})
-              AND id != ${leadId}
-              AND sequence_status IN ('active', 'pending', 'paused')
-          `;
       }
     }
 
@@ -130,9 +124,11 @@ export async function DELETE(
 
     await sql`
       UPDATE leads SET
-        pipeline_stage = 'Neu',
+        sequence_status = 'active',
+        pipeline_stage = 'In Outreach',
         block_reason = NULL,
         blocked_until = NULL,
+        exited_at = NULL,
         pipeline_notes = CONCAT(
           COALESCE(pipeline_notes, ''),
           ' | Block aufgehoben am ', NOW()::text

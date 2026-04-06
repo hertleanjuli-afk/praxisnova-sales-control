@@ -75,7 +75,7 @@ export async function GET() {
 
   // Step 4: Test UPDATE query (dry run with a non-existent ID)
   try {
-    const testResult = await sql`
+    await sql`
       UPDATE leads SET
         sequence_status = 'paused',
         paused_at = NOW(),

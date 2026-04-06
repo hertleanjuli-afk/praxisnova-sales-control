@@ -74,6 +74,7 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function formatTime(d: string | null) {
   if (!d) return '-';
   return new Date(d).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });

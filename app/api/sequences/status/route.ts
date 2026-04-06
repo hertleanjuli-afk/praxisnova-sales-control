@@ -3,11 +3,34 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 
+// Auto-migrate: ensure pause/block columns exist (runs once per cold start)
+let _migrated = false;
+async function ensureSequenceColumns() {
+  if (_migrated) return;
+  try {
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS resume_at TIMESTAMPTZ`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pause_reason TEXT`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS blocked_until TIMESTAMPTZ`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS block_reason TEXT`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pipeline_notes TEXT`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS exited_at TIMESTAMPTZ`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pipeline_stage TEXT DEFAULT 'Neu'`;
+    _migrated = true;
+    console.log('ensureSequenceColumns: all columns ready');
+  } catch (e) {
+    console.error('ensureSequenceColumns error:', e);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  // Run migration on page load
+  await ensureSequenceColumns();
 
   const { searchParams } = new URL(request.url);
   const sector = searchParams.get('sector');

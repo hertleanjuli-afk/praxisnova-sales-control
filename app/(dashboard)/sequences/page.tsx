@@ -122,6 +122,8 @@ function BlockDialog({ lead, onBlock, onClose }: {
           Alle Leads der Firma &quot;{lead.company}&quot; werden ebenfalls blockiert.
         </p>
 
+        <div id="block-error" />
+
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '8px 16px', background: '#1E1E1E', border: 'none', borderRadius: 8, color: '#ccc', fontSize: 13, cursor: 'pointer' }}>Abbrechen</button>
           <button onClick={() => onBlock(reason, months, notes)} style={{ padding: '8px 16px', background: '#EF4444', border: 'none', borderRadius: 8, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Stoppen &amp; Blockieren</button>
@@ -189,6 +191,7 @@ export default function SequencesPage() {
   const [blockTarget, setBlockTarget] = useState<Lead | null>(null);
   const [oooTarget, setOOOTarget] = useState<Lead | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -265,6 +268,7 @@ export default function SequencesPage() {
   const handleBlock = async (reason: string, months: number, notes: string) => {
     if (!blockTarget) return;
     setActionLoading(blockTarget.id);
+    setActionError(null);
     try {
       const res = await fetch(`/api/leads/${blockTarget.id}/block`, {
         method: 'POST',
@@ -275,8 +279,15 @@ export default function SequencesPage() {
         setBlockTarget(null);
         setSelectedLead(null);
         fetchLeads();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        const msg = data.error || `Fehler ${res.status}: ${res.statusText}`;
+        setActionError(msg);
+        console.error('Block API error:', res.status, data);
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Netzwerkfehler';
+      setActionError(msg);
       console.error('Block error:', err);
     }
     setActionLoading(null);
@@ -286,6 +297,7 @@ export default function SequencesPage() {
   const handlePause = async (resumeDate: string, reason: string) => {
     if (!oooTarget) return;
     setActionLoading(oooTarget.id);
+    setActionError(null);
     try {
       const res = await fetch(`/api/leads/${oooTarget.id}/pause`, {
         method: 'POST',
@@ -296,8 +308,15 @@ export default function SequencesPage() {
         setOOOTarget(null);
         setSelectedLead(null);
         fetchLeads();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        const msg = data.error || `Fehler ${res.status}: ${res.statusText}`;
+        setActionError(msg);
+        console.error('Pause API error:', res.status, data);
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Netzwerkfehler';
+      setActionError(msg);
       console.error('Pause error:', err);
     }
     setActionLoading(null);
@@ -604,12 +623,20 @@ export default function SequencesPage() {
         </div>
       )}
 
+      {/* Error Toast */}
+      {actionError && (
+        <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 300, background: '#EF4444', color: 'white', padding: '12px 24px', borderRadius: 10, fontSize: 14, fontWeight: 600, maxWidth: 500, boxShadow: '0 4px 20px rgba(0,0,0,0.5)', display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} style={{ background: 'none', border: 'none', color: 'white', fontSize: 18, cursor: 'pointer', padding: '0 4px' }}>x</button>
+        </div>
+      )}
+
       {/* Dialogs */}
       {blockTarget && (
-        <BlockDialog lead={blockTarget} onBlock={handleBlock} onClose={() => setBlockTarget(null)} />
+        <BlockDialog lead={blockTarget} onBlock={handleBlock} onClose={() => { setBlockTarget(null); setActionError(null); }} />
       )}
       {oooTarget && (
-        <OOODialog lead={oooTarget} onPause={handlePause} onClose={() => setOOOTarget(null)} />
+        <OOODialog lead={oooTarget} onPause={handlePause} onClose={() => { setOOOTarget(null); setActionError(null); }} />
       )}
 
       <style>{`

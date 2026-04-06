@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
+// Ensure required columns exist (runs once per cold start)
+let columnsReady = false;
+async function ensurePauseColumns() {
+  if (columnsReady) return;
+  try {
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS resume_at TIMESTAMPTZ`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pause_reason TEXT`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pipeline_notes TEXT`;
+    columnsReady = true;
+  } catch (e) {
+    console.error('ensurePauseColumns error:', e);
+  }
+}
+
 /**
  * POST /api/leads/[id]/pause
  * OOO Handling - Sequence pausieren (Issue #9)
@@ -15,6 +30,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensurePauseColumns();
+
     const leadId = parseInt(params.id, 10);
     if (isNaN(leadId)) {
       return NextResponse.json({ error: 'Ungueltige Lead-ID' }, { status: 400 });
@@ -53,7 +70,7 @@ export async function POST(
   } catch (error) {
     console.error('Pause lead error:', error);
     return NextResponse.json(
-      { error: 'Interner Fehler beim Pausieren' },
+      { error: 'Interner Fehler beim Pausieren: ' + (error instanceof Error ? error.message : String(error)) },
       { status: 500 }
     );
   }
@@ -68,6 +85,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensurePauseColumns();
+
     const leadId = parseInt(params.id, 10);
     if (isNaN(leadId)) {
       return NextResponse.json({ error: 'Ungueltige Lead-ID' }, { status: 400 });
@@ -94,7 +113,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Resume lead error:', error);
     return NextResponse.json(
-      { error: 'Interner Fehler beim Fortsetzen' },
+      { error: 'Interner Fehler beim Fortsetzen: ' + (error instanceof Error ? error.message : String(error)) },
       { status: 500 }
     );
   }

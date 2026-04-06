@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { getBlockDuration, OUTREACH_CONFIG } from '@/lib/config/outreach-rules';
 
+// Ensure required columns exist (runs once per cold start)
+let columnsReady = false;
+async function ensureBlockColumns() {
+  if (columnsReady) return;
+  try {
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS blocked_until TIMESTAMPTZ`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS block_reason TEXT`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pipeline_stage TEXT DEFAULT 'Neu'`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pipeline_notes TEXT`;
+    await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS exited_at TIMESTAMPTZ`;
+    columnsReady = true;
+  } catch (e) {
+    console.error('ensureBlockColumns error:', e);
+  }
+}
+
 /**
  * POST /api/leads/[id]/block
  *
@@ -17,6 +33,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureBlockColumns();
+
     const leadId = parseInt(params.id, 10);
     if (isNaN(leadId)) {
       return NextResponse.json({ error: 'Ungueltige Lead-ID' }, { status: 400 });
@@ -102,7 +120,7 @@ export async function POST(
   } catch (error) {
     console.error('Block lead error:', error);
     return NextResponse.json(
-      { error: 'Interner Fehler beim Blockieren' },
+      { error: 'Interner Fehler beim Blockieren: ' + (error instanceof Error ? error.message : String(error)) },
       { status: 500 }
     );
   }
@@ -117,6 +135,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureBlockColumns();
+
     const leadId = parseInt(params.id, 10);
     if (isNaN(leadId)) {
       return NextResponse.json({ error: 'Ungueltige Lead-ID' }, { status: 400 });
@@ -140,7 +160,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Unblock lead error:', error);
     return NextResponse.json(
-      { error: 'Interner Fehler beim Entsperren' },
+      { error: 'Interner Fehler beim Entsperren: ' + (error instanceof Error ? error.message : String(error)) },
       { status: 500 }
     );
   }

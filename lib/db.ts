@@ -225,6 +225,31 @@ export async function initializeDatabase(): Promise<void> {
     )
   `;
 
+  // Call queue - taegliche Anrufliste fuer Cold Calling
+  await sql`
+    CREATE TABLE IF NOT EXISTS call_queue (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER NOT NULL REFERENCES leads(id),
+      queue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      rank INTEGER NOT NULL,
+      priority_score NUMERIC(5,2) DEFAULT 0,
+      reason_to_call TEXT,
+      talking_points TEXT,
+      conversation_guide TEXT,
+      best_time_to_call TEXT,
+      follow_up_action TEXT DEFAULT 'meeting',
+      status TEXT DEFAULT 'ready',
+      called_at TIMESTAMPTZ,
+      call_result TEXT,
+      call_notes TEXT,
+      generated_by TEXT DEFAULT 'call_list_generator',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_call_queue_date ON call_queue(queue_date)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_call_queue_lead ON call_queue(lead_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_call_queue_status ON call_queue(status)`;
+
   // Unsubscribe / permanent block tracking
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS permanently_blocked BOOLEAN DEFAULT FALSE`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS unsubscribed_at TIMESTAMPTZ`;

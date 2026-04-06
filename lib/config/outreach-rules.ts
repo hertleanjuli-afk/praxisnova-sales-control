@@ -66,6 +66,22 @@ export const OUTREACH_CONFIG = {
     reportHourUTC: 6, // 06:00 UTC = 08:00 Muenchen
   },
 
+  // Anrufliste / Cold Calling
+  callList: {
+    dailyLimit: 20,
+    minStepForCall: 3, // Ab Email-Step 3 anrufbar
+    minScoreForHotCall: 9, // Hot Leads ab Score 9 (auch unter Step 3)
+    minDaysSinceLastCall: 3, // 3 Tage Abstand zwischen Anrufen
+    lookbackDays: 30, // Anrufhistorie der letzten 30 Tage pruefen
+    generateHourUTC: 7, // 07:00 UTC = 09:00 Muenchen
+    bestTimesByIndustry: {
+      immobilien: '09:00-11:00',
+      handwerk: '07:30-09:30',
+      bauunternehmen: '10:00-12:00',
+      allgemein: '09:00-12:00',
+    } as Record<string, string>,
+  },
+
   // Approach-Vorlagen (A/B/C)
   approaches: {
     A: {

@@ -23,6 +23,7 @@ const navGroups: NavGroup[] = [
       { label: 'Lead-Suche', href: '/leads', emoji: '🔍' },
       { label: 'Eingehende Leads', href: '/inbound', emoji: '📥' },
       { label: 'Sequenzen', href: '/sequences', emoji: '👥' },
+      { label: 'Anrufliste', href: '/anrufliste', emoji: '📞' },
       { label: 'LinkedIn', href: '/linkedin', emoji: '🔗' },
       { label: 'LinkedIn Warteschlange', href: '/linkedin-queue', emoji: '💬', badgeKey: 'linkedinQueue' },
     ],
@@ -50,7 +51,7 @@ const navGroups: NavGroup[] = [
 ];
 
 const PAGE_TITLES: Record<string, string> = {
-  '/': 'Dashboard', '/agents': 'Agenten', '/leads': 'Lead-Suche', '/sequences': 'Sequenzen',
+  '/': 'Dashboard', '/agents': 'Agenten', '/leads': 'Lead-Suche', '/sequences': 'Sequenzen', '/anrufliste': 'Anrufliste',
   '/inbound': 'Eingehende Leads', '/linkedin': 'LinkedIn', '/website-clicks': 'Website-Klicks', '/email-tracking': 'Email-Tracking',
   '/unsubscribes': 'Abmeldungen', '/analytics': 'Analytics', '/changelog': 'Change Log',
   '/linkedin-queue': 'LinkedIn Warteschlange', '/agent-metrics': 'Agent-Metriken',

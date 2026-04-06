@@ -267,6 +267,34 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ['query'],
     },
   },
+  {
+    name: 'read_call_candidates',
+    description: 'Liest Leads die fuer die Anrufliste qualifiziert sind: Email Step >= 3 ODER Agent Score >= 9, mit Telefonnummer, nicht blockiert.',
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        limit: { type: SchemaType.NUMBER, description: 'Max. Anzahl (default 30)' },
+      },
+    },
+  },
+  {
+    name: 'upsert_call_queue',
+    description: 'Fuegt einen Lead zur taeglichen Anrufliste hinzu oder aktualisiert ihn.',
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        lead_id: { type: SchemaType.NUMBER, description: 'Lead ID' },
+        rank: { type: SchemaType.NUMBER, description: 'Prioritaet 1-20 (1 = hoechste)' },
+        priority_score: { type: SchemaType.NUMBER, description: 'Berechneter Prioritaets-Score' },
+        reason_to_call: { type: SchemaType.STRING, description: 'Warum diesen Lead anrufen (auf Deutsch)' },
+        talking_points: { type: SchemaType.STRING, description: 'Wichtige Gespraechspunkte' },
+        conversation_guide: { type: SchemaType.STRING, description: 'Personalisierter Gespraechsleitfaden' },
+        best_time_to_call: { type: SchemaType.STRING, description: 'Beste Anrufzeit z.B. 09:00-11:00' },
+        follow_up_action: { type: SchemaType.STRING, description: 'meeting | proposal | info | demo' },
+      },
+      required: ['lead_id', 'rank', 'reason_to_call', 'talking_points', 'conversation_guide'],
+    },
+  },
 ];
 
 export const TOOLS: Tool[] = [{ functionDeclarations: FUNCTION_DECLARATIONS }];
@@ -600,6 +628,60 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
         }
         // Fallback: use web_fetch on common search-friendly URLs
         return { error: 'Google Search API nicht konfiguriert. Nutze web_fetch mit konkreten URLs statt web_search.' };
+      }
+
+      case 'read_call_candidates': {
+        const limit = (args.limit as number) || 30;
+        const rows = await sql`
+          SELECT
+            l.id, l.email, l.first_name, l.last_name, l.company, l.phone,
+            l.title, l.industry, l.lead_score, l.agent_score,
+            l.sequence_step, l.sequence_type, l.sequence_status,
+            l.pipeline_stage, l.pipeline_notes,
+            l.signal_email_reply, l.signal_linkedin_interest,
+            l.linkedin_url, l.created_at,
+            (SELECT MAX(cl.call_date) FROM call_logs cl WHERE cl.lead_id = l.id) as last_call_date
+          FROM leads l
+          WHERE
+            l.phone IS NOT NULL
+            AND l.phone != ''
+            AND (l.sequence_step >= 3 OR l.agent_score >= 9)
+            AND l.pipeline_stage IN ('In Outreach', 'Nurture')
+            AND l.sequence_status NOT IN ('unsubscribed', 'bounced', 'blocked')
+            AND (l.blocked_until IS NULL OR l.blocked_until < NOW())
+            AND (l.signal_email_reply IS NULL OR l.signal_email_reply = false)
+            AND NOT EXISTS (
+              SELECT 1 FROM call_logs cl2
+              WHERE cl2.lead_id = l.id
+              AND cl2.call_date > NOW() - INTERVAL '3 days'
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM call_queue cq
+              WHERE cq.lead_id = l.id
+              AND cq.queue_date = CURRENT_DATE
+            )
+          ORDER BY l.agent_score DESC NULLS LAST, l.sequence_step DESC, l.created_at ASC
+          LIMIT ${limit}
+        `;
+        return { leads: rows, count: rows.length };
+      }
+
+      case 'upsert_call_queue': {
+        const leadId = args.lead_id as number;
+        const rank = args.rank as number;
+        const priorityScore = (args.priority_score as number) || 0;
+        const reasonToCall = (args.reason_to_call as string) || '';
+        const talkingPoints = (args.talking_points as string) || '';
+        const conversationGuide = (args.conversation_guide as string) || '';
+        const bestTime = (args.best_time_to_call as string) || '';
+        const followUp = (args.follow_up_action as string) || 'meeting';
+
+        await sql`
+          INSERT INTO call_queue (lead_id, queue_date, rank, priority_score, reason_to_call, talking_points, conversation_guide, best_time_to_call, follow_up_action, generated_by)
+          VALUES (${leadId}, CURRENT_DATE, ${rank}, ${priorityScore}, ${reasonToCall}, ${talkingPoints}, ${conversationGuide}, ${bestTime}, ${followUp}, 'call_list_generator')
+          ON CONFLICT DO NOTHING
+        `;
+        return { ok: true, lead_id: leadId, rank };
       }
 
       default:

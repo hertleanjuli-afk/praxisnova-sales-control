@@ -50,7 +50,10 @@ export const OUTREACH_CONFIG = {
 
   // Email-Regeln
   email: {
-    maxPerRun: 10,
+    maxPerRun: 15,           // Pro Lauf - Agent laeuft 3x/Tag = bis zu 45 Emails/Tag
+    runsPerDay: 3,           // 08:00, 11:00, 14:00 UTC (10:00, 13:00, 16:00 Berlin)
+    dailyTargetMin: 20,      // Absolutes Minimum pro Tag
+    dailyTargetMax: 45,      // Ziel pro Tag (3 x 15)
     maxWords: 150,
     maxSubjectLength: 50,
     duplicateCheckDays: 14,
@@ -64,22 +67,6 @@ export const OUTREACH_CONFIG = {
     requireSignal: true, // signal_email_reply OR signal_linkedin_interest
     reportDay: 1, // Montag
     reportHourUTC: 6, // 06:00 UTC = 08:00 Muenchen
-  },
-
-  // Anrufliste / Cold Calling
-  callList: {
-    dailyLimit: 20,
-    minStepForCall: 3, // Ab Email-Step 3 anrufbar
-    minScoreForHotCall: 9, // Hot Leads ab Score 9 (auch unter Step 3)
-    minDaysSinceLastCall: 3, // 3 Tage Abstand zwischen Anrufen
-    lookbackDays: 30, // Anrufhistorie der letzten 30 Tage pruefen
-    generateHourUTC: 7, // 07:00 UTC = 09:00 Muenchen
-    bestTimesByIndustry: {
-      immobilien: '09:00-11:00',
-      handwerk: '07:30-09:30',
-      bauunternehmen: '10:00-12:00',
-      allgemein: '09:00-12:00',
-    } as Record<string, string>,
   },
 
   // Approach-Vorlagen (A/B/C)

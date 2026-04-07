@@ -4,29 +4,36 @@
  * Runs as an independent Gemini agent with its own 300s budget.
  * Qualifies new leads (pipeline_stage = "Neu") with a 4-dimension scoring rubric.
  *
- * Schedule: 06:30 daily (via vercel.json)
- * maxIterations: 30 — enough for 20 leads with web_fetch + update + decision per lead
+ * Schedule: 06:30 and 11:30 daily (via vercel.json) - 2x per day for bigger lead pool.
+ * maxIterations: 50 — enough for 35 leads with web_fetch + update + decision per lead.
+ * Target: 60-70 qualified leads per day moving to "In Outreach" to feed 3x outreach runs.
  */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { runAgent, isAuthorized, sendErrorNotification, writeStartLog, writeEndLog, isAlreadyRunning } from '@/lib/agent-runtime';
+import {
+  runAgent,
+  isAuthorized,
+  sendErrorNotification,
+  writeStartLog,
+  writeEndLog,
+  isAlreadyRunning,
+} from '@/lib/agent-runtime';
 
 export const maxDuration = 300;
 
 function getSystemPrompt(): string {
-  return `Du bist der Prospect Researcher von PraxisNova AI - einer deutschen KI-Automatisierungsagentur für Bau, Handwerk und Immobilien im DACH-Raum.
+  return `Du bist der Prospect Researcher von PraxisNova AI - einer deutschen KI-Automatisierungsagentur fuer Bau, Handwerk und Immobilien im DACH-Raum.
 
-ALLE Texte auf DEUTSCH. Technische Feldnamen bleiben Englisch.
-Kein Em-Dash und kein En-Dash in E-Mails, Texten oder Berichten. Stattdessen Komma, Punkt oder Bindestrich (-) nutzen.
+ALLE Texte auf DEUTSCH. Technische Feldnamen bleiben Englisch. Kein Em-Dash und kein En-Dash in E-Mails, Texten oder Berichten. Stattdessen Komma, Punkt oder Bindestrich (-) nutzen.
 
-KPI-ZIEL: 10 Kundenmeetings pro Woche. Benötigt ca. 67 Score-8+-Leads in aktiver Pipeline.
+KPI-ZIEL: 10 Kundenmeetings pro Woche. Benoetigt ca. 67 Score-8+-Leads in aktiver Pipeline.
+VOLUMEN-ZIEL: Mindestens 30 neue Leads pro Lauf qualifizieren, um 3x Outreach-Laeufe taeglich zu fuettern.
 
 WORKFLOW:
 1. Generiere eine run_id (UUID-Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx)
 2. write_log: {run_id, agent_name:"prospect_researcher", action:"started", status:"started"}
 3. read_intel - neuesten Market-Intelligence-Bericht laden (falls vorhanden)
 4. pipeline_health - bestimme Ansatz A (67+ in Outreach), B (30-66), C (unter 30)
-5. read_leads {limit:20, stage:"Neu"}
+5. read_leads {limit:35, stage:"Neu"} - ERHOEHTES LIMIT fuer mehr Durchsatz
 6. Fuer jeden Lead:
    a. Wenn website_url vorhanden: web_fetch - analysiere Firma
    b. Score (1-10) berechnen:
@@ -35,7 +42,16 @@ WORKFLOW:
       - Entscheider-Zugang (20%): 8-10 = GF/Inhaber direkt erreichbar, LinkedIn vorhanden
       - Timing & Signale (20%): 8-10 = Stellenanzeigen, Wachstum, Investitionen
    c. update_lead: Score 8-10 -> "In Outreach", 5-7 -> "Nurture", 1-4 -> "Nicht qualifiziert"
-   d. write_decision: {run_id, agent_name:"prospect_researcher", decision_type:"qualify_lead", subject_type:"lead", subject_id:[ID], subject_company:[Firma], score:[Score], reasoning:[Begruendung auf Deutsch]}
+   d. write_decision: {run_id, agent_name:"prospect_researcher", decision_type:"qualify_lead",
+      subject_type:"lead", subject_id:[ID], subject_company:[Firma], score:[Score],
+      reasoning:[Begruendung auf Deutsch], data_payload:{
+        company_summary: "[kurze Firmenbeschreibung fuer Outreach-Strategist]",
+        pain_points: "[identifizierte Schmerzpunkte]",
+        personalization_hook: "[konkreter Aufhaenger fuer E-Mail]",
+        industry: "[Branche]",
+        employee_count: [Groesse],
+        website_analyzed: true/false
+      }}
 7. write_log: {run_id, agent_name:"prospect_researcher", action:"completed", status:"completed"}
 
 WICHTIG:
@@ -43,7 +59,9 @@ WICHTIG:
 - Pipeline-Stage MUSS fuer jeden Lead gesetzt werden
 - Bei Ansatz C: Alle verfuegbaren Branchen abarbeiten, KPI-Alert senden
 - Fehler loggen: Bei Fehler trotzdem Lauf-Log mit status "partial" schreiben
-- Gewichteter Score: (D1*0.30 + D2*0.30 + D3*0.20 + D4*0.20), gerundet auf ganze Zahl`;
+- Gewichteter Score: (D1*0.30 + D2*0.30 + D3*0.20 + D4*0.20), gerundet auf ganze Zahl
+- data_payload VOLLSTAENDIG ausfuellen - der Outreach-Strategist nutzt diese Daten als Cache
+- Qualitaet des data_payload ist wichtig: Je besser die Beschreibung, desto besser die E-Mails`;
 }
 
 export async function GET(request: NextRequest) {
@@ -57,13 +75,13 @@ export async function GET(request: NextRequest) {
 
   // Concurrent-run guard — skip if another instance is already running
   if (await isAlreadyRunning('prospect_researcher', 8)) {
-    console.log('[prospect-researcher] Bereits aktiv — überspringe diesen Lauf.');
+    console.log('[prospect-researcher] Bereits aktiv — ueberspringe diesen Lauf.');
     return NextResponse.json({ ok: true, skipped: true, reason: 'already_running' });
   }
 
   const runId = crypto.randomUUID();
   const startTime = Date.now();
-  console.log(`[prospect-researcher] Starte run ${runId} (max 30 Iterationen, 300s Budget)...`);
+  console.log(`[prospect-researcher] Starte run ${runId} (max 50 Iterationen, 300s Budget)...`);
 
   // Write started log BEFORE calling Gemini so the run is always visible in the dashboard
   await writeStartLog(runId, 'prospect_researcher');
@@ -71,24 +89,31 @@ export async function GET(request: NextRequest) {
   try {
     const result = await runAgent(
       getSystemPrompt(),
-      'Starte jetzt den vollstaendigen Prospect-Researcher-Workflow. Recherchiere und bewerte alle neuen Leads.',
-      30,  // maxIterations — full capacity for 20 leads
+      'Starte jetzt den vollstaendigen Prospect-Researcher-Workflow. Recherchiere und bewerte alle neuen Leads. Ziel: 30+ Leads qualifizieren pro Lauf.',
+      50, // maxIterations — increased for 35 leads
       'prospect-researcher',
     );
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
-    console.log(`[prospect-researcher] Fertig in ${elapsed}s — ${result.iterations} Iterationen, success=${result.success}`);
+    console.log(
+      `[prospect-researcher] Fertig in ${elapsed}s — ${result.iterations} Iterationen, success=${result.success}`
+    );
 
-    await writeEndLog(runId, 'prospect_researcher', result.success ? 'completed' : 'partial', { iterations: result.iterations });
+    await writeEndLog(runId, 'prospect_researcher', result.success ? 'completed' : 'partial', {
+      iterations: result.iterations,
+    });
 
     if (!result.success) {
-      await sendErrorNotification('Prospect Researcher', `Maximale Iterationen erreicht (${result.iterations}/30)`, elapsed);
+      await sendErrorNotification(
+        'Prospect Researcher',
+        `Maximale Iterationen erreicht (${result.iterations}/50)`,
+        elapsed
+      );
     }
 
     return NextResponse.json({
       ok: true,
       agent: 'prospect_researcher',
-      model: 'gemini-2.0-flash-lite',
       elapsed_seconds: elapsed,
       ...result,
     });
@@ -97,12 +122,14 @@ export async function GET(request: NextRequest) {
     console.error('[prospect-researcher] Fehler:', err);
     await writeEndLog(runId, 'prospect_researcher', 'error', { error: String(err) });
     await sendErrorNotification('Prospect Researcher', String(err), elapsed);
-
-    return NextResponse.json({
-      ok: false,
-      agent: 'prospect_researcher',
-      error: String(err),
-      elapsed_seconds: elapsed,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        ok: false,
+        agent: 'prospect_researcher',
+        error: String(err),
+        elapsed_seconds: elapsed,
+      },
+      { status: 500 }
+    );
   }
 }

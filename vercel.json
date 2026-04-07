@@ -1,64 +1,23 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/prospect-researcher",
-      "schedule": "30 6 * * *"
-    },
-    {
-      "path": "/api/cron/partner-researcher",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/operations-manager",
-      "schedule": "15 7 * * *"
-    },
-    {
-      "path": "/api/cron/outreach-strategist",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/partner-outreach-strategist",
-      "schedule": "15 8 * * *"
-    },
-    {
-      "path": "/api/cron/process-sequences",
-      "schedule": "30 8 * * *"
-    },
-    {
-      "path": "/api/cron/partner-supervisor",
-      "schedule": "45 8 * * *"
-    },
-    {
-      "path": "/api/cron/sales-supervisor",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/market-intelligence",
-      "schedule": "0 5 * * 0"
-    },
-    {
-      "path": "/api/cron/inbound-response",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/inbound-response",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/inbound-response",
-      "schedule": "0 15 * * *"
-    },
-    {
-      "path": "/api/cron/daily-summary",
-      "schedule": "0 17 * * *"
-    },
-    {
-      "path": "/api/cron/weekly-report",
-      "schedule": "0 6 * * 1"
-    },
-    {
-      "path": "/api/cron/call-list-generator",
-      "schedule": "0 7 * * 1-5"
-    }
+    { "path": "/api/cron/prospect-researcher", "schedule": "30 6 * * *" },
+    { "path": "/api/cron/prospect-researcher", "schedule": "30 11 * * *" },
+    { "path": "/api/cron/partner-researcher", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/operations-manager", "schedule": "15 7 * * *" },
+    { "path": "/api/cron/outreach-strategist", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/outreach-strategist", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/outreach-strategist", "schedule": "0 14 * * *" },
+    { "path": "/api/cron/partner-outreach-strategist", "schedule": "15 8 * * *" },
+    { "path": "/api/cron/process-sequences", "schedule": "30 8 * * *" },
+    { "path": "/api/cron/partner-supervisor", "schedule": "45 8 * * *" },
+    { "path": "/api/cron/sales-supervisor", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/sales-supervisor", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/market-intelligence", "schedule": "0 5 * * 0" },
+    { "path": "/api/cron/inbound-response", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/inbound-response", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/inbound-response", "schedule": "0 15 * * *" },
+    { "path": "/api/cron/daily-summary", "schedule": "0 17 * * *" },
+    { "path": "/api/cron/weekly-report", "schedule": "0 6 * * 1" },
+    { "path": "/api/cron/call-list-generator", "schedule": "0 7 * * 1-5" }
   ]
 }

@@ -189,6 +189,10 @@ export default function LinkedInTrackingPage() {
     return date.toLocaleDateString('de-DE', { month: 'short', day: 'numeric' });
   };
 
+  /* ---------------------------------------------------------------- */
+  /* Render                                                            */
+  /* ---------------------------------------------------------------- */
+
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#111' }}>
       {/* Header */}
@@ -548,6 +552,12 @@ export default function LinkedInTrackingPage() {
             <div className="flex-1 flex items-center justify-center text-gray-500">
               <p className="text-center">Wahlen Sie einen Kontakt aus, um Details zu sehen</p>
             </div>
+          )}
+          {activeTab === 'apollo' && (
+            <button onClick={() => exportCSV(apolloLeads, 'apollo-leads.csv')} disabled={apolloLeads.length === 0} className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Apollo CSV</button>
+          )}
+          {activeTab === 'manual' && (
+            <button onClick={() => exportCSV(manualLeads, 'manuelle-leads.csv')} disabled={manualLeads.length === 0} className="inline-flex items-center gap-2 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Manuelle CSV</button>
           )}
         </div>
       </div>

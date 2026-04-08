@@ -25,6 +25,7 @@ const navGroups: NavGroup[] = [
       { label: 'Sequenzen', href: '/sequences', emoji: '👥' },
       { label: 'Anrufliste', href: '/anrufliste', emoji: '📞' },
       { label: 'LinkedIn', href: '/linkedin', emoji: '🔗' },
+      { label: 'LinkedIn Posting', href: '/linkedin-posting', emoji: '📝' },
       { label: 'LinkedIn Warteschlange', href: '/linkedin-queue', emoji: '💬', badgeKey: 'linkedinQueue' },
     ],
   },
@@ -54,7 +55,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard', '/agents': 'Agenten', '/leads': 'Lead-Suche', '/sequences': 'Sequenzen', '/anrufliste': 'Anrufliste',
   '/inbound': 'Eingehende Leads', '/linkedin': 'LinkedIn', '/website-clicks': 'Website-Klicks', '/email-tracking': 'Email-Tracking',
   '/unsubscribes': 'Abmeldungen', '/analytics': 'Analytics', '/changelog': 'Change Log',
-  '/linkedin-queue': 'LinkedIn Warteschlange', '/agent-metrics': 'Agent-Metriken',
+  '/linkedin-queue': 'LinkedIn Warteschlange', '/linkedin-posting': 'LinkedIn Posting',
+  '/agent-metrics': 'Agent-Metriken',
   '/reports': 'Berichte', '/errors': 'Fehler-Log', '/settings': 'Einstellungen', '/ads': 'TikTok / Ads',
 };
 

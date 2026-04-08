@@ -24,6 +24,7 @@ const navGroups: NavGroup[] = [
       { label: 'Eingehende Leads', href: '/inbound', emoji: '📥' },
       { label: 'Sequenzen', href: '/sequences', emoji: '👥' },
       { label: 'Anrufliste', href: '/anrufliste', emoji: '📞' },
+      { label: 'Kunden-Insights', href: '/customer-insights', emoji: '💡' },
       { label: 'LinkedIn', href: '/linkedin', emoji: '🔗' },
       { label: 'LinkedIn Warteschlange', href: '/linkedin-queue', emoji: '💬', badgeKey: 'linkedinQueue' },
     ],
@@ -51,11 +52,25 @@ const navGroups: NavGroup[] = [
 ];
 
 const PAGE_TITLES: Record<string, string> = {
-  '/': 'Dashboard', '/agents': 'Agenten', '/leads': 'Lead-Suche', '/sequences': 'Sequenzen', '/anrufliste': 'Anrufliste',
-  '/inbound': 'Eingehende Leads', '/linkedin': 'LinkedIn', '/website-clicks': 'Website-Klicks', '/email-tracking': 'Email-Tracking',
-  '/unsubscribes': 'Abmeldungen', '/analytics': 'Analytics', '/changelog': 'Change Log',
-  '/linkedin-queue': 'LinkedIn Warteschlange', '/agent-metrics': 'Agent-Metriken',
-  '/reports': 'Berichte', '/errors': 'Fehler-Log', '/settings': 'Einstellungen', '/ads': 'TikTok / Ads',
+  '/': 'Dashboard',
+  '/agents': 'Agenten',
+  '/leads': 'Lead-Suche',
+  '/sequences': 'Sequenzen',
+  '/anrufliste': 'Anrufliste',
+  '/customer-insights': 'Kunden-Insights',
+  '/inbound': 'Eingehende Leads',
+  '/linkedin': 'LinkedIn',
+  '/website-clicks': 'Website-Klicks',
+  '/email-tracking': 'Email-Tracking',
+  '/unsubscribes': 'Abmeldungen',
+  '/analytics': 'Analytics',
+  '/changelog': 'Change Log',
+  '/linkedin-queue': 'LinkedIn Warteschlange',
+  '/agent-metrics': 'Agent-Metriken',
+  '/reports': 'Berichte',
+  '/errors': 'Fehler-Log',
+  '/settings': 'Einstellungen',
+  '/ads': 'TikTok / Ads',
 };
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -120,11 +135,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {visibleItems.map((item) => {
                   const isActive = pathname === item.href;
                   return (
-                    <Link key={item.href} href={item.href}
+                    <Link
+                      key={item.href}
+                      href={item.href}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500,
-                        textDecoration: 'none', marginBottom: 2, transition: 'background 0.15s',
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+                        borderRadius: 8, fontSize: 13, fontWeight: 500, textDecoration: 'none', marginBottom: 2,
+                        transition: 'background 0.15s',
                         background: isActive ? 'rgba(232,71,42,0.15)' : 'transparent',
                         color: isActive ? '#F0F0F5' : '#888',
                         borderLeft: isActive ? '3px solid #E8472A' : '3px solid transparent',
@@ -155,7 +172,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: '#F0F0F5', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</p>
-              <button onClick={() => signOut({ callbackUrl: '/login' })}
+              <button
+                onClick={() => signOut({ callbackUrl: '/login' })}
                 style={{ fontSize: 11, color: '#555', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2 }}
                 onMouseEnter={(e) => e.currentTarget.style.color = '#E8472A'}
                 onMouseLeave={(e) => e.currentTarget.style.color = '#555'}

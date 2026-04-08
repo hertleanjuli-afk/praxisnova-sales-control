@@ -77,6 +77,28 @@ Falls kein intel_update vorhanden - Standardvorgehen ohne Anpassung.
 
 ---
 
+### Phase 0b: Validierte Kundengespräch-Insights laden (PRIORITAET)
+
+```bash
+node scripts/agent-db.mjs read-decisions '{"type":"customer_insight","limit":20}'
+```
+
+Filtere: `decision_type = 'customer_insight'` - alle Eintraege laden und als **PRIORITAETS-SCHMERZPUNKTE** behandeln.
+
+Diese Insights stammen aus echten, validierten Kundengespraechen und sind wichtiger als die generische Schmerzpunkt-Bibliothek unten.
+
+Fuer jeden Lead:
+1. Pruefen ob `data_payload.industry` mit der Lead-Branche uebereinstimmt.
+2. Wenn JA: `pain_points` aus diesem Insight als ERSTE WAHL fuer die Email-Personalisierung verwenden.
+3. `recommended_email_angle` aus dem Insight als CTA-Vorlage nutzen wenn vorhanden.
+4. `key_insight` in die Ansprache einbauen wenn relevant.
+
+**Beispiel:** Ein Lead aus "Immobilien / Hausverwaltung" bekommt die validierten Schmerzpunkte aus dem Kundengespräch (Mieteingang-Kontrolle, Schadensmeldung-Workflow, etc.) - NICHT die generischen Bibliotheks-Punkte.
+
+Falls kein passender customer_insight vorhanden - Schmerzpunkt-Bibliothek (Phase 2) als Fallback nutzen.
+
+---
+
 ### Phase 1: Approved Leads laden
 
 ```bash
@@ -133,7 +155,7 @@ Baue diesen konkret und namentlich in die E-Mail ein - NICHT generisch umschreib
 - **Mieteingang-Kontrolle:** Jeden Monat manuell Kontoauszuege mit Excel abgleichen, um zu pruefen welcher Mieter gezahlt hat und wer nicht. Danach Mahnungen manuell erstellen und verschicken. Wenn der Mieter dann zahlt, muss der Verwalter nochmal ran. Das laesst sich vollstaendig automatisieren: Bankkonto-Abgleich taeglich, Mahnung automatisch, Benachrichtigung bei Zahlungseingang.
 - **Schadensmeldung-Workflow:** Mieter meldet per Mail einen Schaden (z.B. defekter Rauchmelder). Verwalter muss: Erlaubnis zur Datenweitergabe einholen, Handwerker mit Details und Adresse briefen, Kostenvoranschlag anfordern, Terminkoordination zwischen Handwerker und Mieter organisieren. Vier manuelle Schritte fuer jeden Vorgang. Automatisierbar als strukturierter Workflow mit minimalem manuellem Input.
 - **After-Hours-Kommunikation:** Emails und Anfragen kommen abends und am Wochenende. Der Verwalter will nicht staendig erreichbar sein, aber echte Notfaelle muessen durchkommen. Loesung: KI-gesteuerter Filter, der Prioritaet erkennt und nur dringende Vorgaenge weiterleitet.
-- **Handwerker-Koordination bei Bauprojekten:** Vorgaenge auf Liegenschaften erfordern staendige Rueckfragen zwischen Verwalter, Handwerker und Eigentuemar. Der Verwalter ist der Flaschenhals - jede Aktion wartet auf ihm. Automatisierte Workflows nehmen ihm die Kommunikationsarbeit ab, er trifft nur noch die Entscheidungen.
+- **Handwerker-Koordination bei Bauprojekten:** Vorgaenge auf Liegenschaften erfordern staendige Rueckfragen zwischen Verwalter, Handwerker und Eigentuemar. Der Verwalter ist der Flaschenhals - jede Aktion wartet auf ihn. Automatisierte Workflows nehmen ihm die Kommunikationsarbeit ab, er trifft nur noch die Entscheidungen.
 - **Expose-Erstellung:** Aktuell an externe Dienstleister ausgelagert, teuer und zeitaufwaendig. Mit einem KI-Tool lassen sich Exposes Inhouse erstellen: Daten eingeben, fertiges Dokument erhalten. Kosten senken, schneller am Markt.
 - **Kaeufer-Akquise:** Interessenten fuer Immobilienprojekte systematisch identifizieren und ansprechen statt auf Anfragen zu warten.
 - **Marktberatung / Tool-Empfehlungen:** Beratung zu aktuellen Tools fuer Immobilienbewertung, Marktanalyse und Preisfindung - immer auf dem neuesten Stand der verfuegbaren Loesungen.

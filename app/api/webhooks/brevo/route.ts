@@ -1,188 +1,245 @@
 import { NextRequest, NextResponse } from 'next/server';
-import sql from '@/lib/db';
-import { updateContact } from '@/lib/hubspot';
-import { classifyReply } from '@/lib/sentiment';
-import crypto from 'crypto';
+import { sql } from '@/lib/db';
 
-function verifyWebhookSignature(payload: string, signature: string | null): boolean {
-  if (!signature || !process.env.BREVO_WEBHOOK_SECRET) return false;
-  const expected = crypto
-    .createHmac('sha256', process.env.BREVO_WEBHOOK_SECRET)
-    .update(payload)
-    .digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
-}
+/**
+ * POST /api/webhooks/brevo
+ *
+ * Brevo Webhook fuer Email-Events.
+ * Einrichten in Brevo Dashboard unter Settings > Webhooks:
+ * - URL: https://praxisnova-sales-control.vercel.app/api/webhooks/brevo
+ * - Events: opened, clicked, reply, hardBounce, softBounce, unsubscribed, complaint
+ */
 
-export async function POST(request: NextRequest) {
-  const rawBody = await request.text();
-  const signature = request.headers.get('x-brevo-signature');
-
-  // Verify webhook authenticity if secret is configured
-  if (process.env.BREVO_WEBHOOK_SECRET && signature) {
-    if (!verifyWebhookSignature(rawBody, signature)) {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
-  }
-
-  let body;
+// Helper: Event in email_events Tabelle speichern
+async function insertEmailEvent(
+  leadId: number,
+  eventType: string,
+  messageId: string | null,
+  senderUsed: string | null,
+  sequenceType: string | null = null,
+) {
   try {
-    body = JSON.parse(rawBody);
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
-
-  const { event, email, 'message-id': messageId, sender: senderEmail } = body;
-
-  if (!event) {
-    return NextResponse.json({ error: 'Missing event' }, { status: 400 });
-  }
-
-  // For inbound/reply events, the lead email may be in the "sender" field instead of "email"
-  const isInboundReply = event === 'inbound_email_processed' || event === 'inbound';
-  const leadEmail = isInboundReply ? (senderEmail || email) : email;
-
-  if (!leadEmail) {
-    return NextResponse.json({ error: 'Missing email' }, { status: 400 });
-  }
-
-  try {
-    const leads = await sql`SELECT * FROM leads WHERE email = ${leadEmail}`;
-
-    if (leads.length === 0) {
-      console.log(`[Brevo Webhook] Lead not found for email=${leadEmail}, event=${event}`);
-      return NextResponse.json({ ok: true, message: 'Lead not found, skipping' });
-    }
-
-    const lead = leads[0];
-
-    // Map Brevo events to our event types
-    const eventMap: Record<string, string> = {
-      delivered: 'sent',
-      opened: 'opened',
-      click: 'clicked',
-      unsubscribed: 'unsubscribed',
-      complaint: 'unsubscribed',
-      hard_bounce: 'bounced',
-      soft_bounce: 'bounced',
-      hardBounce: 'bounced',
-      softBounce: 'bounced',
-      reply: 'replied',
-      inbound_email_processed: 'replied',
-      inbound: 'replied',
-    };
-
-    const eventType = eventMap[event] || event;
-    console.log(`[Brevo Webhook] event=${event}, mapped=${eventType}, lead=${lead.id}, email=${leadEmail}`);
-
-    // ── Reply Sentiment Tracking ──────────────────────────────────
-    let sentiment: string | null = null;
-    let sentimentConfidence: number | null = null;
-    let sentimentMatch: string | null = null;
-
-    if (eventType === 'replied') {
-      // Brevo inbound webhook provides the reply text in body.text or body.items[0].text_content
-      const replyText =
-        body.text ||
-        body.textContent ||
-        body.items?.[0]?.text_content ||
-        body.items?.[0]?.subject ||
-        body.subject ||
-        '';
-
-      const classification = classifyReply(replyText);
-      sentiment = classification.sentiment;
-      sentimentConfidence = classification.confidence;
-      sentimentMatch = classification.matchedPattern;
-
-      console.log(
-        `[Brevo Webhook] Reply sentiment: ${sentiment} (confidence=${sentimentConfidence}, match="${sentimentMatch}") for lead=${lead.id}`
-      );
-    }
-
-    // Log the event (with optional sentiment data)
     await sql`
-      INSERT INTO email_events (lead_id, sequence_type, step_number, event_type, brevo_message_id, sentiment, sentiment_confidence)
-      VALUES (
-        ${lead.id},
-        ${lead.sequence_type},
-        ${lead.sequence_step},
+      INSERT INTO email_events (
+        lead_id,
+        event_type,
+        brevo_message_id,
+        sender_used,
+        sequence_type,
+        created_at
+      ) VALUES (
+        ${leadId},
         ${eventType},
-        ${messageId || null},
-        ${sentiment},
-        ${sentimentConfidence}
+        ${messageId},
+        ${senderUsed},
+        ${sequenceType},
+        NOW()
       )
     `;
+  } catch (err) {
+    // Fehler beim Einfuegen nicht den gesamten Webhook abbrechen lassen
+    console.error('[Brevo Webhook] email_events INSERT Fehler:', err);
+  }
+}
 
-    // Auto-stop rules – also update if lead already completed (reply can come after sequence ends)
-    if (eventType === 'unsubscribed' || eventType === 'replied' || eventType === 'bounced') {
-      const newStatus =
-        eventType === 'bounced'
-          ? 'bounced'
-          : eventType === 'replied'
-            ? 'replied'
-            : 'unsubscribed';
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const event = body.event;
+    const messageId = body['message-id'] || body.messageId || null;
+    const senderEmail = body.sender || 'hertle.anjuli@praxisnovaai.com';
+    // Brevo sendet Tags als Array oder String
+    const tag = Array.isArray(body.tags) ? body.tags[0] : (body.tag || null);
 
-      const cooldownUntil = new Date();
-      cooldownUntil.setDate(cooldownUntil.getDate() + 90);
+    console.log(`[Brevo Webhook] Event: ${event}`, JSON.stringify(body).substring(0, 500));
 
-      // Unsubscribes are PERMANENT – no cooldown, permanently blocked (DSGVO)
-      if (eventType === 'unsubscribed') {
-        await sql`
-          UPDATE leads
-          SET sequence_status = 'unsubscribed',
-              exited_at = COALESCE(exited_at, NOW()),
-              unsubscribed_at = COALESCE(unsubscribed_at, NOW()),
-              permanently_blocked = TRUE,
-              cooldown_until = NULL
-          WHERE id = ${lead.id}
+    switch (event) {
+      // ----------------------------------------------------------------
+      // OPENED - Lead hat die Email geoeffnet
+      // ----------------------------------------------------------------
+      case 'opened': {
+        const email = body.email || body['email-id'];
+        if (!email) return NextResponse.json({ ok: true, action: 'no_email' });
+
+        const leads = await sql`
+          SELECT id FROM leads WHERE LOWER(email) = LOWER(${email})
         `;
-      } else if (eventType === 'replied' && sentiment) {
-        await sql`
-          UPDATE leads
-          SET sequence_status = ${newStatus},
-              exited_at = COALESCE(exited_at, NOW()),
-              cooldown_until = ${cooldownUntil.toISOString()},
-              reply_sentiment = ${sentiment},
-              signal_email_reply = TRUE,
-              last_signal_at = NOW()
-          WHERE id = ${lead.id}
-            AND sequence_status NOT IN ('unsubscribed', 'bounced')
-        `;
-      } else {
-        await sql`
-          UPDATE leads
-          SET sequence_status = ${newStatus},
-              exited_at = COALESCE(exited_at, NOW()),
-              cooldown_until = ${cooldownUntil.toISOString()},
-              signal_email_reply = CASE WHEN ${eventType} = 'replied' THEN TRUE ELSE signal_email_reply END,
-              last_signal_at = CASE WHEN ${eventType} = 'replied' THEN NOW() ELSE last_signal_at END
-          WHERE id = ${lead.id}
-            AND sequence_status NOT IN ('unsubscribed', 'bounced')
-        `;
+        if (leads.length === 0) return NextResponse.json({ ok: true, action: 'lead_not_found' });
+
+        const lead = leads[0];
+        await insertEmailEvent(lead.id, 'opened', messageId, senderEmail, tag);
+
+        console.log(`[Brevo Webhook] Opened: Lead ${lead.id}`);
+        return NextResponse.json({ ok: true, action: 'open_tracked', lead_id: lead.id });
       }
 
-      console.log(`[Brevo Webhook] Updated lead ${lead.id} status to ${newStatus}${sentiment ? `, sentiment=${sentiment}` : ''}`);
+      // ----------------------------------------------------------------
+      // CLICKED - Lead hat einen Link in der Email angeklickt
+      // ----------------------------------------------------------------
+      case 'clicked': {
+        const email = body.email || body['email-id'];
+        if (!email) return NextResponse.json({ ok: true, action: 'no_email' });
 
-      // Sync to HubSpot
-      if (lead.hubspot_id) {
-        try {
-          const hubspotProps: Record<string, string> = {
-            sequence_status: newStatus,
-            cooldown_until: cooldownUntil.toISOString().split('T')[0],
-          };
-          if (sentiment) {
-            hubspotProps.reply_sentiment = sentiment;
-          }
-          await updateContact(lead.hubspot_id, hubspotProps);
-        } catch (hubspotError) {
-          console.error('HubSpot webhook sync error:', hubspotError);
+        const leads = await sql`
+          SELECT id FROM leads WHERE LOWER(email) = LOWER(${email})
+        `;
+        if (leads.length === 0) return NextResponse.json({ ok: true, action: 'lead_not_found' });
+
+        const lead = leads[0];
+        await insertEmailEvent(lead.id, 'clicked', messageId, senderEmail, tag);
+
+        console.log(`[Brevo Webhook] Clicked: Lead ${lead.id}`);
+        return NextResponse.json({ ok: true, action: 'click_tracked', lead_id: lead.id });
+      }
+
+      // ----------------------------------------------------------------
+      // REPLY - Lead hat geantwortet
+      // ----------------------------------------------------------------
+      case 'reply': {
+        const email = body.email || body['email-id'];
+        if (!email) {
+          return NextResponse.json({ error: 'Keine Email-Adresse im Event' }, { status: 400 });
         }
-      }
-    }
 
-    return NextResponse.json({ ok: true, eventType, sentiment });
+        // 1. Lead finden
+        const leads = await sql`
+          SELECT id, company FROM leads WHERE LOWER(email) = LOWER(${email})
+        `;
+
+        if (leads.length === 0) {
+          console.log(`[Brevo Webhook] Lead nicht gefunden: ${email}`);
+          return NextResponse.json({ ok: true, action: 'lead_not_found' });
+        }
+
+        const lead = leads[0];
+
+        // 2. Event in email_events speichern
+        await insertEmailEvent(lead.id, 'replied', messageId, senderEmail, tag);
+
+        // 3. Lead als "replied" markieren
+        await sql`
+          UPDATE leads SET
+            signal_email_reply = true,
+            pipeline_stage = 'Replied',
+            pipeline_notes = CONCAT(
+              COALESCE(pipeline_notes, ''),
+              ' | Email-Antwort erhalten am ', NOW()::text
+            )
+          WHERE id = ${lead.id}
+        `;
+
+        // 4. Firmenweite Blockierung
+        let companyBlockCount = 0;
+        if (lead.company) {
+          const result = await sql`
+            UPDATE leads SET
+              pipeline_stage = 'Blocked',
+              block_reason = 'company_block',
+              blocked_until = NOW() + INTERVAL '9 months',
+              pipeline_notes = CONCAT(
+                COALESCE(pipeline_notes, ''),
+                ' | Firmen-Block: Kontakt ', ${email}, ' hat geantwortet am ', NOW()::text
+              )
+            WHERE LOWER(company) = LOWER(${lead.company})
+              AND id != ${lead.id}
+              AND pipeline_stage NOT IN ('Replied', 'Booked', 'Customer')
+          `;
+          companyBlockCount = result.count || 0;
+        }
+
+        // 5. Aktive Sequences stoppen
+        await sql`
+          UPDATE sequence_entries SET
+            status = 'replied',
+            stopped_at = NOW()
+          WHERE lead_id = ${lead.id}
+            AND status IN ('active', 'pending', 'paused')
+        `;
+
+        console.log(`[Brevo Webhook] Reply verarbeitet: Lead ${lead.id}, Firma-Blocks: ${companyBlockCount}`);
+        return NextResponse.json({
+          ok: true,
+          action: 'reply_processed',
+          lead_id: lead.id,
+          company_leads_blocked: companyBlockCount,
+        });
+      }
+
+      // ----------------------------------------------------------------
+      // BOUNCES
+      // ----------------------------------------------------------------
+      case 'hardBounce':
+      case 'softBounce': {
+        const email = body.email || body['email-id'];
+        if (email) {
+          const leads = await sql`
+            SELECT id FROM leads WHERE LOWER(email) = LOWER(${email})
+          `;
+          if (leads.length > 0) {
+            const lead = leads[0];
+            await insertEmailEvent(lead.id, 'bounced', messageId, senderEmail, tag);
+            await sql`
+              UPDATE leads SET
+                sequence_status = 'bounced',
+                pipeline_notes = CONCAT(
+                  COALESCE(pipeline_notes, ''),
+                  ' | Email Bounce (', ${event}, ') am ', NOW()::text
+                )
+              WHERE id = ${lead.id}
+            `;
+          }
+        }
+        return NextResponse.json({ ok: true, action: 'bounce_processed' });
+      }
+
+      // ----------------------------------------------------------------
+      // UNSUBSCRIBED
+      // ----------------------------------------------------------------
+      case 'unsubscribed': {
+        const email = body.email || body['email-id'];
+        if (email) {
+          await sql`
+            UPDATE leads SET
+              sequence_status = 'unsubscribed',
+              permanently_blocked = true,
+              pipeline_stage = 'Blocked',
+              block_reason = 'unsubscribed',
+              pipeline_notes = CONCAT(
+                COALESCE(pipeline_notes, ''),
+                ' | Abmeldung am ', NOW()::text
+              )
+            WHERE LOWER(email) = LOWER(${email})
+          `;
+        }
+        return NextResponse.json({ ok: true, action: 'unsubscribe_processed' });
+      }
+
+      // ----------------------------------------------------------------
+      // SPAM COMPLAINT
+      // ----------------------------------------------------------------
+      case 'complaint': {
+        const email = body.email || body['email-id'];
+        if (email) {
+          await sql`
+            UPDATE leads SET
+              permanently_blocked = true,
+              pipeline_stage = 'Blocked',
+              block_reason = 'complaint',
+              pipeline_notes = CONCAT(
+                COALESCE(pipeline_notes, ''),
+                ' | Spam-Beschwerde am ', NOW()::text
+              )
+            WHERE LOWER(email) = LOWER(${email})
+          `;
+        }
+        return NextResponse.json({ ok: true, action: 'complaint_processed' });
+      }
+
+      default:
+        return NextResponse.json({ ok: true, action: 'event_ignored', event });
+    }
   } catch (error) {
-    console.error('Brevo webhook error:', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    console.error('[Brevo Webhook] Fehler:', error);
+    return NextResponse.json({ error: 'Webhook-Verarbeitungsfehler' }, { status: 500 });
   }
 }

@@ -9,6 +9,14 @@
       "schedule": "0 12 * * *"
     },
     {
+      "path": "/api/cron/apollo-sync",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/apollo-sync",
+      "schedule": "0 3 * * *"
+    },
+    {
       "path": "/api/cron/prospect-researcher",
       "schedule": "30 5 * * *"
     },
@@ -23,6 +31,14 @@
     {
       "path": "/api/cron/prospect-researcher",
       "schedule": "30 14 * * *"
+    },
+    {
+      "path": "/api/cron/prospect-researcher",
+      "schedule": "30 23 * * *"
+    },
+    {
+      "path": "/api/cron/prospect-researcher",
+      "schedule": "30 3 * * *"
     },
     {
       "path": "/api/cron/partner-researcher",
@@ -55,10 +71,6 @@
     {
       "path": "/api/cron/outreach-strategist",
       "schedule": "0 17 * * *"
-    },
-    {
-      "path": "/api/cron/partner-outreach-strategist",
-      "schedule": "15 8 * * *"
     },
     {
       "path": "/api/cron/process-sequences",
@@ -110,6 +122,10 @@
     },
     {
       "path": "/api/cron/daily-summary",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/daily-summary",
       "schedule": "0 17 * * *"
     },
     {
@@ -118,7 +134,31 @@
     },
     {
       "path": "/api/cron/call-list-generator",
-      "schedule": "0 7 * * 1-5"
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/health-monitor",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/health-monitor",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/health-monitor",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/health-monitor",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/health-monitor",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/health-monitor",
+      "schedule": "0 17 * * *"
     }
   ]
 }

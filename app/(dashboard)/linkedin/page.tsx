@@ -389,15 +389,37 @@ export default function LinkedInPage() {
   /* ---- Render lead card (Apollo/Manual) ---- */
   const renderLeadCard = (lead: Lead) => (
     <div key={lead.id} className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-4 flex flex-col gap-3">
+      {/* Name + Source + Industry */}
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">{lead.first_name} {lead.last_name}</p>
-          <p className="text-xs text-[#aaa] truncate">{lead.company}</p>
+        <p className="text-base font-bold text-white truncate flex-1 min-w-0">{lead.first_name} {lead.last_name}</p>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${lead.source === 'apollo' ? 'bg-[#1a2340] text-[#7098f0]' : 'bg-[#1a1a2e] text-[#a78bfa]'}`}>
+            {lead.source === 'apollo' ? 'Apollo' : 'Manuell'}
+          </span>
+          {getIndustryBadge(lead.industry)}
         </div>
-        {getIndustryBadge(lead.industry)}
       </div>
-      {lead.title && <p className="text-xs text-[#888] truncate">{lead.title}</p>}
-      <a href={getLinkedInSearchUrl(lead)} target="_blank" rel="noopener noreferrer" className="text-[#2563EB] hover:underline text-xs">Auf LinkedIn suchen</a>
+      {/* Firma */}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <svg className="w-3.5 h-3.5 text-[#666] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+        <p className="text-sm text-[#E0E0E0] truncate font-medium">{lead.company || '-'}</p>
+      </div>
+      {/* Position */}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <svg className="w-3.5 h-3.5 text-[#666] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <p className="text-sm text-[#C0C0C0] truncate">{lead.title || '-'}</p>
+      </div>
+      {/* LinkedIn link */}
+      <a href={getLinkedInSearchUrl(lead)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-[#2563EB] bg-[#111] px-3 py-1.5 text-xs font-medium text-[#2563EB] hover:bg-blue-950 transition-colors w-fit">
+        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+        </svg>
+        Auf LinkedIn suchen
+      </a>
       <div>{getStatusBadge(lead)}</div>
       {getActionButtons(lead)}
     </div>
@@ -409,14 +431,29 @@ export default function LinkedInPage() {
     const hasDirectUrl = !!lead.linkedin_url;
     return (
       <div key={lead.id} className="bg-[#111] rounded-lg shadow-sm border border-[#1E1E1E] p-4 flex flex-col gap-3">
+        {/* Name + Source + Industry */}
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#F0F0F5] truncate">{lead.first_name} {lead.last_name}</p>
-            <p className="text-xs text-[#aaa] truncate">{lead.company}</p>
+          <p className="text-base font-bold text-white truncate flex-1 min-w-0">{lead.first_name} {lead.last_name}</p>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <span className="inline-flex items-center rounded-full bg-[#0f2a1f] px-2 py-0.5 text-xs font-medium text-[#4ade80]">KI-Agent</span>
+            {getIndustryBadge(lead.industry)}
           </div>
-          {getIndustryBadge(lead.industry)}
         </div>
-        {lead.title && <p className="text-xs text-[#888] truncate">{lead.title}</p>}
+        {/* Firma */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <svg className="w-3.5 h-3.5 text-[#666] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          <p className="text-sm text-[#E0E0E0] truncate font-medium">{lead.company || '-'}</p>
+        </div>
+        {/* Position */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <svg className="w-3.5 h-3.5 text-[#666] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <p className="text-sm text-[#C0C0C0] truncate">{lead.title || '-'}</p>
+        </div>
+        {/* Score + Stage + Signal badges */}
         <div className="flex flex-wrap gap-1.5">
           {getScoreBadge(lead.agent_score)}
           {getStageBadge(lead.pipeline_stage)}
@@ -424,12 +461,8 @@ export default function LinkedInPage() {
             <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">LinkedIn-Interesse</span>
           )}
         </div>
-        <a
-          href={linkedInHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-md border border-[#2563EB] bg-[#111] px-3 py-1.5 text-xs font-medium text-[#2563EB] hover:bg-blue-950 transition-colors w-fit"
-        >
+        {/* LinkedIn button */}
+        <a href={linkedInHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-[#2563EB] bg-[#111] px-3 py-1.5 text-xs font-medium text-[#2563EB] hover:bg-blue-950 transition-colors w-fit">
           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
           </svg>
@@ -603,7 +636,7 @@ export default function LinkedInPage() {
                 <option value="meeting_booked">Meeting gebucht</option>
                 <option value="no_linkedin">Kein LinkedIn</option>
               </select>
-              y(searchQuery || sectorFilter !== 'all' || statusFilter !== 'all') && (
+              {(searchQuery || sectorFilter !== 'all' || statusFilter !== 'all') && (
                 <button onClick={() => { setSearchQuery(''); setSectorFilter('all'); setStatusFilter('all'); }} className="rounded-md border border-gray-300 bg-[#111] px-3 py-2 text-sm font-medium text-[#aaa] hover:bg-[#0A0A0A] transition-colors whitespace-nowrap">
                   Filter zurÃ¼cksetzen
                 </button>
@@ -641,7 +674,7 @@ export default function LinkedInPage() {
           <div className="bg-[#111] rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
             <h2 className="text-lg font-semibold text-[#F0F0F5] mb-1">LinkedIn-Nachricht &middot; {modalLead.first_name} {modalLead.last_name}</h2>
             <p className="text-sm text-[#888] mb-4">{modalLead.company} &middot; {modalLead.title}</p>
-            <textarea value={modalText} onChange={(e) => setModalText(e.target.value)} placeholder="Gesendete Nachricht einfÃ¸gen..." rows={5} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none resize-none" />
+            <textarea value={modalText} onChange={(e) => setModalText(e.target.value)} placeholder="Gesendete Nachricht einfÃ¼gen..." rows={5} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none resize-none" />
             <div className="flex justify-end gap-3 mt-4">
               <button onClick={() => { setShowMessageModal(null); setModalText(''); }} className="rounded-md border border-gray-300 bg-[#111] px-4 py-2 text-sm font-medium text-[#ccc] hover:bg-[#0A0A0A] transition-colors">Abbrechen</button>
               <button onClick={handleModalSubmit} disabled={!modalText.trim()} className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Nachricht speichern</button>
@@ -656,7 +689,7 @@ export default function LinkedInPage() {
           <div className="bg-[#111] rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
             <h2 className="text-lg font-semibold text-[#F0F0F5] mb-1">LinkedIn-Antwort &middot; {modalLead.first_name} {modalLead.last_name}</h2>
             <p className="text-sm text-[#888] mb-4">{modalLead.company} &middot; {modalLead.title}</p>
-            <textarea value={modalText} onChange={(e) => setModalText(e.target.value)} placeholder="Erhaltene Antwort einfÃ¸gen..." rows={5} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500 focus:outline-none resize-none" />
+            <textarea value={modalText} onChange={(e) => setModalText(e.target.value)} placeholder="Erhaltene Antwort einfÃ¼gen..." rows={5} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500 focus:outline-none resize-none" />
             <div className="flex justify-end gap-3 mt-4">
               <button onClick={() => { setShowMessageModal(null); setModalText(''); }} className="rounded-md border border-gray-300 bg-[#111] px-4 py-2 text-sm font-medium text-[#ccc] hover:bg-[#0A0A0A] transition-colors">Abbrechen</button>
               <button onClick={handleModalSubmit} disabled={!modalText.trim()} className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Antwort speichern &amp; Sequenz stoppen</button>

@@ -1,5 +1,6 @@
 {
   "crons": [
+    { "path": "/api/cron/apollo-sync", "schedule": "0 5 * * *" },
     { "path": "/api/cron/prospect-researcher", "schedule": "30 6 * * *" },
     { "path": "/api/cron/prospect-researcher", "schedule": "30 11 * * *" },
     { "path": "/api/cron/partner-researcher", "schedule": "0 7 * * *" },

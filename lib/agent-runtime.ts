@@ -20,6 +20,7 @@ import {
   SchemaType,
 } from '@google/generative-ai';
 import sql from '@/lib/db';
+import { getActiveUpdatesForAgents } from '@/app/api/strategic-updates/route';
 
 // ─── Gemini Client ───────────────────────────────────────────────────────────
 
@@ -727,9 +728,20 @@ export async function runAgent(
   agentName: string,
 ): Promise<{ success: boolean; iterations: number; summary: string }> {
 
+  // Fetch strategic updates and append to system prompt
+  let enrichedPrompt = systemPrompt;
+  try {
+    const strategicUpdates = await getActiveUpdatesForAgents();
+    if (strategicUpdates) {
+      enrichedPrompt = systemPrompt + '\n\n' + strategicUpdates;
+    }
+  } catch (e) {
+    console.warn('[agent-runtime] Strategic updates konnten nicht geladen werden:', e);
+  }
+
   const model = genAI.getGenerativeModel({
     model: 'gemini-3-flash-preview',
-    systemInstruction: systemPrompt,
+    systemInstruction: enrichedPrompt,
     tools: TOOLS,
   });
 

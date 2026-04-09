@@ -131,6 +131,7 @@ const getOutcomeColor = (outcome: string) => {
 
 // Component
 export default function Anrufliste() {
+  const [activeView, setActiveView] = useState<'prospects' | 'partners'>('prospects')
   const [activeTab, setActiveTab] = useState<'week' | 'callbacks' | 'history'>('week')
   const [items, setItems] = useState<CallEntry[]>([])
   const [callbacks, setCallbacks] = useState<CallbackEntry[]>([])
@@ -165,6 +166,9 @@ export default function Anrufliste() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({})
   const [historyFilter, setHistoryFilter] = useState<'all' | 'termin' | 'absage' | 'rückruf' | 'nicht_erreicht'>('all')
+  const [partners, setPartners] = useState<any[]>([])
+  const [selectedPartner, setSelectedPartner] = useState<any | null>(null)
+  const [partnerNotes, setPartnerNotes] = useState<Record<number, string>>({})
 
   // Initialize - get current week
   useEffect(() => {
@@ -175,6 +179,7 @@ export default function Anrufliste() {
     fetchWeekData(weekNum, year)
     fetchCallbacks()
     fetchHistory()
+    fetchPartners()
   }, [])
 
   const getWeekNumber = (date: Date) => {
@@ -223,6 +228,19 @@ export default function Anrufliste() {
     } catch (err) {
       console.error('Error fetching history:', err)
       setHistory([])
+    }
+  }
+
+  const fetchPartners = async () => {
+    try {
+      const res = await fetch('/api/partners?tier=1&tier=2')
+      if (!res.ok) throw new Error('Failed to fetch partners')
+      const data = await res.json()
+      setPartners(data.items || [])
+      setSelectedPartner(null)
+    } catch (err) {
+      console.error('Error fetching partners:', err)
+      setPartners([])
     }
   }
 
@@ -836,6 +854,172 @@ export default function Anrufliste() {
     </div>
   )
 
+  const TabPartnerAnrufe = () => (
+    <div className="flex flex-col h-full gap-4">
+      {/* Header */}
+      <div className="bg-[#1a1a1a] border border-[#1E1E1E] rounded-lg p-4">
+        <h2 className="text-xl font-bold text-white">Partner-Anrufkandidaten</h2>
+        <p className="text-[#888] text-sm mt-1">Tier 1-2 Partner mit Kontaktinformation</p>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex gap-4 flex-1 overflow-hidden">
+        {/* Left: Partner List */}
+        <div className="w-2/5 overflow-y-auto">
+          {partners.length === 0 ? (
+            <div className="text-center text-[#888] py-8">Keine Partner verfuegbar</div>
+          ) : (
+            <div className="space-y-2 pr-2">
+              {partners.map(partner => (
+                <div
+                  key={partner.id}
+                  onClick={() => setSelectedPartner(partner)}
+                  className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                    selectedPartner?.id === partner.id
+                      ? 'bg-[#E8472A]/20 border-[#E8472A]'
+                      : 'bg-[#1a1a1a] border-[#1E1E1E] hover:border-[#E8472A]/50'
+                  }`}
+                >
+                  {/* Tier Badge */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="font-bold text-white">{partner.company}</div>
+                    <span className="text-xs px-2 py-1 rounded bg-[#E8472A] text-white font-semibold">
+                      Tier {partner.tier}
+                    </span>
+                  </div>
+
+                  {/* Contact Name */}
+                  {partner.contact_name && (
+                    <div className="text-sm text-[#888] mb-1">{partner.contact_name}</div>
+                  )}
+
+                  {/* Category */}
+                  {partner.category && (
+                    <div className="text-xs text-[#888] mb-2 line-clamp-1">{partner.category}</div>
+                  )}
+
+                  {/* Contact */}
+                  {partner.email && (
+                    <div className="text-xs text-[#E8472A] mb-1 break-all">
+                      <a href={`mailto:${partner.email}`} className="hover:underline">
+                        {partner.email}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right: Detail Panel */}
+        <div className="w-3/5 overflow-y-auto pr-2">
+          {!selectedPartner ? (
+            <div className="flex items-center justify-center h-full text-[#888]">
+              Waehlen Sie einen Partner aus
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Partner Header */}
+              <div className="bg-[#1a1a1a] border border-[#1E1E1E] rounded-lg p-4">
+                <h3 className="text-2xl font-bold text-white mb-2">{selectedPartner.company}</h3>
+                {selectedPartner.contact_name && (
+                  <div className="text-[#888] mb-2">{selectedPartner.contact_name}</div>
+                )}
+                {selectedPartner.contact_title && (
+                  <div className="text-[#888] mb-4">{selectedPartner.contact_title}</div>
+                )}
+
+                {/* Badges */}
+                <div className="flex gap-2 flex-wrap">
+                  <span className="text-xs px-3 py-1 rounded bg-[#E8472A] text-white font-semibold">
+                    Tier {selectedPartner.tier}
+                  </span>
+                  {selectedPartner.category && (
+                    <span className="text-xs px-3 py-1 rounded bg-[#222] text-[#888]">
+                      {selectedPartner.category}
+                    </span>
+                  )}
+                  {selectedPartner.agent_score && (
+                    <span className="text-xs px-3 py-1 rounded bg-[#222] text-[#888]">
+                      Score: {selectedPartner.agent_score.toFixed(1)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Contact Info */}
+              <div className="bg-[#1a1a1a] border border-[#1E1E1E] rounded-lg p-4">
+                <h4 className="font-semibold text-white mb-3">Kontakt</h4>
+                <div className="space-y-3">
+                  {selectedPartner.email && (
+                    <div>
+                      <div className="text-[#888] text-sm mb-1">Email</div>
+                      <a href={`mailto:${selectedPartner.email}`} className="text-[#E8472A] hover:underline break-all text-sm">
+                        {selectedPartner.email}
+                      </a>
+                    </div>
+                  )}
+                  {selectedPartner.website && (
+                    <div>
+                      <div className="text-[#888] text-sm mb-1">Website</div>
+                      <a href={selectedPartner.website} target="_blank" rel="noopener noreferrer" className="text-[#E8472A] hover:underline break-all text-sm">
+                        {selectedPartner.website}
+                      </a>
+                    </div>
+                  )}
+                  {selectedPartner.linkedin_url && (
+                    <div>
+                      <div className="text-[#888] text-sm mb-1">LinkedIn</div>
+                      <a href={selectedPartner.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-[#E8472A] hover:underline break-all text-sm flex items-center gap-1">
+                        <Linkedin size={14} />
+                        {selectedPartner.linkedin_url}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Notizen */}
+              <div className="bg-[#1a1a1a] border border-[#1E1E1E] rounded-lg p-4">
+                <h4 className="font-semibold text-white mb-3">Notizen</h4>
+                <textarea
+                  value={partnerNotes[selectedPartner.id] || ''}
+                  onChange={e => setPartnerNotes({ ...partnerNotes, [selectedPartner.id]: e.target.value })}
+                  placeholder="Anrufergebnis und Notizen eingeben..."
+                  className="w-full bg-[#0a0a0a] border border-[#1E1E1E] text-white rounded px-3 py-2 focus:outline-none focus:border-[#E8472A] min-h-24"
+                />
+              </div>
+
+              {/* Status Buttons */}
+              <div className="bg-[#1a1a1a] border border-[#1E1E1E] rounded-lg p-4">
+                <h4 className="font-semibold text-white mb-3">Status</h4>
+                <div className="flex gap-2">
+                  <button className="flex-1 px-4 py-2 bg-[#10B981] hover:bg-[#059669] text-white font-semibold rounded transition-colors">
+                    Erreicht
+                  </button>
+                  <button className="flex-1 px-4 py-2 bg-[#EF4444] hover:bg-[#DC2626] text-white font-semibold rounded transition-colors">
+                    Nicht erreicht
+                  </button>
+                  <button className="flex-1 px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white font-semibold rounded transition-colors">
+                    Termin
+                  </button>
+                </div>
+              </div>
+
+              {selectedPartner.agent_reasoning && (
+                <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-4">
+                  <h4 className="font-semibold text-white mb-2">Agent Reasoning</h4>
+                  <p className="text-[#888] text-sm">{selectedPartner.agent_reasoning}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="h-screen bg-[#111] text-white p-4 flex flex-col">
       {/* Success Message */}
@@ -845,28 +1029,57 @@ export default function Anrufliste() {
         </div>
       )}
 
-      {/* Tab Navigation */}
+      {/* Top-Level View Navigation */}
       <div className="flex gap-4 mb-4 border-b border-[#1E1E1E]">
-        {['week', 'callbacks', 'history'].map(tab => (
+        {(['prospects', 'partners'] as const).map(view => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab as typeof activeTab)}
+            key={view}
+            onClick={() => {
+              setActiveView(view)
+              if (view === 'prospects') {
+                setActiveTab('week')
+              }
+            }}
             className={`px-4 py-2 font-semibold border-b-2 transition-colors ${
-              activeTab === tab
+              activeView === view
                 ? 'text-[#E8472A] border-[#E8472A]'
                 : 'text-[#888] border-transparent hover:text-white'
             }`}
           >
-            {tab === 'week' ? 'Aktuelle Woche' : tab === 'callbacks' ? 'Rueckrufe' : 'Abgeschlossen'}
+            {view === 'prospects' ? 'Prospect-Anrufe' : 'Partner-Anrufe'}
           </button>
         ))}
       </div>
 
+      {/* Sub-Tab Navigation (only for Prospect-Anrufe) */}
+      {activeView === 'prospects' && (
+        <div className="flex gap-4 mb-4 border-b border-[#1E1E1E]">
+          {['week', 'callbacks', 'history'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab as typeof activeTab)}
+              className={`px-4 py-2 font-semibold border-b-2 transition-colors ${
+                activeTab === tab
+                  ? 'text-[#E8472A] border-[#E8472A]'
+                  : 'text-[#888] border-transparent hover:text-white'
+              }`}
+            >
+              {tab === 'week' ? 'Aktuelle Woche' : tab === 'callbacks' ? 'Rueckrufe' : 'Abgeschlossen'}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'week' && <TabAktuelleWoche />}
-        {activeTab === 'callbacks' && <TabRückrufe />}
-        {activeTab === 'history' && <TabAbgeschlossen />}
+        {activeView === 'prospects' && (
+          <>
+            {activeTab === 'week' && <TabAktuelleWoche />}
+            {activeTab === 'callbacks' && <TabRückrufe />}
+            {activeTab === 'history' && <TabAbgeschlossen />}
+          </>
+        )}
+        {activeView === 'partners' && <TabPartnerAnrufe />}
       </div>
 
       {/* Disposition Modal */}

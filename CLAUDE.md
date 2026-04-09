@@ -120,11 +120,29 @@ All 7 agent prompts live in `.agents/`:
 Agents do NOT send LinkedIn messages directly. They write to `linkedin_queue` table.
 Angie reviews and sends manually.
 
-### Trigger Slot Strategy (3 slots total)
+### Trigger Slot Strategy (Multiple Daily Slots)
 ```
-Slot 1 — 08:00: Morning Research (Prospect Researcher OR Partner Researcher + Operations Manager)
-Slot 2 — 10:00: Supervisor Review (Sales Supervisor + Partner Supervisor sequentially)
-Slot 3 — 12:00: Outreach (Outreach Strategist + Partner Outreach Strategist sequentially)
+MORNING (07:00-08:30):
+- Partner Researcher (07:00)
+- Operations Manager (07:15)
+- Prospect Researcher (08:30)
+- Inbound Response Handler (08:00)
+
+MIDDAY (09:00-12:00):
+- Outreach Strategist (09:00, 11:00, 13:00, 15:00, 17:00 - every 2 hours)
+- Sales Supervisor (09:00, 14:00)
+- Partner Outreach Strategist (12:30 - weekdays only)
+
+PROCESS JOBS:
+- Process Sequences (07:30, 10:30, 13:30, 16:30)
+- Inbound Response (08:00, 11:00, 14:00, 17:00)
+
+MONITORING:
+- Health Monitor (07:00, 11:00, 15:00)
+- LinkedIn Response Check (08:00)
+- LinkedIn Posting Check (16:00)
+- Daily Summary (11:00, 17:00)
+- Weekly Report (Monday 06:00)
 ```
 
 ### Custom Commands (type these in Claude Code terminal)

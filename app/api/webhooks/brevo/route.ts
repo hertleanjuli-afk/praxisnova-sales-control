@@ -44,7 +44,26 @@ async function insertEmailEvent(
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    // Verify Brevo webhook signature
+    const signature = req.headers.get('X-Brevo-Signature');
+    const webhookSecret = process.env.BREVO_WEBHOOK_SECRET;
+
+    let payload;
+    if (webhookSecret && signature) {
+      const { createHmac } = await import('crypto');
+      const bodyText = await req.text();
+      const expectedSignature = createHmac('sha256', webhookSecret).update(bodyText).digest('hex');
+      if (signature !== expectedSignature) {
+        console.warn('[brevo-webhook] Invalid signature');
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+      }
+      // Re-parse body since we consumed it
+      payload = JSON.parse(bodyText);
+    } else {
+      payload = await req.json();
+    }
+
+    const body = payload;
     const event = body.event;
     const messageId = body['message-id'] || body.messageId || null;
     const senderEmail = body.sender || 'hertle.anjuli@praxisnovaai.com';

@@ -9,7 +9,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { runAgent, isAuthorized, sendErrorNotification } from '@/lib/agent-runtime';
+import {
+  runAgent,
+  isAuthorized,
+  sendErrorNotification,
+  writeStartLog,
+  writeEndLog,
+  isAlreadyRunning,
+} from '@/lib/agent-runtime';
 
 export const maxDuration = 300;
 
@@ -61,8 +68,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'GEMINI_API_KEY nicht konfiguriert' }, { status: 500 });
   }
 
+  // Concurrent-run guard - skip if another instance is already running
+  if (await isAlreadyRunning('sales_supervisor', 8)) {
+    console.log('[sales-supervisor] Bereits aktiv - ueberspringe diesen Lauf.');
+    return NextResponse.json({ ok: true, skipped: true, reason: 'already_running' });
+  }
+
+  const runId = crypto.randomUUID();
   const startTime = Date.now();
-  console.log('[sales-supervisor] Starte als eigenstaendiger Agent (max 20 Iterationen, 300s Budget)...');
+  console.log(`[sales-supervisor] Starte run ${runId} (max 20 Iterationen, 300s Budget)...`);
+
+  // Write started log BEFORE calling Gemini so the run is always visible in the dashboard
+  await writeStartLog(runId, 'sales_supervisor');
 
   try {
     const result = await runAgent(
@@ -78,6 +95,10 @@ export async function GET(request: NextRequest) {
       await sendErrorNotification('Sales Supervisor', `Max Iterationen (${result.iterations}/20)`, elapsed);
     }
 
+    await writeEndLog(runId, 'sales_supervisor', result.success ? 'completed' : 'partial', {
+      iterations: result.iterations,
+    });
+
     return NextResponse.json({
       ok: true, agent: 'sales_supervisor', model: 'gemini-2.0-flash-lite',
       elapsed_seconds: elapsed, ...result,
@@ -85,6 +106,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.error('[sales-supervisor] Fehler:', err);
+    await writeEndLog(runId, 'sales_supervisor', 'error', { error: String(err) });
     await sendErrorNotification('Sales Supervisor', String(err), elapsed);
     return NextResponse.json({ ok: false, agent: 'sales_supervisor', error: String(err), elapsed_seconds: elapsed }, { status: 500 });
   }

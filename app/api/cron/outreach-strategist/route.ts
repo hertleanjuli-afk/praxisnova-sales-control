@@ -12,7 +12,14 @@
  * maxIterations: 40
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { runAgent, isAuthorized, sendErrorNotification } from '@/lib/agent-runtime';
+import {
+  runAgent,
+  isAuthorized,
+  sendErrorNotification,
+  writeStartLog,
+  writeEndLog,
+  isAlreadyRunning,
+} from '@/lib/agent-runtime';
 
 export const maxDuration = 300;
 
@@ -81,8 +88,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'GEMINI_API_KEY nicht konfiguriert' }, { status: 500 });
   }
 
+  // Concurrent-run guard - skip if another instance is already running
+  if (await isAlreadyRunning('outreach_strategist', 8)) {
+    console.log('[outreach-strategist] Bereits aktiv - ueberspringe diesen Lauf.');
+    return NextResponse.json({ ok: true, skipped: true, reason: 'already_running' });
+  }
+
+  const runId = crypto.randomUUID();
   const startTime = Date.now();
-  console.log('[outreach-strategist] Starte als eigenstaendiger Agent (max 40 Iterationen, 300s Budget)...');
+  console.log(`[outreach-strategist] Starte run ${runId} (max 40 Iterationen, 300s Budget)...`);
+
+  // Write started log BEFORE calling Gemini so the run is always visible in the dashboard
+  await writeStartLog(runId, 'outreach_strategist');
 
   try {
     const result = await runAgent(
@@ -98,6 +115,10 @@ export async function GET(request: NextRequest) {
       await sendErrorNotification('Outreach Strategist', `Max Iterationen (${result.iterations}/40)`, elapsed);
     }
 
+    await writeEndLog(runId, 'outreach_strategist', result.success ? 'completed' : 'partial', {
+      iterations: result.iterations,
+    });
+
     return NextResponse.json({
       ok: true,
       agent: 'outreach_strategist',
@@ -107,6 +128,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.error('[outreach-strategist] Fehler:', err);
+    await writeEndLog(runId, 'outreach_strategist', 'error', { error: String(err) });
     await sendErrorNotification('Outreach Strategist', String(err), elapsed);
     return NextResponse.json(
       { ok: false, agent: 'outreach_strategist', error: String(err), elapsed_seconds: elapsed },

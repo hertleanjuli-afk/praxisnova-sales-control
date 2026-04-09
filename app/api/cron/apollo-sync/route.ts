@@ -79,7 +79,6 @@ async function fetchApolloContacts(
   apiKey: string
 ): Promise<ApolloContact[]> {
   const body = {
-    api_key: apiKey,
     person_titles: config.person_titles,
     person_locations: ['Germany', 'Austria', 'Switzerland', 'Deutschland', 'Oesterreich', 'Schweiz'],
     organization_num_employees_ranges: ['1,10', '11,50', '51,200'],
@@ -94,6 +93,7 @@ async function fetchApolloContacts(
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-cache',
+      'X-Api-Key': apiKey,
     },
     body: JSON.stringify(body),
   });

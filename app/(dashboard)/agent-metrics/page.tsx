@@ -64,7 +64,7 @@ export default function AgentMetricsPage() {
           <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <MetricCard label="E-Mails gesendet" value={a.emails_sent_total} sub={`Diese Woche: ${a.emails_sent_week}`} />
-              <MetricCard label="\u00D6ffnungsrate" value={`${a.open_rate}%`} />
+              <MetricCard label="Oeffnungsrate" value={`${a.open_rate}%`} />
               <MetricCard label="Antwortrate" value={`${a.reply_rate}%`} />
               <MetricCard label="Aktive Sequenzen" value={a.active_sequences} />
               <MetricCard label="Leads in Pipeline" value={a.pipeline_leads} />
@@ -83,7 +83,7 @@ export default function AgentMetricsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <MetricCard label="Leads qualifiziert" value={ag.prospect_qualified_total} sub={`Diese Woche: ${ag.prospect_qualified_week}`} />
               <MetricCard label="Partner qualifiziert" value={ag.partner_qualified_total} sub={`Dieser Monat: ${ag.partner_qualified_month}`} />
-              <MetricCard label="\u00D8 Score Leads" value={ag.prospect_avg_score} />
+              <MetricCard label="Ø Score Leads" value={ag.prospect_avg_score} />
               <div style={{ background: '#0A0A0A', border: '1px solid #1E1E1E', borderRadius: 10, padding: 16 }}>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#555', margin: '0 0 6px', textTransform: 'uppercase' }}>Aktiver Ansatz</p>
                 <div style={{ display: 'flex', gap: 12 }}>
@@ -97,10 +97,10 @@ export default function AgentMetricsPage() {
                   </div>
                 </div>
               </div>
-              <MetricCard label="Personalisierte E-Mails" value="\u2014" sub="Phase 2" />
+              <MetricCard label="Personalisierte E-Mails" value=" - " sub="Phase 2" />
               <MetricCard label="LinkedIn vorbereitet" value={ag.linkedin_prepared} sub={`Bereit: ${ag.linkedin_ready}`} />
-              <MetricCard label="Meetings \u2014 Prospects" value="\u2014" sub="Phase 2 (Calendly)" />
-              <MetricCard label="Meetings \u2014 Partner" value="\u2014" sub="Phase 2 (Calendly)" />
+              <MetricCard label="Meetings - Prospects" value=" - " sub="Phase 2 (Calendly)" />
+              <MetricCard label="Meetings - Partner" value=" - " sub="Phase 2 (Calendly)" />
             </div>
 
             {/* KPI Status */}
@@ -108,14 +108,14 @@ export default function AgentMetricsPage() {
               <div style={{ background: '#0A0A0A', border: '1px solid #1E1E1E', borderRadius: 10, padding: 16 }}>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#555', margin: '0 0 6px', textTransform: 'uppercase' }}>KPI Prospects</p>
                 <p style={{ fontSize: 16, fontWeight: 700, color: KPI_MAP[ag.prospect_kpi]?.color ?? '#888', margin: 0 }}>
-                  {KPI_MAP[ag.prospect_kpi]?.label ?? '\u2014'}
+                  {KPI_MAP[ag.prospect_kpi]?.label ?? ' - '}
                 </p>
                 <p style={{ fontSize: 12, color: '#888', margin: '4px 0 0' }}>Pipeline: {ag.prospect_high_priority} / 67</p>
               </div>
               <div style={{ background: '#0A0A0A', border: '1px solid #1E1E1E', borderRadius: 10, padding: 16 }}>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#555', margin: '0 0 6px', textTransform: 'uppercase' }}>KPI Partner</p>
                 <p style={{ fontSize: 16, fontWeight: 700, color: KPI_MAP[ag.partner_kpi]?.color ?? '#888', margin: 0 }}>
-                  {KPI_MAP[ag.partner_kpi]?.label ?? '\u2014'}
+                  {KPI_MAP[ag.partner_kpi]?.label ?? ' - '}
                 </p>
                 <p style={{ fontSize: 12, color: '#888', margin: '4px 0 0' }}>Pipeline: {ag.partner_tier1} / 50</p>
               </div>

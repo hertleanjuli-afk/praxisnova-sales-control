@@ -2,53 +2,157 @@ import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
 /**
- * GET /api/anrufliste?date=2026-04-06
- * Taegliche Anrufliste abrufen - zeigt call_queue mit Lead-Details
+ * GET /api/anrufliste?date=2026-04-06 OR ?week=15&year=2026
+ * Taegliche oder woechentliche Anrufliste abrufen - zeigt call_queue mit Lead-Details
  */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
+    const week = searchParams.get('week');
+    const year = searchParams.get('year');
+    const date = searchParams.get('date');
+    const status = searchParams.get('status');
 
-    const rows = await sql`
-      SELECT
-        cq.id,
-        cq.lead_id,
-        cq.queue_date,
-        cq.rank,
-        cq.priority_score,
-        cq.reason_to_call,
-        cq.talking_points,
-        cq.conversation_guide,
-        cq.best_time_to_call,
-        cq.follow_up_action,
-        cq.status,
-        cq.called_at,
-        cq.call_result,
-        cq.call_notes,
-        cq.created_at,
-        l.first_name,
-        l.last_name,
-        l.company,
-        l.email,
-        l.phone,
-        l.title,
-        l.industry,
-        l.lead_score,
-        l.agent_score,
-        l.sequence_step,
-        l.sequence_type,
-        l.sequence_status,
-        l.pipeline_stage,
-        l.signal_email_reply,
-        l.signal_linkedin_interest,
-        l.linkedin_url,
-        l.pipeline_notes
-      FROM call_queue cq
-      JOIN leads l ON cq.lead_id = l.id
-      WHERE cq.queue_date = ${date}::date
-      ORDER BY cq.rank ASC
-    `;
+    let rows: any[] = [];
+
+    if (week && year) {
+      // Query by week number - convert week/year to date range
+      // ISO week starts on Monday, we need to find Monday of that week in that year
+      const weekYear = parseInt(year);
+      const weekNum = parseInt(week);
+
+      // Calculate the Monday of the given ISO week
+      const jan4 = new Date(weekYear, 0, 4);
+      const weekStart = new Date(jan4);
+      weekStart.setDate(jan4.getDate() - jan4.getDay() + 1); // Get Monday
+      weekStart.setDate(weekStart.getDate() + (weekNum - 1) * 7);
+      const startDate = weekStart.toISOString().split('T')[0];
+      const endDate = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      rows = await sql`
+        SELECT
+          cq.id,
+          cq.lead_id,
+          cq.queue_date,
+          cq.rank,
+          cq.priority_score,
+          cq.reason_to_call,
+          cq.talking_points,
+          cq.conversation_guide,
+          cq.best_time_to_call,
+          cq.follow_up_action,
+          cq.status,
+          cq.called_at,
+          cq.call_result,
+          cq.call_notes,
+          cq.created_at,
+          l.first_name,
+          l.last_name,
+          l.company,
+          l.email,
+          l.phone,
+          l.title,
+          l.industry,
+          l.lead_score,
+          l.agent_score,
+          l.sequence_step,
+          l.sequence_type,
+          l.sequence_status,
+          l.pipeline_stage,
+          l.signal_email_reply,
+          l.signal_linkedin_interest,
+          l.linkedin_url,
+          l.pipeline_notes
+        FROM call_queue cq
+        JOIN leads l ON cq.lead_id = l.id
+        WHERE cq.queue_date >= ${startDate}::date AND cq.queue_date <= ${endDate}::date
+        ORDER BY cq.rank ASC
+      `;
+    } else if (status === 'called') {
+      // Query for called history
+      rows = await sql`
+        SELECT
+          cq.id,
+          cq.lead_id,
+          cq.queue_date,
+          cq.rank,
+          cq.priority_score,
+          cq.reason_to_call,
+          cq.talking_points,
+          cq.conversation_guide,
+          cq.best_time_to_call,
+          cq.follow_up_action,
+          cq.status,
+          cq.called_at,
+          cq.call_result,
+          cq.call_notes,
+          cq.created_at,
+          l.first_name,
+          l.last_name,
+          l.company,
+          l.email,
+          l.phone,
+          l.title,
+          l.industry,
+          l.lead_score,
+          l.agent_score,
+          l.sequence_step,
+          l.sequence_type,
+          l.sequence_status,
+          l.pipeline_stage,
+          l.signal_email_reply,
+          l.signal_linkedin_interest,
+          l.linkedin_url,
+          l.pipeline_notes
+        FROM call_queue cq
+        JOIN leads l ON cq.lead_id = l.id
+        WHERE cq.status = 'called' AND cq.called_at IS NOT NULL
+        ORDER BY cq.called_at DESC
+        LIMIT 100
+      `;
+    } else {
+      // Query by specific date or default to today
+      const queryDate = date || new Date().toISOString().split('T')[0];
+      rows = await sql`
+        SELECT
+          cq.id,
+          cq.lead_id,
+          cq.queue_date,
+          cq.rank,
+          cq.priority_score,
+          cq.reason_to_call,
+          cq.talking_points,
+          cq.conversation_guide,
+          cq.best_time_to_call,
+          cq.follow_up_action,
+          cq.status,
+          cq.called_at,
+          cq.call_result,
+          cq.call_notes,
+          cq.created_at,
+          l.first_name,
+          l.last_name,
+          l.company,
+          l.email,
+          l.phone,
+          l.title,
+          l.industry,
+          l.lead_score,
+          l.agent_score,
+          l.sequence_step,
+          l.sequence_type,
+          l.sequence_status,
+          l.pipeline_stage,
+          l.signal_email_reply,
+          l.signal_linkedin_interest,
+          l.linkedin_url,
+          l.pipeline_notes
+        FROM call_queue cq
+        JOIN leads l ON cq.lead_id = l.id
+        WHERE cq.queue_date = ${queryDate}::date
+        ORDER BY cq.rank ASC
+      `;
+    }
 
     // Statistiken fuer den Tag
     const stats = {

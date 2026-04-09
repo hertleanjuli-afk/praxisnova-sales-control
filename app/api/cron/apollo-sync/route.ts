@@ -16,7 +16,7 @@
  * track progress across runs.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import sql from '@/lib/db';
 import { isAuthorized, sendErrorNotification } from '@/lib/agent-runtime';
 
 export const maxDuration = 60;

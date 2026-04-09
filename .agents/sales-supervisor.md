@@ -19,7 +19,7 @@ Läuft täglich um 10:00 Uhr Berlin (2 Stunden nach dem Prospect Researcher).
 
 ```
 BASE_URL: https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
+AUTH_HEADER: x-agent-secret: [CRON_SECRET]
 ```
 
 ---
@@ -29,7 +29,7 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ### Phase 1: Prospect Researcher Entscheidungen laden
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
+curl -s -H 'x-agent-secret: [CRON_SECRET]' \
   'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=24&agent=prospect_researcher'
 ```
 

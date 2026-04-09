@@ -22,7 +22,7 @@ Läuft täglich um 12:00 Uhr Berlin (nach den Supervisors um 10:00).
 
 ```
 BASE_URL: https://praxisnova-sales-control.vercel.app
-AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
+AUTH_HEADER: x-agent-secret: [CRON_SECRET]
 ```
 
 ---
@@ -32,7 +32,7 @@ AUTH_HEADER: x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b
 ### Phase 1: Approved Partner laden
 
 ```bash
-curl -s -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
+curl -s -H 'x-agent-secret: [CRON_SECRET]' \
   'https://praxisnova-sales-control.vercel.app/api/agent?action=decisions&hours=48&agent=partner_supervisor'
 ```
 
@@ -94,7 +94,7 @@ Betreff: Gemeinsames Angebot für [Branche] — [Partner] × PraxisNova AI
 3. **E-Mail senden** via Brevo:
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
-  -H 'x-agent-secret: b3016b7b0229726679583118750244d40649247e639fca0b' \
+  -H 'x-agent-secret: [CRON_SECRET]' \
   'https://praxisnova-sales-control.vercel.app/api/agent/send-briefing' \
   -d '{"subject": "<Betreff>", "html": "<HTML-E-Mail>", "recipient": "<partner_email>"}'
 ```

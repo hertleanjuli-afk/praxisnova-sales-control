@@ -97,7 +97,7 @@ export default function ErrorsPage() {
       ) : (
         <div className="bg-[#111] rounded-lg border border-[#1E1E1E] overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-[#0A0A0A] text-[#aaa]">
+            <thead className="bg-[#0A0A0A] text-[#ccc]">
               <tr>
                 <th className="text-left p-3">Zeitpunkt</th>
                 <th className="text-left p-3">Typ</th>

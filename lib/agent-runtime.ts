@@ -296,6 +296,17 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ['lead_id', 'rank', 'reason_to_call', 'talking_points', 'conversation_guide'],
     },
   },
+  {
+    name: 'website_analytics',
+    description: 'Liest Website-Klick-Daten und Besucheranalysen. Zeigt welche Seiten besucht werden, welche Industrien interessiert sind, und welche Leads die Website besuchen.',
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        hours: { type: SchemaType.NUMBER, description: 'Zeitraum in Stunden (default 168 = 1 Woche)' },
+        limit: { type: SchemaType.NUMBER, description: 'Max. Anzahl Datensaetze (default 20)' },
+      },
+    },
+  },
 ];
 
 export const TOOLS: Tool[] = [{ functionDeclarations: FUNCTION_DECLARATIONS }];
@@ -683,6 +694,90 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
           ON CONFLICT DO NOTHING
         `;
         return { ok: true, lead_id: leadId, rank };
+      }
+
+      case 'website_analytics': {
+        const hours = (args.hours as number) || 168; // default 1 week
+        const limit = (args.limit as number) || 20;
+
+        // Fetch recent clicks
+        const recentClicks = await sql`
+          SELECT
+            wc.id, wc.visitor_id, wc.lead_id, wc.page, wc.button_id, wc.button_text,
+            wc.referrer, wc.clicked_at, wc.utm_source, wc.utm_medium, wc.utm_campaign, wc.utm_content,
+            l.email as lead_email,
+            CONCAT(l.first_name, ' ', l.last_name) as lead_name,
+            l.company as lead_company
+          FROM website_clicks wc
+          LEFT JOIN leads l ON l.id = wc.lead_id
+          WHERE wc.clicked_at >= NOW() - INTERVAL '1 hour' * ${hours}
+          ORDER BY wc.clicked_at DESC
+          LIMIT ${limit}
+        `;
+
+        // Count clicks by page
+        const clicksByPage = await sql`
+          SELECT page, COUNT(*) as count
+          FROM website_clicks
+          WHERE clicked_at >= NOW() - INTERVAL '1 hour' * ${hours}
+          GROUP BY page
+          ORDER BY count DESC
+          LIMIT ${limit}
+        `;
+
+        // Count unique visitors
+        const visitorStats = await sql`
+          SELECT
+            COUNT(DISTINCT visitor_id) as unique_visitors,
+            COUNT(DISTINCT CASE WHEN lead_id IS NOT NULL THEN visitor_id END) as identified_visitors,
+            COUNT(*) as total_clicks
+          FROM website_clicks
+          WHERE clicked_at >= NOW() - INTERVAL '1 hour' * ${hours}
+        `;
+
+        // Industry detection (based on page content)
+        const industryData = await sql`
+          SELECT
+            CASE
+              WHEN page ILIKE '%immobil%' OR page ILIKE '%real-estate%' OR page ILIKE '%property%' THEN 'Immobilien'
+              WHEN page ILIKE '%bau%' OR page ILIKE '%construction%' OR page ILIKE '%baustelle%' THEN 'Bau'
+              WHEN page ILIKE '%handwerk%' OR page ILIKE '%craft%' OR page ILIKE '%artisan%' THEN 'Handwerk'
+              ELSE 'Sonstige'
+            END as industry,
+            COUNT(*) as count
+          FROM website_clicks
+          WHERE clicked_at >= NOW() - INTERVAL '1 hour' * ${hours}
+          GROUP BY industry
+          ORDER BY count DESC
+        `;
+
+        // Hot leads (repeat visitors)
+        const hotLeads = await sql`
+          SELECT
+            wc.visitor_id,
+            COUNT(*) as visit_count,
+            MAX(wc.clicked_at) as last_visit,
+            l.id as lead_id,
+            CONCAT(l.first_name, ' ', l.last_name) as lead_name,
+            l.email as lead_email,
+            l.company as lead_company
+          FROM website_clicks wc
+          LEFT JOIN leads l ON l.id = wc.lead_id
+          WHERE wc.clicked_at >= NOW() - INTERVAL '1 hour' * ${hours}
+          GROUP BY wc.visitor_id, l.id, l.first_name, l.last_name, l.email, l.company
+          HAVING COUNT(*) > 1
+          ORDER BY visit_count DESC
+          LIMIT ${limit}
+        `;
+
+        return {
+          recent_clicks: recentClicks,
+          clicks_by_page: clicksByPage,
+          visitor_stats: visitorStats[0] || { unique_visitors: 0, identified_visitors: 0, total_clicks: 0 },
+          industry_breakdown: industryData,
+          hot_leads: hotLeads,
+          hours_analyzed: hours,
+        };
       }
 
       default:

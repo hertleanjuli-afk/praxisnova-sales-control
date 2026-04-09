@@ -28,7 +28,7 @@ const CHANGE_TYPE_COLORS: Record<string, string> = {
   Timing: 'bg-yellow-100 text-yellow-800',
   Sektor: 'bg-green-100 text-green-800',
   LinkedIn: 'bg-sky-100 text-sky-800',
-  Sonstiges: 'bg-[#1A1A1A] text-gray-800',
+  Sonstiges: 'bg-[#1A1A1A] text-[#ccc]',
 };
 
 export default function ChangeLogPage() {
@@ -273,7 +273,7 @@ export default function ChangeLogPage() {
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                           CHANGE_TYPE_COLORS[entry.change_type] ||
-                          'bg-[#1A1A1A] text-gray-800'
+                          'bg-[#1A1A1A] text-[#ccc]'
                         }`}
                       >
                         {entry.change_type}

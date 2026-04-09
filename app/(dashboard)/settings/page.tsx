@@ -168,7 +168,7 @@ export default function SettingsPage() {
         {process.env.NEXT_PUBLIC_CALENDLY_LINK ? (
           <a href={process.env.NEXT_PUBLIC_CALENDLY_LINK} target="_blank" rel="noopener noreferrer" className="text-sm text-[#2563EB] font-mono bg-[#0A0A0A] rounded-md px-3 py-2 border border-[#1E1E1E] block hover:underline">{process.env.NEXT_PUBLIC_CALENDLY_LINK}</a>
         ) : (
-          <p className="text-sm text-[#aaa] font-mono bg-[#0A0A0A] rounded-md px-3 py-2 border border-[#1E1E1E]">Nicht konfiguriert (CALENDLY_LINK in .env setzen)</p>
+          <p className="text-sm text-[#ccc] font-mono bg-[#0A0A0A] rounded-md px-3 py-2 border border-[#1E1E1E]">Nicht konfiguriert (CALENDLY_LINK in .env setzen)</p>
         )}
       </div>
 
@@ -180,7 +180,7 @@ export default function SettingsPage() {
             <p className="text-sm font-medium text-[#ccc]">TikTok / Ads Modul</p>
             <p className="text-xs text-[#666] mt-0.5">NEXT_PUBLIC_TIKTOK_MODULE_ENABLED in .env ändern</p>
           </div>
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${tiktokEnabled ? 'bg-green-100 text-green-800' : 'bg-[#1A1A1A] text-[#aaa]'}`}>
+          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${tiktokEnabled ? 'bg-green-100 text-green-800' : 'bg-[#1A1A1A] text-[#ccc]'}`}>
             {tiktokEnabled ? 'Aktiviert' : 'Deaktiviert'}
           </span>
         </div>

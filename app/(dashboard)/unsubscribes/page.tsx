@@ -212,9 +212,9 @@ export default function UnsubscribesPage() {
             <table className="w-full text-sm">
               <thead className="bg-[#0A0A0A]">
                 <tr>
-                  <th className="text-left p-2 font-medium text-[#aaa]">Domain</th>
-                  <th className="text-left p-2 font-medium text-[#aaa]">Firmen</th>
-                  <th className="text-right p-2 font-medium text-[#aaa]">Anzahl</th>
+                  <th className="text-left p-2 font-medium text-[#ccc]">Domain</th>
+                  <th className="text-left p-2 font-medium text-[#ccc]">Firmen</th>
+                  <th className="text-right p-2 font-medium text-[#ccc]">Anzahl</th>
                 </tr>
               </thead>
               <tbody>
@@ -255,13 +255,13 @@ export default function UnsubscribesPage() {
           <table className="w-full text-sm">
             <thead className="bg-[#0A0A0A]">
               <tr>
-                <th className="text-left p-3 font-medium text-[#aaa]">Name</th>
-                <th className="text-left p-3 font-medium text-[#aaa]">E-Mail</th>
-                <th className="text-left p-3 font-medium text-[#aaa]">Firma</th>
-                <th className="text-left p-3 font-medium text-[#aaa]">Sequenz</th>
-                <th className="text-center p-3 font-medium text-[#aaa]">Schritt</th>
-                <th className="text-left p-3 font-medium text-[#aaa]">Abgemeldet</th>
-                <th className="text-center p-3 font-medium text-[#aaa]">Status</th>
+                <th className="text-left p-3 font-medium text-[#ccc]">Name</th>
+                <th className="text-left p-3 font-medium text-[#ccc]">E-Mail</th>
+                <th className="text-left p-3 font-medium text-[#ccc]">Firma</th>
+                <th className="text-left p-3 font-medium text-[#ccc]">Sequenz</th>
+                <th className="text-center p-3 font-medium text-[#ccc]">Schritt</th>
+                <th className="text-left p-3 font-medium text-[#ccc]">Abgemeldet</th>
+                <th className="text-center p-3 font-medium text-[#ccc]">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -274,14 +274,14 @@ export default function UnsubscribesPage() {
               ) : (
                 filteredLeads.map((lead) => (
                   <tr key={lead.id} className="border-t border-[#1E1E1E] hover:bg-[#0A0A0A]">
-                    <td className="p-3 font-medium text-gray-900">
+                    <td className="p-3 font-medium text-[#F0F0F5]">
                       {lead.first_name} {lead.last_name}
                       {lead.title && (
                         <span className="block text-xs text-[#666]">{lead.title}</span>
                       )}
                     </td>
                     <td className="p-3 text-[#888] text-xs font-mono">{lead.email}</td>
-                    <td className="p-3 text-[#aaa]">{lead.company || '–'}</td>
+                    <td className="p-3 text-[#ccc]">{lead.company || '–'}</td>
                     <td className="p-3">
                       <span className="capitalize text-[#888]">{lead.sequence_type || '–'}</span>
                     </td>

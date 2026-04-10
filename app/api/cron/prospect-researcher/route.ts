@@ -5,7 +5,7 @@
  * Qualifies new leads (pipeline_stage = "Neu") with a 4-dimension scoring rubric.
  *
  * Schedule: 06:30 and 11:30 daily (via vercel.json) - 2x per day for bigger lead pool.
- * maxIterations: 50 — enough for 35 leads with web_fetch + update + decision per lead.
+ * maxIterations: 80 — bumped from 50 to prevent timeouts when web_fetch is slow or retries occur. Math: 35 leads × ~5-8 tool calls + overhead.
  * Target: 60-70 qualified leads per day moving to "In Outreach" to feed 3x outreach runs.
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
 
   const runId = crypto.randomUUID();
   const startTime = Date.now();
-  console.log(`[prospect-researcher] Starte run ${runId} (max 50 Iterationen, 300s Budget)...`);
+  console.log(`[prospect-researcher] Starte run ${runId} (max 80 Iterationen, 300s Budget)...`);
 
   // Write started log BEFORE calling Gemini so the run is always visible in the dashboard
   await writeStartLog(runId, 'prospect_researcher');
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     const result = await runAgent(
       getSystemPrompt(),
       'Starte jetzt den vollstaendigen Prospect-Researcher-Workflow. Recherchiere und bewerte alle neuen Leads. Ziel: 30+ Leads qualifizieren pro Lauf.',
-      50, // maxIterations — increased for 35 leads
+      80, // maxIterations — bumped from 50 to prevent timeouts on slow web fetches
       'prospect-researcher',
     );
 

@@ -1,10 +1,13 @@
 /**
- * Inbound Response Agent — Standalone Cron Route
+ * Inbound Response Agent - Standalone Cron Route
  *
- * Responds to new website form submissions within 15 minutes.
- * Scores click-path intent, researches company, sends personalized response.
+ * Responds to new website form submissions. Scores click-path intent,
+ * researches company, sends personalized response.
  *
- * Schedule: 10:00, 14:00, 17:00 Berlin time (3x daily on Hobby plan)
+ * Schedule: 08:00, 11:00, 14:00, 17:00 Berlin time (4x daily).
+ * Time window: 6 Stunden (360 min) - muss groesser sein als der Abstand
+ * zwischen zwei Cron-Runs, sonst werden Leads uebersprungen.
+ *
  * maxIterations: 15
  */
 
@@ -82,7 +85,7 @@ export async function GET(request: NextRequest) {
   try {
     const result = await runAgent(
       getSystemPrompt(),
-      'Pruefe auf neue Inbound-Leads der letzten 30 Minuten und antworte personalisiert.',
+      'Pruefe auf neue Inbound-Leads der letzten 6 Stunden (read_inbound_leads mit minutes: 360) und antworte personalisiert. WICHTIG: 6 Stunden, nicht 30 Minuten, weil der Cron nur alle 3 Stunden laeuft und wir sonst Leads verpassen.',
       15,
       'inbound-response',
     );

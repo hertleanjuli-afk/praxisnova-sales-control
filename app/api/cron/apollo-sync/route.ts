@@ -21,8 +21,8 @@ import { isAuthorized, sendErrorNotification } from '@/lib/agent-runtime';
 
 export const maxDuration = 60;
 
-// Apollo People Search endpoint
-const APOLLO_API_URL = 'https://api.apollo.io/v1/mixed_people/search';
+// Apollo People Search endpoint (new /api/v1/ prefix - old /v1/ is deprecated)
+const APOLLO_API_URL = 'https://api.apollo.io/api/v1/mixed_people/search';
 
 // How many contacts to request from Apollo per run
 const PER_PAGE = 100;

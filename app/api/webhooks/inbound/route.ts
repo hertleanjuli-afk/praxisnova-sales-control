@@ -4,6 +4,43 @@ import { createContact, searchContactByEmail } from '@/lib/hubspot';
 import { sendTransactionalEmail, generateConfirmLink } from '@/lib/brevo';
 import { inboundSequence } from '@/lib/sequences/inbound';
 import { formatSalutation } from '@/lib/gender';
+import { sendErrorNotification } from '@/lib/agent-runtime';
+
+// Sendet Angie eine sofortige Benachrichtigung wenn ein neuer Inbound-Lead ankommt
+async function sendInboundAlert(
+  email: string,
+  firstName: string,
+  lastName: string,
+  visitorId: string | null,
+): Promise<void> {
+  if (!process.env.BREVO_API_KEY) return;
+  try {
+    await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: 'PraxisNova AI System', email: 'hertle.anjuli@praxisnovaai.com' },
+        to: [{ email: 'hertle.anjuli@praxisnovaai.com', name: 'Anjuli Hertle' }],
+        subject: `[NEUER INBOUND LEAD] ${firstName} ${lastName}`.trim(),
+        htmlContent: `
+          <h2>Neuer Inbound-Lead von der Website</h2>
+          <p><strong>Name:</strong> ${firstName} ${lastName}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Visitor ID:</strong> ${visitorId || 'keine'}</p>
+          <p><strong>Zeit:</strong> ${new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}</p>
+          <hr>
+          <p>Double-Opt-In Email wurde automatisch gesendet. Der Inbound-Response Agent wird in den naechsten 3 Stunden antworten.</p>
+          <p><a href="https://praxisnova-sales-control.vercel.app/dashboard/leads">Im Dashboard ansehen</a></p>
+        `,
+      }),
+    });
+  } catch (e) {
+    console.error('[inbound-webhook] Inbound-Alert konnte nicht gesendet werden:', e);
+  }
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -82,6 +119,12 @@ export async function POST(request: NextRequest) {
       VALUES (${result[0].id}, 'inbound', 0, 'sent')
     `;
 
+    // SOFORT-BENACHRICHTIGUNG an Angie dass ein neuer Inbound-Lead angekommen ist
+    // Nicht awaiten damit der Webhook-Response nicht blockiert wird
+    sendInboundAlert(email, firstName, lastName, visitorId || null).catch(e =>
+      console.error('[inbound-webhook] sendInboundAlert Fehler:', e),
+    );
+
     // Sync to HubSpot
     try {
       const hubspotContact = await searchContactByEmail(email);
@@ -100,11 +143,23 @@ export async function POST(request: NextRequest) {
       }
     } catch (hubspotError) {
       console.error('HubSpot inbound sync error:', hubspotError);
+      // Nicht-kritischer Fehler, aber an Angie melden damit sie es weiss
+      await sendErrorNotification(
+        'Inbound Webhook (HubSpot Sync)',
+        `HubSpot sync fehlgeschlagen fuer ${email}: ${String(hubspotError)}`,
+        0,
+      ).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, message: 'Bestätigungs-E-Mail gesendet' });
   } catch (error) {
     console.error('Inbound webhook error:', error);
+    // KRITISCH: Angie sofort benachrichtigen damit keine Inbound-Leads verloren gehen
+    await sendErrorNotification(
+      'Inbound Webhook',
+      `Inbound-Lead konnte nicht verarbeitet werden (email: ${email}): ${String(error)}`,
+      0,
+    ).catch(() => {});
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

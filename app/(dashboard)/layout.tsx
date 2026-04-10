@@ -14,6 +14,7 @@ const navGroups: NavGroup[] = [
     title: 'Übersicht',
     items: [
       { label: 'Dashboard', href: '/', emoji: '📊' },
+      { label: 'Wochenbericht', href: '/wochenbericht', emoji: '📅' },
       { label: 'Agenten', href: '/agents', emoji: '🤖' },
     ],
   },
@@ -55,6 +56,7 @@ const navGroups: NavGroup[] = [
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
+  '/wochenbericht': 'Wochenbericht',
   '/agents': 'Agenten',
   '/leads': 'Lead-Suche',
   '/sequences': 'Sequenzen',

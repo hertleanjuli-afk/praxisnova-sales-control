@@ -3,6 +3,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Check, Edit2, Loader, AlertCircle } from 'lucide-react';
 
+// Draft type (AI-generated LinkedIn post drafts from news-agent + linkedin-post-generator crons)
+type Draft = {
+  id: string;
+  draft_date: string;
+  post_number: number;
+  format: string;
+  sector: string;
+  hook: string;
+  content: string;
+  cta: string;
+  topic: string;
+  image_prompt: string | null;
+  image_url: string | null;
+  status: 'draft' | 'approved' | 'posted' | 'discarded';
+  posted_at: string | null;
+  created_at: string;
+};
+
 // Types
 interface Post {
   id: number;
@@ -103,7 +121,71 @@ export default function LinkedInPostingTracker() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Drafts state (KI-generated post drafts, shown in "Entwuerfe" tab)
+  const [activeTab, setActiveTab] = useState<'entwuerfe' | 'heute'>('heute');
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(true);
+  const [editingDraft, setEditingDraft] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{ hook: string; content: string; cta: string }>({ hook: '', content: '', cta: '' });
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const postTypes = ['Text', 'Carousel', 'Video', 'Bild', 'Artikel', 'Poll'];
+
+  // Fetch drafts from the new API
+  const fetchDrafts = useCallback(async () => {
+    setDraftsLoading(true);
+    try {
+      const res = await fetch('/api/linkedin-posting/drafts?range=week');
+      const data = await res.json();
+      setDrafts(data.drafts || []);
+    } catch (err) {
+      console.error('Failed to load drafts', err);
+    } finally {
+      setDraftsLoading(false);
+    }
+  }, []);
+
+  async function updateDraftStatus(id: string, status: string) {
+    try {
+      await fetch('/api/linkedin-posting/drafts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+      await fetchDrafts();
+    } catch (err) {
+      console.error('Failed to update draft', err);
+    }
+  }
+
+  async function saveDraftEdit(id: string) {
+    setSavingDraft(true);
+    try {
+      await fetch('/api/linkedin-posting/drafts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...editValues }),
+      });
+      setEditingDraft(null);
+      await fetchDrafts();
+    } catch (err) {
+      console.error('Failed to save draft edit', err);
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
+  function copyDraftToClipboard(text: string, id: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  }
+
+  function formatFullPost(draft: Draft): string {
+    return `${draft.hook}\n\n${draft.content}\n\n${draft.cta}`;
+  }
 
   // Fetch data
   const fetchData = useCallback(async (monthStr: string) => {
@@ -127,6 +209,10 @@ export default function LinkedInPostingTracker() {
   useEffect(() => {
     fetchData(selectedMonth);
   }, [selectedMonth, fetchData]);
+
+  useEffect(() => {
+    fetchDrafts();
+  }, [fetchDrafts]);
 
   // Submit post
   const submitPost = async (postNumber: 1 | 2) => {
@@ -274,6 +360,36 @@ export default function LinkedInPostingTracker() {
           </div>
         )}
 
+        {/* Tab bar */}
+        {(() => {
+          const todayIso = new Date().toISOString().split('T')[0];
+          const newDraftCount = drafts.filter(d => d.status === 'draft' && d.draft_date === todayIso).length;
+          return (
+            <div className="flex gap-2 mb-6">
+              {(['heute', 'entwuerfe'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                    activeTab === tab
+                      ? 'bg-[#E8472A] text-white'
+                      : 'bg-[#2a2a2a] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {tab === 'heute' ? 'Heute' : 'Entwuerfe'}
+                  {tab === 'entwuerfe' && newDraftCount > 0 && (
+                    <span className="ml-2 bg-[#E8472A] text-white rounded-full px-2 py-0.5 text-xs font-bold">
+                      {newDraftCount}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
+
+        {activeTab === 'heute' && (
+        <>
         {/* KPI Cards */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           <div className={`bg-[#1a1a1a] border border-[#1E1E1E] rounded-lg p-4 text-center ${today.complete ? 'border-green-600' : today.post1?.posted ? 'border-yellow-600' : 'border-red-600'}`}>
@@ -304,6 +420,58 @@ export default function LinkedInPostingTracker() {
           <h2 className="text-2xl font-bold mb-4">
             Heute - {formatDateGerman(new Date())}
           </h2>
+
+          {/* KI-Entwurf Vorschau - shown when today's drafts exist */}
+          {(() => {
+            const todayIso = new Date().toISOString().split('T')[0];
+            const todayDrafts = drafts.filter(d => d.draft_date === todayIso);
+            if (todayDrafts.length === 0) return null;
+
+            return (
+              <div className="grid grid-cols-2 gap-6 mb-6">
+                {[0, 1].map(slot => {
+                  const draft = todayDrafts[slot];
+                  if (!draft) {
+                    return (
+                      <div
+                        key={slot}
+                        style={{ background: '#1a1a1a', borderRadius: 12, padding: 20, border: '1px dashed #333', textAlign: 'center' }}
+                      >
+                        <div style={{ color: '#555', fontSize: 13 }}>Post {slot + 1} - noch kein Entwurf</div>
+                        <div style={{ color: '#444', fontSize: 12, marginTop: 4 }}>Generiert um 08:30 Uhr (Mo-Fr)</div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={slot}
+                      style={{ background: '#1a1a1a', borderRadius: 12, padding: 20, border: '1px solid #333' }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <span style={{ color: '#E8472A', fontWeight: 600, fontSize: 14 }}>
+                          Post {draft.post_number} - KI-Entwurf
+                        </span>
+                        <span style={{ color: '#888', fontSize: 12 }}>{draft.format.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div style={{ color: '#F0F0F5', fontSize: 13, lineHeight: 1.5, marginBottom: 8, fontWeight: 600 }}>
+                        {draft.hook}
+                      </div>
+                      <div style={{ color: '#ddd', fontSize: 12, lineHeight: 1.6 }}>
+                        {draft.content.slice(0, 200)}...
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('entwuerfe')}
+                        style={{ marginTop: 12, padding: '6px 14px', background: '#E8472A', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+                      >
+                        Vollstaendigen Entwurf anzeigen
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
           <div className="grid grid-cols-2 gap-6">
             {/* Post 1 Card */}
             <div className={`rounded-lg p-6 border ${today.post1?.posted ? 'bg-green-900/10 border-green-600' : 'bg-[#1a1a1a] border-[#1E1E1E]'}`}>
@@ -653,6 +821,221 @@ export default function LinkedInPostingTracker() {
             </div>
           )}
         </div>
+        </>
+        )}
+
+        {activeTab === 'entwuerfe' && (
+          <div>
+            {/* Header row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ color: '#F0F0F5', fontSize: 18, fontWeight: 600, margin: 0 }}>
+                KI-Entwuerfe
+              </h2>
+              <span style={{ color: '#aaa', fontSize: 13 }}>
+                Letzte 7 Tage - {drafts.length} Entwuerfe
+              </span>
+            </div>
+
+            {draftsLoading ? (
+              <div style={{ color: '#aaa', textAlign: 'center', padding: 40 }}>Lade Entwuerfe...</div>
+            ) : drafts.length === 0 ? (
+              <div style={{ background: '#1a1a1a', borderRadius: 12, padding: 40, textAlign: 'center' }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>-</div>
+                <div style={{ color: '#aaa', fontSize: 14 }}>
+                  Noch keine Entwuerfe. Der KI-Agent generiert jeden Morgen (Mo-Fr) um 08:30 Uhr 2 neue Entwuerfe.
+                </div>
+              </div>
+            ) : (
+              (() => {
+                const byDate: Record<string, Draft[]> = {};
+                drafts.forEach(d => {
+                  if (!byDate[d.draft_date]) byDate[d.draft_date] = [];
+                  byDate[d.draft_date].push(d);
+                });
+                const todayIso = new Date().toISOString().split('T')[0];
+
+                return Object.entries(byDate).sort(([a], [b]) => b.localeCompare(a)).map(([date, dateDrafts]) => (
+                  <div key={date} style={{ marginBottom: 32 }}>
+                    {/* Date header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                      <div style={{ height: 1, background: '#333', flex: 1 }} />
+                      <span style={{ color: date === todayIso ? '#E8472A' : '#888', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {date === todayIso ? 'Heute' : new Date(date).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' })}
+                      </span>
+                      <div style={{ height: 1, background: '#333', flex: 1 }} />
+                    </div>
+
+                    {/* Draft cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      {dateDrafts.map(draft => (
+                        <div key={draft.id} style={{
+                          background: '#1a1a1a',
+                          borderRadius: 12,
+                          padding: 20,
+                          border: `1px solid ${draft.status === 'approved' ? '#22c55e33' : draft.status === 'posted' ? '#3b82f633' : draft.status === 'discarded' ? '#ffffff11' : '#333'}`,
+                          opacity: draft.status === 'discarded' ? 0.5 : 1,
+                        }}>
+                          {/* Card header */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <span style={{ background: '#2a2a2a', color: '#E8472A', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
+                                Post {draft.post_number}
+                              </span>
+                              <span style={{ background: '#2a2a2a', color: '#aaa', padding: '2px 8px', borderRadius: 6, fontSize: 11 }}>
+                                {draft.format.replace(/_/g, ' ')}
+                              </span>
+                              <span style={{ background: '#2a2a2a', color: '#aaa', padding: '2px 8px', borderRadius: 6, fontSize: 11 }}>
+                                {draft.sector}
+                              </span>
+                            </div>
+                            <span style={{
+                              padding: '2px 10px',
+                              borderRadius: 20,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              background: draft.status === 'approved' ? '#22c55e22' : draft.status === 'posted' ? '#3b82f622' : draft.status === 'discarded' ? '#ffffff11' : '#E8472A22',
+                              color: draft.status === 'approved' ? '#22c55e' : draft.status === 'posted' ? '#3b82f6' : draft.status === 'discarded' ? '#666' : '#E8472A',
+                            }}>
+                              {draft.status === 'approved' ? 'Genehmigt' : draft.status === 'posted' ? 'Gepostet' : draft.status === 'discarded' ? 'Verworfen' : 'Entwurf'}
+                            </span>
+                          </div>
+
+                          {/* Content - edit mode or view mode */}
+                          {editingDraft === draft.id ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                              <div>
+                                <label style={{ color: '#888', fontSize: 11, marginBottom: 4, display: 'block' }}>Hook</label>
+                                <textarea
+                                  value={editValues.hook}
+                                  onChange={e => setEditValues(v => ({ ...v, hook: e.target.value }))}
+                                  style={{ width: '100%', background: '#2a2a2a', color: '#F0F0F5', border: '1px solid #444', borderRadius: 6, padding: 8, fontSize: 13, resize: 'vertical', minHeight: 60, boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ color: '#888', fontSize: 11, marginBottom: 4, display: 'block' }}>Inhalt</label>
+                                <textarea
+                                  value={editValues.content}
+                                  onChange={e => setEditValues(v => ({ ...v, content: e.target.value }))}
+                                  style={{ width: '100%', background: '#2a2a2a', color: '#F0F0F5', border: '1px solid #444', borderRadius: 6, padding: 8, fontSize: 13, resize: 'vertical', minHeight: 100, boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ color: '#888', fontSize: 11, marginBottom: 4, display: 'block' }}>CTA</label>
+                                <textarea
+                                  value={editValues.cta}
+                                  onChange={e => setEditValues(v => ({ ...v, cta: e.target.value }))}
+                                  style={{ width: '100%', background: '#2a2a2a', color: '#F0F0F5', border: '1px solid #444', borderRadius: 6, padding: 8, fontSize: 13, resize: 'vertical', minHeight: 50, boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                  onClick={() => saveDraftEdit(draft.id)}
+                                  disabled={savingDraft}
+                                  style={{ flex: 1, padding: '8px', background: '#E8472A', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
+                                >
+                                  {savingDraft ? 'Speichert...' : 'Speichern'}
+                                </button>
+                                <button
+                                  onClick={() => setEditingDraft(null)}
+                                  style={{ flex: 1, padding: '8px', background: '#2a2a2a', color: '#aaa', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
+                                >
+                                  Abbrechen
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <div style={{ marginBottom: 10 }}>
+                                <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>Hook</div>
+                                <div style={{ color: '#F0F0F5', fontSize: 13, lineHeight: 1.5, fontWeight: 600 }}>{draft.hook}</div>
+                              </div>
+                              <div style={{ marginBottom: 10 }}>
+                                <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>Inhalt</div>
+                                <div style={{ color: '#ddd', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{draft.content}</div>
+                              </div>
+                              <div style={{ marginBottom: 16 }}>
+                                <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>CTA</div>
+                                <div style={{ color: '#aaa', fontSize: 13, fontStyle: 'italic' }}>{draft.cta}</div>
+                              </div>
+
+                              {draft.image_prompt && (
+                                <div style={{ background: '#2a2a2a', borderRadius: 6, padding: 10, marginBottom: 12 }}>
+                                  <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>Bild-Prompt</div>
+                                  <div style={{ color: '#aaa', fontSize: 12, fontStyle: 'italic' }}>{draft.image_prompt}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Action buttons */}
+                          {editingDraft !== draft.id && (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => copyDraftToClipboard(formatFullPost(draft), draft.id)}
+                                style={{
+                                  padding: '6px 12px',
+                                  background: copiedId === draft.id ? '#22c55e22' : '#2a2a2a',
+                                  color: copiedId === draft.id ? '#22c55e' : '#aaa',
+                                  border: `1px solid ${copiedId === draft.id ? '#22c55e44' : '#444'}`,
+                                  borderRadius: 6,
+                                  cursor: 'pointer',
+                                  fontSize: 12,
+                                }}
+                              >
+                                {copiedId === draft.id ? 'Kopiert!' : 'Post kopieren'}
+                              </button>
+
+                              {draft.status !== 'posted' && draft.status !== 'discarded' && (
+                                <button
+                                  onClick={() => {
+                                    setEditingDraft(draft.id);
+                                    setEditValues({ hook: draft.hook, content: draft.content, cta: draft.cta });
+                                  }}
+                                  style={{ padding: '6px 12px', background: '#2a2a2a', color: '#aaa', border: '1px solid #444', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+                                >
+                                  Bearbeiten
+                                </button>
+                              )}
+
+                              {draft.status === 'draft' && (
+                                <button
+                                  onClick={() => updateDraftStatus(draft.id, 'approved')}
+                                  style={{ padding: '6px 12px', background: '#22c55e22', color: '#22c55e', border: '1px solid #22c55e44', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+                                >
+                                  Genehmigen
+                                </button>
+                              )}
+
+                              {(draft.status === 'draft' || draft.status === 'approved') && (
+                                <button
+                                  onClick={() => updateDraftStatus(draft.id, 'posted')}
+                                  style={{ padding: '6px 12px', background: '#3b82f622', color: '#3b82f6', border: '1px solid #3b82f644', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+                                >
+                                  Als gepostet markieren
+                                </button>
+                              )}
+
+                              {draft.status === 'draft' && (
+                                <button
+                                  onClick={() => {
+                                    if (confirm('Entwurf verwerfen?')) updateDraftStatus(draft.id, 'discarded');
+                                  }}
+                                  style={{ padding: '6px 12px', background: '#ffffff08', color: '#666', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+                                >
+                                  Verwerfen
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()
+            )}
+          </div>
+        )}
 
         {/* Edit Engagement Modal */}
         {editingPost && (

@@ -5,7 +5,7 @@ import sql from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { visitorId, page, buttonId, buttonText, referrer, timestamp, secret, utm_source, utm_medium, utm_campaign, utm_content } = body;
+  const { visitorId, page, buttonId, buttonText, referrer, timestamp, secret, utm_source, utm_medium, utm_campaign, utm_content, event_type, section, device_type } = body;
 
   if (secret !== process.env.INBOUND_WEBHOOK_SECRET) {
     return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
 
     // Insert the click
     const inserted = await sql`
-      INSERT INTO website_clicks (visitor_id, page, button_id, button_text, referrer, clicked_at, utm_source, utm_medium, utm_campaign, utm_content)
-      VALUES (${visitorId}, ${page || '/'}, ${buttonId || 'unknown'}, ${buttonText || null}, ${referrer || null}, ${clickedAt}, ${utm_source || null}, ${utm_medium || null}, ${utm_campaign || null}, ${utm_content || null})
+      INSERT INTO website_clicks (visitor_id, page, button_id, button_text, referrer, clicked_at, utm_source, utm_medium, utm_campaign, utm_content, event_type, section, device_type)
+      VALUES (${visitorId}, ${page || '/'}, ${buttonId || 'unknown'}, ${buttonText || null}, ${referrer || null}, ${clickedAt}, ${utm_source || null}, ${utm_medium || null}, ${utm_campaign || null}, ${utm_content || null}, ${event_type || 'pageview'}, ${section || null}, ${device_type || null})
       RETURNING id
     `;
 
@@ -62,6 +62,7 @@ export async function GET() {
       SELECT
         wc.id, wc.visitor_id, wc.lead_id, wc.page, wc.button_id, wc.button_text,
         wc.referrer, wc.clicked_at, wc.utm_source, wc.utm_medium, wc.utm_campaign, wc.utm_content,
+        wc.event_type, wc.section, wc.device_type,
         l.email as lead_email,
         CONCAT(l.first_name, ' ', l.last_name) as lead_name,
         l.company as lead_company

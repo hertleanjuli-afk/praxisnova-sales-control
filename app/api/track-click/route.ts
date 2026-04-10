@@ -3,7 +3,7 @@ import sql from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { button, page, visitor_id, email, timestamp, utm_source, utm_medium, utm_campaign, utm_content } = body;
+  const { button, page, visitor_id, email, timestamp, utm_source, utm_medium, utm_campaign, utm_content, event_type, section, device_type } = body;
 
   if (!visitor_id) {
     return NextResponse.json({ error: 'visitor_id required' }, { status: 400 });
@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
     }
 
     await sql`
-      INSERT INTO website_clicks (visitor_id, lead_id, page, button_id, button_text, clicked_at, utm_source, utm_medium, utm_campaign, utm_content)
-      VALUES (${visitor_id}, ${leadId}, ${page || '/'}, ${button || 'pageview'}, ${button || null}, ${clickedAt}, ${utm_source || null}, ${utm_medium || null}, ${utm_campaign || null}, ${utm_content || null})
+      INSERT INTO website_clicks (visitor_id, lead_id, page, button_id, button_text, clicked_at, utm_source, utm_medium, utm_campaign, utm_content, event_type, section, device_type)
+      VALUES (${visitor_id}, ${leadId}, ${page || '/'}, ${button || 'pageview'}, ${button || null}, ${clickedAt}, ${utm_source || null}, ${utm_medium || null}, ${utm_campaign || null}, ${utm_content || null}, ${event_type || 'pageview'}, ${section || null}, ${device_type || null})
     `;
 
     const res = NextResponse.json({ ok: true });

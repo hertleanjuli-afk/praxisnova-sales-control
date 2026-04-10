@@ -1,29 +1,39 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const CORAL = '#E8472A';
-const TOOLTIP_STYLE = { background: '#1a1a1a', border: '1px solid #333', borderRadius: 8, color: '#fff' };
-const AXIS_TICK = { fill: '#888', fontSize: 12 };
 
 interface ClickEntry {
-  id?: number; button_id: string; button_text?: string | null; page: string;
-  referrer?: string | null; visitor_id: string; lead_id?: number;
-  lead_name?: string; lead_email?: string; lead_company?: string;
-  utm_source?: string | null; utm_medium?: string | null;
-  utm_campaign?: string | null; utm_content?: string | null;
-  created_at: string; clicked_at?: string;
+  id?: number;
+  button_id: string;
+  button_text?: string | null;
+  page: string;
+  referrer?: string | null;
+  visitor_id: string;
+  lead_id?: number;
+  lead_name?: string;
+  lead_email?: string;
+  lead_company?: string;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+  created_at: string;
+  clicked_at?: string;
 }
 
-interface Stats { total_clicks: number; unique_visitors: number; identified_visitors: number }
+interface Stats {
+  total_clicks: number;
+  unique_visitors: number;
+  identified_visitors: number;
+}
 
-// Industry detection helper
 function detectIndustry(page: string, referrer?: string): string {
   const combined = (page + ' ' + (referrer || '')).toLowerCase();
-  if (combined.includes('immobil') || combined.includes('real-estate') || combined.includes('property')) return 'Immobilien';
-  if (combined.includes('bau') || combined.includes('construction') || combined.includes('baustelle')) return 'Bau';
-  if (combined.includes('handwerk') || combined.includes('craft') || combined.includes('artisan')) return 'Handwerk';
+  if (combined.includes('immobil') || combined.includes('real-estate')) return 'Immobilien';
+  if (combined.includes('bau') || combined.includes('construction')) return 'Bau';
+  if (combined.includes('handwerk') || combined.includes('craft')) return 'Handwerk';
   return 'Sonstige';
 }
 
@@ -41,12 +51,10 @@ function timeAgo(dateStr: string): string {
 
 export default function WebsiteClicksPage() {
   const [clicks, setClicks] = useState<ClickEntry[]>([]);
-  const [, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'feed' | 'analyse'>('feed');
+  const [tab, setTab] = useState<'uebersicht' | 'branchen' | 'conversions' | 'feed'>('uebersicht');
   const [period, setPeriod] = useState('7');
-  const [pageFilter, setPageFilter] = useState('all');
-  const [identifiedOnly, setIdentifiedOnly] = useState(false);
+  const [section, setSection] = useState('alle');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -55,293 +63,524 @@ export default function WebsiteClicksPage() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setClicks(data.clicks || []);
-      setStats(data.stats || null);
-    } catch { setClicks([]); }
+    } catch {
+      setClicks([]);
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { const i = setInterval(fetchData, 60000); return () => clearInterval(i); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+  useEffect(() => {
+    const i = setInterval(fetchData, 60000);
+    return () => clearInterval(i);
+  }, [fetchData]);
 
-  // Filter clicks
   const filtered = useMemo(() => {
     let result = clicks;
     const days = parseInt(period);
     const since = Date.now() - days * 86400000;
     result = result.filter(c => new Date(c.clicked_at || c.created_at).getTime() >= since);
-    if (pageFilter !== 'all') result = result.filter(c => c.page === pageFilter);
-    if (identifiedOnly) result = result.filter(c => c.lead_id);
+    if (section !== 'alle') {
+      result = result.filter(c => detectIndustry(c.page, c.referrer || undefined) === section);
+    }
     return result;
-  }, [clicks, period, pageFilter, identifiedOnly]);
+  }, [clicks, period, section]);
 
-  // Unique pages for filter
-  const uniquePages = useMemo(() => Array.from(new Set(clicks.map(c => c.page))).sort(), [clicks]);
-
-  // Top page for KPI
-  const topPage = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const c of filtered) { counts[c.page] = (counts[c.page] || 0) + 1; }
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    return sorted[0]?.[0] || '–';
-  }, [filtered]);
-
-  // Industry Overview
-  const industryOverview = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const c of filtered) {
-      const industry = detectIndustry(c.page, c.referrer || undefined);
-      counts[industry] = (counts[industry] || 0) + 1;
-    }
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, count]) => ({ name, count }));
-  }, [filtered]);
-
-  // Hot Leads (repeat visitors)
-  const hotLeads = useMemo(() => {
-    const visitorCounts: Record<string, ClickEntry[]> = {};
-    for (const c of filtered) {
-      if (!visitorCounts[c.visitor_id]) visitorCounts[c.visitor_id] = [];
-      visitorCounts[c.visitor_id].push(c);
-    }
-    return Object.entries(visitorCounts)
-      .filter(([_, clicks]) => clicks.length > 1)
-      .map(([vid, clicks]) => {
-        const first = clicks[0];
-        return {
-          visitor_id: vid,
-          visit_count: clicks.length,
-          name: first.lead_name || first.lead_email || vid.slice(0, 12) + '...',
-          company: first.lead_company,
-          is_identified: !!first.lead_id,
-          last_visit: new Date(Math.max(...clicks.map(c => new Date(c.clicked_at || c.created_at).getTime()))).toISOString(),
-        };
-      })
-      .sort((a, b) => b.visit_count - a.visit_count)
-      .slice(0, 8);
-  }, [filtered]);
-
-  // Product/Service Interest (pages that look like product/feature pages)
-  const productInterest = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const c of filtered) {
-      const page = c.page.toLowerCase();
-      // Try to extract meaningful product categories
-      if (page.includes('/features') || page.includes('/feature')) {
-        counts['Features'] = (counts['Features'] || 0) + 1;
-      } else if (page.includes('/pricing') || page.includes('/preise')) {
-        counts['Pricing'] = (counts['Pricing'] || 0) + 1;
-      } else if (page.includes('/demo') || page.includes('/trial')) {
-        counts['Demo/Trial'] = (counts['Demo/Trial'] || 0) + 1;
-      } else if (page.includes('/integration')) {
-        counts['Integration'] = (counts['Integration'] || 0) + 1;
-      } else if (page.includes('/blog') || page.includes('/news')) {
-        counts['Content/Blog'] = (counts['Content/Blog'] || 0) + 1;
-      } else if (page === '/' || page === '') {
-        counts['Homepage'] = (counts['Homepage'] || 0) + 1;
-      } else {
-        counts['Other Pages'] = (counts['Other Pages'] || 0) + 1;
-      }
-    }
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, count]) => ({ name, count }));
-  }, [filtered]);
-
-  // Charts data
-  const topButtons = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const c of filtered) {
-      if (c.button_id === 'pageview') continue;
-      const label = c.button_text || c.button_id;
-      counts[label] = (counts[label] || 0) + 1;
-    }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count }));
-  }, [filtered]);
-
-  const clicksByPage = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const c of filtered) { counts[c.page] = (counts[c.page] || 0) + 1; }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([page, count]) => ({ page, count }));
-  }, [filtered]);
-
-  const clicksByDay = useMemo(() => {
+  const byDayData = useMemo(() => {
     const days: Record<string, number> = {};
     for (const c of filtered) {
       const day = new Date(c.clicked_at || c.created_at).toISOString().slice(0, 10);
       days[day] = (days[day] || 0) + 1;
     }
-    return Object.entries(days).sort().map(([day, count]) => ({ day, count }));
+    return Object.entries(days)
+      .sort()
+      .slice(-14)
+      .map(([day, count]) => ({ day, count }));
   }, [filtered]);
 
-  const utmSources = useMemo(() => {
+  const trafficSources = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const c of filtered) {
-      const src = c.utm_source || 'Direkt';
+      const src = c.utm_source || c.referrer || 'Direkt';
       counts[src] = (counts[src] || 0) + 1;
     }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([source, count]) => ({ source, count }));
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([source, count]) => ({ source, count }));
   }, [filtered]);
+
+  const industryBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of filtered) {
+      const ind = detectIndustry(c.page, c.referrer || undefined);
+      counts[ind] = (counts[ind] || 0) + 1;
+    }
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count, pct: Math.round((count / total) * 100) }));
+  }, [filtered]);
+
+  const topPages = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of filtered) {
+      counts[c.page] = (counts[c.page] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([page, count]) => ({ page, count }));
+  }, [filtered]);
+
+  const ctaClicks = useMemo(() => {
+    return filtered.filter(c => c.button_id !== 'pageview');
+  }, [filtered]);
+
+  const ctaCountsByButton = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of ctaClicks) {
+      const label = c.button_text || c.button_id;
+      counts[label] = (counts[label] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name, count]) => ({ name, count }));
+  }, [ctaClicks]);
 
   const hourHeatmap = useMemo(() => {
     const hours = Array(24).fill(0);
-    for (const c of filtered) { hours[new Date(c.clicked_at || c.created_at).getHours()]++; }
+    for (const c of filtered) {
+      const h = new Date(c.clicked_at || c.created_at).getHours();
+      hours[h]++;
+    }
     return hours.map((count, hour) => ({ hour, count }));
   }, [filtered]);
 
   const maxHour = Math.max(...hourHeatmap.map(h => h.count), 1);
-  const PIE_COLORS = [CORAL, '#3B82F6', '#22C55E', '#EAB308', '#8B5CF6', '#EC4899'];
-  const identifiedCount = useMemo(() => new Set(filtered.filter(c => c.lead_id).map(c => c.visitor_id)).size, [filtered]);
-  const uniqueCount = useMemo(() => new Set(filtered.map(c => c.visitor_id)).size, [filtered]);
+  const maxPage = Math.max(...topPages.map(p => p.count), 1);
+  const maxSource = Math.max(...trafficSources.map(s => s.count), 1);
 
-  const periods = [{ key: '1', label: 'Heute' }, { key: '7', label: '7 Tage' }, { key: '30', label: '30 Tage' }];
+  const uniqueVisitors = useMemo(() => new Set(filtered.map(c => c.visitor_id)).size, [filtered]);
+  const identifiedVisitors = useMemo(() => new Set(filtered.filter(c => c.lead_id).map(c => c.visitor_id)).size, [filtered]);
 
-  // Top industry
-  const topIndustry = industryOverview[0]?.name || '–';
+  const todayClicks = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return filtered.filter(c => new Date(c.clicked_at || c.created_at).toISOString().split('T')[0] === today).length;
+  }, [filtered]);
+
+  const weekClicks = useMemo(() => {
+    const since = Date.now() - 7 * 86400000;
+    return filtered.filter(c => new Date(c.clicked_at || c.created_at).getTime() >= since).length;
+  }, [filtered]);
+
+  const monthClicks = useMemo(() => {
+    const since = Date.now() - 30 * 86400000;
+    return filtered.filter(c => new Date(c.clicked_at || c.created_at).getTime() >= since).length;
+  }, [filtered]);
+
+  const conversionRate =
+    uniqueVisitors > 0 ? Math.round((ctaClicks.length / uniqueVisitors) * 10000) / 100 : 0;
 
   return (
-    <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-      {/* ── KPI Cards ─────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }} className="kpi-grid">
-        {[
-          { label: 'Klicks gesamt', value: filtered.length, color: CORAL },
-          { label: 'Unique Besucher', value: uniqueCount, color: '#3B82F6' },
-          { label: 'Top Industrie', value: topIndustry, color: '#8B5CF6', isText: true },
-          { label: 'Meistbesuchte Seite', value: topPage.slice(0, 25), color: '#EAB308', isText: true },
-        ].map((kpi, i) => (
-          <div key={i} style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16, borderTop: `3px solid ${kpi.color}` }} title={kpi.isText ? (kpi.value as string) : undefined}>
-            <p style={{ fontSize: 12, color: '#888', margin: '0 0 6px' }}>{kpi.label}</p>
-            <p style={{ fontSize: kpi.isText ? 13 : 24, fontWeight: 700, color: '#F0F0F5', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {typeof kpi.value === 'number' ? kpi.value.toLocaleString('de-DE') : kpi.value}
-            </p>
+    <div className="min-h-screen bg-[#111] p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-5 gap-4 mb-8">
+          <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-4 border-t-4 border-t-[#E8472A]">
+            <p className="text-xs text-[#888] mb-2">Besucher Heute</p>
+            <p className="text-2xl font-bold text-[#F0F0F5]">{todayClicks}</p>
           </div>
-        ))}
-      </div>
-
-      {/* ── Filters ───────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 3, background: '#111', borderRadius: 8, padding: 3, border: '1px solid #1E1E1E' }}>
-          {periods.map(p => (
-            <button key={p.key} onClick={() => setPeriod(p.key)}
-              style={{ padding: '5px 12px', borderRadius: 6, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
-                background: period === p.key ? CORAL : 'transparent', color: period === p.key ? '#fff' : '#888' }}>
-              {p.label}
-            </button>
-          ))}
+          <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-4 border-t-4 border-t-[#3B82F6]">
+            <p className="text-xs text-[#888] mb-2">Diese Woche</p>
+            <p className="text-2xl font-bold text-[#F0F0F5]">{weekClicks}</p>
+          </div>
+          <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-4 border-t-4 border-t-[#22C55E]">
+            <p className="text-xs text-[#888] mb-2">Dieser Monat</p>
+            <p className="text-2xl font-bold text-[#F0F0F5]">{monthClicks}</p>
+          </div>
+          <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-4 border-t-4 border-t-[#EAB308]">
+            <p className="text-xs text-[#888] mb-2">Conversion Rate</p>
+            <p className="text-2xl font-bold text-[#F0F0F5]">{conversionRate.toFixed(2)}%</p>
+          </div>
+          <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-4 border-t-4 border-t-[#8B5CF6]">
+            <p className="text-xs text-[#888] mb-2">Identifizierte Leads</p>
+            <p className="text-2xl font-bold text-[#F0F0F5]">{identifiedVisitors}</p>
+          </div>
         </div>
-        <select value={pageFilter} onChange={e => setPageFilter(e.target.value)}
-          style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 8, padding: '6px 12px', fontSize: 12, color: '#ccc' }}>
-          <option value="all">Alle Seiten</option>
-          {uniquePages.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#888', cursor: 'pointer' }}>
-          <input type="checkbox" checked={identifiedOnly} onChange={e => setIdentifiedOnly(e.target.checked)} style={{ accentColor: CORAL }} />
-          Nur identifizierte
-        </label>
 
-        {/* Tabs */}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 3, background: '#111', borderRadius: 8, padding: 3, border: '1px solid #1E1E1E' }}>
-          {(['feed', 'analyse'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
-                background: tab === t ? '#3B82F6' : 'transparent', color: tab === t ? '#fff' : '#888' }}>
-              {t === 'feed' ? 'Live-Feed' : 'Analyse'}
-            </button>
-          ))}
+        {/* Filters and Tabs */}
+        <div className="flex justify-between items-center gap-4 mb-8">
+          <div className="flex gap-2 bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg p-1">
+            {[
+              { key: '1', label: 'Heute' },
+              { key: '7', label: '7 Tage' },
+              { key: '30', label: '30 Tage' },
+            ].map(p => (
+              <button
+                key={p.key}
+                onClick={() => setPeriod(p.key)}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  period === p.key
+                    ? 'bg-[#E8472A] text-white'
+                    : 'text-[#888] hover:text-[#ccc]'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2 bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg p-1">
+            {[
+              { key: 'alle', label: 'Alle' },
+              { key: 'Immobilien', label: 'Immobilien' },
+              { key: 'Handwerk', label: 'Handwerk' },
+              { key: 'Bau', label: 'Bau' },
+            ].map(s => (
+              <button
+                key={s.key}
+                onClick={() => setSection(s.key)}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  section === s.key
+                    ? 'bg-[#3B82F6] text-white'
+                    : 'text-[#888] hover:text-[#ccc]'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2 bg-[#1A1A1A] border border-[#1E1E1E] rounded-lg p-1 ml-auto">
+            {[
+              { key: 'uebersicht', label: 'Uebersicht' },
+              { key: 'branchen', label: 'Branchen & Seiten' },
+              { key: 'conversions', label: 'Conversions' },
+              { key: 'feed', label: 'Live-Feed' },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key as any)}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  tab === t.key
+                    ? 'bg-[#E8472A] text-white'
+                    : 'text-[#888] hover:text-[#ccc]'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div style={{ padding: 40, textAlign: 'center' }}>
-          <div style={{ width: 28, height: 28, border: '3px solid #1E1E1E', borderTopColor: CORAL, borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ fontSize: 13, color: '#888' }}>Lade Klick-Daten...</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      ) : tab === 'feed' ? (
-        /* ── TAB 1: Live Feed + Analytics Grid ─────────────────────── */
-        <div style={{ display: 'grid', gap: 16 }}>
-          {/* Row 1: Industry + Top Pages + Hot Leads */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }} className="charts-grid">
-            {/* Industrie-Uebersicht */}
-            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', margin: '0 0 12px' }}>Industrie-Uebersicht</h3>
-              {industryOverview.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#555' }}>Keine Daten.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {industryOverview.map((ind, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 12, color: '#ccc' }}>{ind.name}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#F0F0F5' }}>{ind.count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Top-Seiten */}
-            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', margin: '0 0 12px' }}>Top-Seiten</h3>
-              {clicksByPage.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#555' }}>Keine Daten.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {clicksByPage.slice(0, 6).map((pg, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 12, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{pg.page}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#F0F0F5' }}>{pg.count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Hot Leads (Repeat Visitors) */}
-            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', margin: '0 0 12px' }}>Hot Leads</h3>
-              {hotLeads.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#555' }}>Keine Wiederholungsbesucher.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {hotLeads.map((lead, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ color: lead.is_identified ? '#22C55E' : '#888' }}>{lead.name}</span>
-                        {lead.company && <span style={{ color: '#555', fontSize: 11 }}> - {lead.company}</span>}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-8 h-8 border-4 border-[#1E1E1E] border-t-[#E8472A] rounded-full animate-spin mb-4" />
+            <p className="text-sm text-[#888]">Lade Klick-Daten...</p>
+          </div>
+        ) : tab === 'uebersicht' ? (
+          <div className="space-y-6">
+            {/* Besucher pro Tag (14-day bar chart) */}
+            <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">Besucher pro Tag (letzte 14 Tage)</h3>
+              <div className="flex items-end justify-between h-32 gap-1">
+                {byDayData.length === 0 ? (
+                  <p className="text-xs text-[#555]">Keine Daten.</p>
+                ) : (
+                  byDayData.map((d, i) => {
+                    const maxVal = Math.max(...byDayData.map(x => x.count), 1);
+                    const height = (d.count / maxVal) * 100;
+                    return (
+                      <div
+                        key={i}
+                        className="flex-1 bg-gradient-to-t from-[#E8472A] to-[#E8472A] rounded-t opacity-80 hover:opacity-100 relative group"
+                        style={{ height: `${height}%`, minHeight: '2px' }}
+                      >
+                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-[#2A2A2A] text-[#F0F0F5] text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">
+                          {d.count} ({d.day})
+                        </div>
                       </div>
-                      <span style={{ fontWeight: 600, color: '#F0F0F5', flexShrink: 0, marginLeft: 6 }}>{lead.visit_count}x</span>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Traffic Sources and Devices */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Traffic Sources */}
+              <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-6">
+                <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">Traffic-Quellen</h3>
+                {trafficSources.length === 0 ? (
+                  <p className="text-xs text-[#555]">Keine Daten.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {trafficSources.map((s, i) => {
+                      const pct = (s.count / maxSource) * 100;
+                      return (
+                        <div key={i} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-[#ccc] truncate flex-1">{s.source}</span>
+                            <span className="text-[#888]">{s.count}</span>
+                          </div>
+                          <div className="bg-[#0A0A0A] rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-[#E8472A] to-[#FF6B4A]"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Peak Hours Heatmap */}
+              <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-6">
+                <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">Peak-Stunden</h3>
+                <div className="grid grid-cols-12 gap-1">
+                  {hourHeatmap.map(h => (
+                    <div key={h.hour} className="flex flex-col items-center">
+                      <div
+                        className="w-full aspect-square rounded-sm transition-all hover:scale-110"
+                        style={{
+                          background:
+                            h.count === 0
+                              ? '#0A0A0A'
+                              : `rgba(232, 71, 42, ${0.2 + (h.count / maxHour) * 0.8})`,
+                        }}
+                        title={`${h.hour}:00 - ${h.count} clicks`}
+                      />
+                      <span className="text-[8px] text-[#555] mt-1">{h.hour}</span>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : tab === 'branchen' ? (
+          <div className="space-y-6">
+            {/* Industry Cards */}
+            <div className="grid grid-cols-4 gap-4">
+              {['Immobilien', 'Handwerk', 'Bau', 'Sonstige'].map(ind => {
+                const data = industryBreakdown.find(x => x.name === ind) || {
+                  name: ind,
+                  count: 0,
+                  pct: 0,
+                };
+                return (
+                  <div key={ind} className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-4">
+                    <p className="text-xs text-[#888] mb-2">{ind}</p>
+                    <p className="text-2xl font-bold text-[#F0F0F5]">{data.count}</p>
+                    <p className="text-xs text-[#555] mt-2">{data.pct}%</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Top Pages */}
+            <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">Top Pages (Ranking)</h3>
+              {topPages.length === 0 ? (
+                <p className="text-xs text-[#555]">Keine Daten.</p>
+              ) : (
+                <div className="space-y-3">
+                  {topPages.map((p, i) => {
+                    const pct = (p.count / maxPage) * 100;
+                    return (
+                      <div key={i} className="space-y-1">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-semibold text-[#888] w-6">{i + 1}.</span>
+                          <span className="text-xs text-[#ccc] flex-1 truncate">{p.page}</span>
+                          <span className="text-xs text-[#888]">{p.count}</span>
+                        </div>
+                        <div className="bg-[#0A0A0A] rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Industry Trends */}
+            <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">Branchen-Verteilung</h3>
+              {industryBreakdown.length === 0 ? (
+                <p className="text-xs text-[#555]">Keine Daten.</p>
+              ) : (
+                <div className="space-y-3">
+                  {industryBreakdown.map((ind, i) => {
+                    const colors = ['#E8472A', '#3B82F6', '#22C55E', '#EAB308'];
+                    return (
+                      <div key={i} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-[#ccc]">{ind.name}</span>
+                          <span className="text-[#888]">{ind.count} ({ind.pct}%)</span>
+                        </div>
+                        <div className="bg-[#0A0A0A] rounded-full h-3 overflow-hidden">
+                          <div
+                            className="h-full"
+                            style={{ width: `${ind.pct}%`, background: colors[i % colors.length] }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           </div>
+        ) : tab === 'conversions' ? (
+          <div className="space-y-6">
+            {/* CTA Click Breakdown */}
+            <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">CTA Click Breakdown</h3>
+              {ctaCountsByButton.length === 0 ? (
+                <p className="text-xs text-[#555]">Keine Daten.</p>
+              ) : (
+                <div className="space-y-3">
+                  {ctaCountsByButton.map((btn, i) => {
+                    const pct = (btn.count / (ctaCountsByButton[0]?.count || 1)) * 100;
+                    return (
+                      <div key={i} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-[#ccc] truncate flex-1">{btn.name}</span>
+                          <span className="text-[#888]">{btn.count}</span>
+                        </div>
+                        <div className="bg-[#0A0A0A] rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-[#22C55E] to-[#4ADE80]"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-          {/* Row 2: Live Feed */}
-          <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, overflow: 'hidden' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', padding: '12px 16px', borderBottom: '1px solid #1E1E1E', margin: 0 }}>Live-Feed</h3>
-            {filtered.length === 0 ? (
-              <p style={{ padding: 20, textAlign: 'center', color: '#555', fontSize: 13 }}>Keine Klicks im gewählten Zeitraum.</p>
-            ) : (
-              <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-                {filtered.map((click, i) => {
-                  const identified = !!click.lead_id;
-                  const name = identified ? (click.lead_name || click.lead_email) : click.visitor_id?.slice(0, 8) + '...';
+            {/* Conversion Funnel */}
+            <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-[#F0F0F5] mb-6">Conversion Funnel</h3>
+              <div className="space-y-4">
+                {[
+                  { label: 'Besucher', value: uniqueVisitors, color: '#3B82F6' },
+                  {
+                    label: 'Seiten angesehen',
+                    value: filtered.length,
+                    color: '#8B5CF6',
+                  },
+                  { label: 'CTA geklickt', value: ctaClicks.length, color: '#22C55E' },
+                  { label: 'Identifiziert', value: identifiedVisitors, color: '#EAB308' },
+                ].map((stage, i) => {
+                  const maxVal = uniqueVisitors || 1;
+                  const pct = (stage.value / maxVal) * 100;
                   return (
-                    <div key={click.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid #1E1E1E', fontSize: 12 }}>
-                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
-                        background: identified ? '#22C55E20' : '#55555520', color: identified ? '#22C55E' : '#555' }}>
-                        {identified ? 'ID' : 'Anon'}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <span style={{ color: '#F0F0F5' }}>{name}</span>
-                          <span style={{ color: '#555' }}> - </span>
-                          <span style={{ color: '#ccc' }}>{click.button_text || click.button_id || 'click'}</span>
-                        </p>
-                        <span style={{ color: '#555', fontSize: 11 }}>{click.page}</span>
+                    <div key={i} className="space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-[#ccc]">{stage.label}</span>
+                        <span className="text-[#888]">{stage.value}</span>
                       </div>
-                      <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      <div className="bg-[#0A0A0A] rounded-full h-4 overflow-hidden">
+                        <div
+                          className="h-full flex items-center justify-end pr-2 transition-all"
+                          style={{ width: `${pct}%`, background: stage.color }}
+                        >
+                          {pct > 20 && (
+                            <span className="text-[10px] font-semibold text-white">
+                              {Math.round(pct)}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Top Converting Pages */}
+            <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-[#F0F0F5] mb-4">
+                Top Converting Pages
+              </h3>
+              {topPages.length === 0 ? (
+                <p className="text-xs text-[#555]">Keine Daten.</p>
+              ) : (
+                <div className="space-y-2">
+                  {topPages.slice(0, 5).map((p, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between text-xs p-2 bg-[#0A0A0A] rounded"
+                    >
+                      <span className="text-[#ccc] truncate flex-1">{p.page}</span>
+                      <span className="text-[#E8472A] font-semibold ml-2">{p.count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-[#1A1A1A] border border-[#1E1E1E] rounded-xl overflow-hidden">
+            <div className="bg-[#111] border-b border-[#1E1E1E] px-6 py-4 sticky top-0">
+              <h3 className="text-sm font-semibold text-[#F0F0F5] m-0">
+                Last 50 Clicks
+              </h3>
+            </div>
+            {filtered.length === 0 ? (
+              <p className="p-6 text-center text-xs text-[#555]">
+                Keine Klicks im gewählten Zeitraum.
+              </p>
+            ) : (
+              <div className="max-h-96 overflow-y-auto">
+                {filtered.slice(0, 50).map((click, i) => {
+                  const identified = !!click.lead_id;
+                  const name = identified
+                    ? click.lead_name || click.lead_email
+                    : click.visitor_id?.slice(0, 8) + '...';
+
+                  let eventBadgeColor = '#555';
+                  let eventLabel = 'view';
+                  if (click.button_id === 'form_submit')
+                    (eventBadgeColor = '#E8472A'), (eventLabel = 'form');
+                  else if (click.button_id === 'cta_click')
+                    (eventBadgeColor = '#22C55E'), (eventLabel = 'cta');
+                  else if (click.button_id === 'scroll')
+                    (eventBadgeColor = '#3B82F6'), (eventLabel = 'scroll');
+
+                  return (
+                    <div
+                      key={click.id || i}
+                      className="border-b border-[#1E1E1E] px-6 py-3 flex items-center gap-3 hover:bg-[#151515] transition-colors text-xs"
+                    >
+                      <span
+                        className="px-2 py-1 rounded text-[10px] font-semibold text-white whitespace-nowrap"
+                        style={{ background: eventBadgeColor }}
+                      >
+                        {eventLabel}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[#F0F0F5] truncate m-0">
+                          {name}
+                          {click.lead_company && ` - ${click.lead_company}`}
+                        </p>
+                        <p className="text-[#555] text-[11px] mt-1 truncate m-0">
+                          {click.button_text || click.button_id} on {click.page}
+                        </p>
+                      </div>
+                      <span className="text-[#555] whitespace-nowrap flex-shrink-0">
                         {timeAgo(click.clicked_at || click.created_at)}
                       </span>
                     </div>
@@ -350,133 +589,8 @@ export default function WebsiteClicksPage() {
               </div>
             )}
           </div>
-        </div>
-      ) : (
-        /* ── TAB 2: Analyse ───────────────────────────────────────────── */
-        <div style={{ display: 'grid', gap: 16 }}>
-          {/* Row 1: Industrie + Produkt-Interesse + Top Buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }} className="charts-grid">
-            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', margin: '0 0 12px' }}>Industrie-Uebersicht</h3>
-              {industryOverview.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#555' }}>Keine Daten.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={180}>
-                  <PieChart>
-                    <Pie data={industryOverview} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={35} outerRadius={65}
-                      label={({ name, count }: any) => `${name}: ${count}`} labelLine={false}>
-                      {industryOverview.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-
-            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', margin: '0 0 12px' }}>Produkt-Interesse</h3>
-              {productInterest.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#555' }}>Keine Daten.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={productInterest} layout="vertical" margin={{ left: 80 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                    <XAxis type="number" tick={AXIS_TICK} axisLine={{ stroke: '#333' }} />
-                    <YAxis type="category" dataKey="name" tick={AXIS_TICK} axisLine={{ stroke: '#333' }} width={75} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="count" fill="#3B82F6" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-
-            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', margin: '0 0 12px' }}>Top geklickte Buttons</h3>
-              {topButtons.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#555' }}>Keine Daten.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {topButtons.slice(0, 6).map((btn, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 12, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{btn.name}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#F0F0F5' }}>{btn.count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Row 2: Clicks over time */}
-          <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', margin: '0 0 12px' }}>Klicks über Zeit</h3>
-            {clicksByDay.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#555' }}>Keine Daten.</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={clicksByDay}>
-                  <defs><linearGradient id="clickGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CORAL} stopOpacity={0.3}/><stop offset="100%" stopColor={CORAL} stopOpacity={0}/></linearGradient></defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                  <XAxis dataKey="day" tick={AXIS_TICK} axisLine={{ stroke: '#333' }} tickFormatter={(v: any) => { const d = new Date(v); return `${d.getDate()}.${d.getMonth()+1}.`; }} />
-                  <YAxis tick={AXIS_TICK} axisLine={{ stroke: '#333' }} allowDecimals={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Area type="monotone" dataKey="count" stroke={CORAL} fill="url(#clickGrad)" strokeWidth={2} name="Klicks" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Row 3: UTM Sources + Hour Heatmap */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="charts-grid">
-            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', margin: '0 0 12px' }}>Traffic-Quellen (UTM)</h3>
-              {utmSources.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#555' }}>Keine UTM-Daten.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {utmSources.slice(0, 8).map((s, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11, color: '#ccc', width: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.source}</span>
-                      <div style={{ flex: 1, height: 5, background: '#1E1E1E', borderRadius: 2.5 }}>
-                        <div style={{ height: '100%', width: `${(s.count / (utmSources[0]?.count || 1)) * 100}%`, background: PIE_COLORS[i % PIE_COLORS.length], borderRadius: 2.5 }} />
-                      </div>
-                      <span style={{ fontSize: 11, color: '#888', width: 25, textAlign: 'right' }}>{s.count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F5', margin: '0 0 12px' }}>Tageszeit-Verteilung</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 2 }}>
-                {hourHeatmap.map(h => (
-                  <div key={h.hour} style={{ textAlign: 'center' }}>
-                    <div style={{
-                      height: 24, borderRadius: 3, marginBottom: 2,
-                      background: h.count > 0 ? `rgba(232,71,42,${0.15 + (h.count / maxHour) * 0.85})` : '#1A1A1A',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {h.count > 0 && <span style={{ fontSize: 8, color: '#fff', fontWeight: 600 }}>{h.count}</span>}
-                    </div>
-                    <span style={{ fontSize: 8, color: '#555' }}>{h.hour}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style>{`
-        @media (max-width: 1024px) {
-          .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .charts-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-        @media (max-width: 768px) {
-          .kpi-grid { grid-template-columns: 1fr !important; }
-          .charts-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+        )}
+      </div>
     </div>
   );
 }

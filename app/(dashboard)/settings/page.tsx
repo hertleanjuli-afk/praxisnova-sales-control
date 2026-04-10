@@ -16,10 +16,63 @@ interface DbHealth {
   retryCount: number;
 }
 
+type AgentHealth = {
+  key: string;
+  label: string;
+  schedule: string;
+  status: 'ok' | 'error' | 'warning' | 'unknown';
+  lastRun: string | null;
+  lastStatus: string | null;
+  errorMessage: string | null;
+  summary: string | null;
+  errors24h: number;
+  extraInfo: string | null;
+};
+
+type SystemHealth = {
+  overallStatus: 'ok' | 'error' | 'warning';
+  agents: AgentHealth[];
+  generatedAt: string;
+};
+
 function StatusDot({ ok, pulsing }: { ok: boolean; pulsing?: boolean }) {
   return (
     <span className={`inline-block h-2.5 w-2.5 rounded-full ${ok ? 'bg-green-500' : pulsing ? 'bg-yellow-400 animate-pulse' : 'bg-red-500'}`} />
   );
+}
+
+// Colored dot used by the System Status panel (different from the simple ok/pulsing StatusDot above)
+function HealthStatusDot({ status }: { status: AgentHealth['status'] | SystemHealth['overallStatus'] }) {
+  const color =
+    status === 'ok' ? '#22c55e' :
+    status === 'error' ? '#ef4444' :
+    status === 'warning' ? '#f59e0b' :
+    '#555';
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        background: color,
+        boxShadow: status === 'ok' ? '0 0 4px #22c55e88' : status === 'error' ? '0 0 4px #ef444488' : 'none',
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+function timeAgo(isoString: string | null): string {
+  if (!isoString) return 'Noch nie';
+  const diff = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 2) return 'Gerade eben';
+  if (mins < 60) return `vor ${mins} Min.`;
+  if (hours < 24) return `vor ${hours} Std.`;
+  return `vor ${days} Tag${days !== 1 ? 'en' : ''}`;
 }
 
 export default function SettingsPage() {
@@ -30,6 +83,30 @@ export default function SettingsPage() {
   const [processLoading, setProcessLoading] = useState(false);
   const [processMessage, setProcessMessage] = useState('');
   const [initMessage, setInitMessage] = useState('');
+
+  // System Health panel
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [healthLoading, setHealthLoading] = useState(true);
+  const [healthRefreshing, setHealthRefreshing] = useState(false);
+
+  const fetchSystemHealth = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setHealthRefreshing(true);
+    else setHealthLoading(true);
+    try {
+      const res = await fetch('/api/settings/system-health');
+      const data = await res.json();
+      setSystemHealth(data);
+    } catch (err) {
+      console.error('Failed to load system health', err);
+    } finally {
+      setHealthLoading(false);
+      setHealthRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSystemHealth();
+  }, [fetchSystemHealth]);
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -291,6 +368,161 @@ export default function SettingsPage() {
         </button>
         {processMessage && (
           <p className={`mt-3 text-sm ${processMessage.startsWith('Fehler') ? 'text-red-600' : 'text-green-600'}`}>{processMessage}</p>
+        )}
+      </div>
+
+      {/* System Status Section */}
+      <div style={{ marginTop: 40 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <h2 style={{ color: '#F0F0F5', fontSize: 18, fontWeight: 600, margin: 0 }}>
+              System Status
+            </h2>
+            <p style={{ color: '#888', fontSize: 13, margin: '4px 0 0' }}>
+              Live-Status aller Hintergrundprozesse
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {systemHealth && (
+              <span style={{ color: '#555', fontSize: 12 }}>
+                Aktualisiert: {timeAgo(systemHealth.generatedAt)}
+              </span>
+            )}
+            <button
+              onClick={() => fetchSystemHealth(true)}
+              disabled={healthRefreshing}
+              style={{
+                padding: '7px 14px',
+                background: '#2a2a2a',
+                color: '#aaa',
+                border: '1px solid #333',
+                borderRadius: 8,
+                cursor: healthRefreshing ? 'wait' : 'pointer',
+                fontSize: 13,
+              }}
+            >
+              {healthRefreshing ? 'Aktualisiert...' : 'Aktualisieren'}
+            </button>
+          </div>
+        </div>
+
+        {/* Overall status banner */}
+        {systemHealth && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '12px 16px',
+              borderRadius: 10,
+              marginBottom: 20,
+              background:
+                systemHealth.overallStatus === 'ok'
+                  ? '#22c55e11'
+                  : systemHealth.overallStatus === 'error'
+                    ? '#ef444411'
+                    : '#f59e0b11',
+              border: `1px solid ${
+                systemHealth.overallStatus === 'ok'
+                  ? '#22c55e33'
+                  : systemHealth.overallStatus === 'error'
+                    ? '#ef444433'
+                    : '#f59e0b33'
+              }`,
+            }}
+          >
+            <HealthStatusDot status={systemHealth.overallStatus} />
+            <span
+              style={{
+                color:
+                  systemHealth.overallStatus === 'ok'
+                    ? '#22c55e'
+                    : systemHealth.overallStatus === 'error'
+                      ? '#ef4444'
+                      : '#f59e0b',
+                fontWeight: 600,
+                fontSize: 14,
+              }}
+            >
+              {systemHealth.overallStatus === 'ok'
+                ? 'Alle Systeme laufen normal'
+                : systemHealth.overallStatus === 'error'
+                  ? 'Fehler erkannt - bitte pruefen'
+                  : 'Einige Prozesse noch nicht gelaufen'}
+            </span>
+          </div>
+        )}
+
+        {/* Agent health grid */}
+        {healthLoading ? (
+          <div style={{ color: '#555', textAlign: 'center', padding: 40 }}>Lade System-Status...</div>
+        ) : !systemHealth ? (
+          <div style={{ color: '#555', textAlign: 'center', padding: 40 }}>Fehler beim Laden des Status.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {systemHealth.agents.map(agent => (
+              <div
+                key={agent.key}
+                style={{
+                  background: '#1a1a1a',
+                  borderRadius: 10,
+                  padding: 16,
+                  border: `1px solid ${agent.status === 'error' ? '#ef444433' : agent.status === 'ok' ? '#22c55e11' : '#2a2a2a'}`,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <HealthStatusDot status={agent.status} />
+                    <span style={{ color: '#F0F0F5', fontSize: 14, fontWeight: 600 }}>{agent.label}</span>
+                  </div>
+                  {agent.errors24h > 0 && (
+                    <span style={{ background: '#ef444422', color: '#ef4444', padding: '1px 8px', borderRadius: 10, fontSize: 11 }}>
+                      {agent.errors24h} Fehler
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#555', fontSize: 12 }}>Letzter Run</span>
+                    <span style={{ color: '#888', fontSize: 12 }}>{timeAgo(agent.lastRun)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#555', fontSize: 12 }}>Zeitplan</span>
+                    <span style={{ color: '#666', fontSize: 12 }}>{agent.schedule}</span>
+                  </div>
+                  {agent.extraInfo && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#555', fontSize: 12 }}>Heute</span>
+                      <span style={{ color: '#22c55e', fontSize: 12 }}>{agent.extraInfo}</span>
+                    </div>
+                  )}
+                </div>
+
+                {agent.errorMessage && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      padding: '8px 10px',
+                      background: '#ef444411',
+                      borderRadius: 6,
+                      color: '#ef4444',
+                      fontSize: 11,
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {agent.errorMessage}
+                  </div>
+                )}
+
+                {agent.summary && !agent.errorMessage && (
+                  <div style={{ marginTop: 8, color: '#555', fontSize: 11, fontStyle: 'italic' }}>
+                    {agent.summary}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

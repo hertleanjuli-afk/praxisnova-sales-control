@@ -9,7 +9,7 @@
  * and stay within the 300s function budget.
  *
  * Schedule: 0 8 * * *, 0 11 * * *, 0 14 * * * (via vercel.json)
- * maxIterations: 40
+ * maxIterations: 60 — bumped from 40 to prevent timeouts on cache misses. Math: 15 leads × ~3-5 tool calls + overhead.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import {
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
 
   const runId = crypto.randomUUID();
   const startTime = Date.now();
-  console.log(`[outreach-strategist] Starte run ${runId} (max 40 Iterationen, 300s Budget)...`);
+  console.log(`[outreach-strategist] Starte run ${runId} (max 60 Iterationen, 300s Budget)...`);
 
   // Write started log BEFORE calling Gemini so the run is always visible in the dashboard
   await writeStartLog(runId, 'outreach_strategist');
@@ -105,14 +105,14 @@ export async function GET(request: NextRequest) {
     const result = await runAgent(
       getSystemPrompt(),
       'Starte den Outreach-Workflow: Lade qualifizierte Leads, nutze gecachte Recherche-Daten wo moeglich, und sende personalisierte E-Mails. Ziel: 15 E-Mails pro Lauf.',
-      40,
+      60, // maxIterations — bumped from 40 to prevent timeouts on cache misses
       'outreach-strategist',
     );
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
 
     if (!result.success) {
-      await sendErrorNotification('Outreach Strategist', `Max Iterationen (${result.iterations}/40)`, elapsed);
+      await sendErrorNotification('Outreach Strategist', `Max Iterationen (${result.iterations}/60)`, elapsed);
     }
 
     await writeEndLog(runId, 'outreach_strategist', result.success ? 'completed' : 'partial', {

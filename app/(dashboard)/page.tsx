@@ -1,10 +1,34 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import {
   AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line,
 } from 'recharts';
+
+interface ActionListData {
+  callsDue: number;
+  linkedinDue: number;
+  postDraftsReady: number;
+  hotLeads: number;
+  isWeekend: boolean;
+  isFriday: boolean;
+  systemOk: boolean;
+  recentErrors: number;
+}
+
+// ── Status Row Helper ─────────────────────────────────────────────────────
+function StatusRow({ label, value, ok }: { label: string; value: string; ok: boolean }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+      <span style={{ color: '#888' }}>{label}</span>
+      <span style={{ color: ok ? '#4ade80' : '#E8472A', fontWeight: 500 }}>
+        {ok ? '✓ ' : '! '}{value}
+      </span>
+    </div>
+  );
+}
 
 // ── Design Tokens ─────────────────────────────────────────────────────────
 const CORAL = '#E8472A';
@@ -232,6 +256,7 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState('week');
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState('');
+  const [actionData, setActionData] = useState<ActionListData | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -246,6 +271,14 @@ export default function DashboardPage() {
 
   useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
   useEffect(() => { const i = setInterval(fetchData, 60000); return () => clearInterval(i); }, [fetchData]);
+
+  // Action List laden
+  useEffect(() => {
+    fetch('/api/dashboard/action-list')
+      .then(r => r.json())
+      .then(d => setActionData(d))
+      .catch(() => {});
+  }, []);
 
   const greeting = new Date().getHours() < 12 ? 'Guten Morgen' : new Date().getHours() < 18 ? 'Guten Tag' : 'Guten Abend';
   const dateStr = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -293,6 +326,191 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* ── Wochenende Banner ────────────────────────────────────────── */}
+      {actionData?.isWeekend && (
+        <div style={{
+          background: '#1a1600',
+          border: '1px solid #3a3000',
+          borderRadius: 10,
+          padding: '12px 20px',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          color: '#fbbf24',
+          fontSize: 14,
+        }}>
+          <span>🔕</span>
+          <span>
+            <strong>Kein Email-Versand heute - Wochenende.</strong>
+            {' '}Daten-Agents (Apollo, Backup) laufen weiter. Emails starten wieder Montag 07:00.
+          </span>
+        </div>
+      )}
+
+      {/* ── SECTION 1b: Heutiger Aktions-Plan + System Health ────────── */}
+      {actionData && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, marginBottom: 20 }}>
+
+          {/* ---- LINKE KARTE: Heutiger Aktions-Plan ---- */}
+          <div style={{
+            background: '#111',
+            border: '1px solid #1E1E1E',
+            borderRadius: 12,
+            padding: 24,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <span style={{ fontSize: 20 }}>📋</span>
+              <h3 style={{ margin: 0, color: '#F0F0F5', fontSize: 16, fontWeight: 700 }}>
+                Heute - {new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </h3>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Anrufe */}
+              <Link href="/anrufliste" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: actionData.callsDue > 0 ? '#2a0a0a' : '#0f1a0f',
+                  border: `1px solid ${actionData.callsDue > 0 ? '#5a1a1a' : '#1a3a1a'}`,
+                  borderRadius: 8, padding: '12px 16px', cursor: 'pointer',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>📞</span>
+                    <span style={{ color: '#F0F0F5', fontWeight: 500 }}>
+                      {actionData.callsDue} {actionData.callsDue === 1 ? 'Anruf faellig' : 'Anrufe faellig'}
+                    </span>
+                  </div>
+                  <span style={{ color: actionData.callsDue > 0 ? '#E8472A' : '#4ade80', fontSize: 18, fontWeight: 700 }}>
+                    {actionData.callsDue > 0 ? actionData.callsDue : '✓'}
+                  </span>
+                </div>
+              </Link>
+
+              {/* LinkedIn */}
+              <Link href="/linkedin" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: actionData.linkedinDue > 0 ? '#0a0a2a' : '#0f1a0f',
+                  border: `1px solid ${actionData.linkedinDue > 0 ? '#1a1a5a' : '#1a3a1a'}`,
+                  borderRadius: 8, padding: '12px 16px', cursor: 'pointer',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>💼</span>
+                    <span style={{ color: '#F0F0F5', fontWeight: 500 }}>
+                      {actionData.linkedinDue} LinkedIn-{actionData.linkedinDue === 1 ? 'Aktion' : 'Aktionen'} faellig
+                    </span>
+                  </div>
+                  <span style={{ color: actionData.linkedinDue > 0 ? '#6366f1' : '#4ade80', fontSize: 18, fontWeight: 700 }}>
+                    {actionData.linkedinDue > 0 ? actionData.linkedinDue : '✓'}
+                  </span>
+                </div>
+              </Link>
+
+              {/* LinkedIn Posts */}
+              <Link href="/linkedin-posting" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: actionData.postDraftsReady > 0 ? '#0a1a0a' : '#111',
+                  border: `1px solid ${actionData.postDraftsReady > 0 ? '#1a4a1a' : '#222'}`,
+                  borderRadius: 8, padding: '12px 16px', cursor: 'pointer',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>✍️</span>
+                    <span style={{ color: '#F0F0F5', fontWeight: 500 }}>
+                      {actionData.postDraftsReady > 0
+                        ? `${actionData.postDraftsReady} Post-Entwuerfe bereit zum Kopieren`
+                        : 'LinkedIn Posts - Entwuerfe werden erstellt...'}
+                    </span>
+                  </div>
+                  {actionData.postDraftsReady > 0 && (
+                    <span style={{ color: '#4ade80', fontSize: 14, fontWeight: 600 }}>Jetzt ansehen →</span>
+                  )}
+                </div>
+              </Link>
+
+              {/* Hot Leads */}
+              {actionData.hotLeads > 0 && (
+                <Link href="/sequences" style={{ textDecoration: 'none' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: '#1a1000',
+                    border: '1px solid #3a2a00',
+                    borderRadius: 8, padding: '12px 16px', cursor: 'pointer',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 18 }}>🔥</span>
+                      <span style={{ color: '#F0F0F5', fontWeight: 500 }}>
+                        {actionData.hotLeads} {actionData.hotLeads === 1 ? 'Lead hat' : 'Leads haben'} Email geoeffnet - noch keine Antwort
+                      </span>
+                    </div>
+                    <span style={{ color: '#fbbf24', fontSize: 18, fontWeight: 700 }}>{actionData.hotLeads}</span>
+                  </div>
+                </Link>
+              )}
+
+              {/* Freitag-Hinweis */}
+              {actionData.isFriday && !actionData.isWeekend && (
+                <div style={{
+                  background: '#111',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: 8, padding: '10px 16px',
+                  color: '#888', fontSize: 13,
+                }}>
+                  📅 Heute Freitag - morgen kein Email-Versand. Agents laufen weiter.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ---- RECHTE KARTE: System Health ---- */}
+          <div style={{
+            background: '#111',
+            border: `1px solid ${actionData.systemOk ? '#1E3A1E' : '#3A1E1E'}`,
+            borderRadius: 12,
+            padding: 20,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <span style={{
+                width: 10, height: 10, borderRadius: '50%',
+                background: actionData.systemOk ? '#4ade80' : '#E8472A',
+                display: 'inline-block',
+              }} />
+              <h3 style={{ margin: 0, color: '#F0F0F5', fontSize: 14, fontWeight: 700 }}>
+                System Status
+              </h3>
+              <Link href="/settings" style={{ marginLeft: 'auto', color: '#666', fontSize: 11, textDecoration: 'none' }}>
+                Details →
+              </Link>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <StatusRow
+                label="Fehler (2h)"
+                value={actionData.recentErrors === 0 ? 'Keine' : `${actionData.recentErrors} Fehler`}
+                ok={actionData.recentErrors === 0}
+              />
+              <StatusRow label="Backup" value="Laedt..." ok={true} />
+              <StatusRow label="Apollo" value="Laedt..." ok={true} />
+              <StatusRow label="HubSpot" value="Laedt..." ok={true} />
+            </div>
+
+            {!actionData.systemOk && (
+              <Link href="/errors" style={{
+                display: 'block', marginTop: 12,
+                background: '#E8472A22',
+                border: '1px solid #E8472A44',
+                borderRadius: 6, padding: '8px 12px',
+                color: '#E8472A', fontSize: 12, textDecoration: 'none', textAlign: 'center',
+              }}>
+                Fehler-Details ansehen
+              </Link>
+            )}
+          </div>
+
+        </div>
+      )}
 
       {/* ── SECTION 2: KPI Row ────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }} className="kpi-grid">

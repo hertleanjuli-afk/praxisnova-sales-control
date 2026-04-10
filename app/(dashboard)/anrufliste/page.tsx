@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Phone, Mail, Linkedin, Calendar, Clock, Users, CheckCircle, XCircle, AlertCircle, MessageSquare, Share2, PhoneOff } from 'lucide-react'
 
 // Types
@@ -504,10 +505,14 @@ export default function Anrufliste() {
                     </div>
 
                     {/* Name & Title */}
-                    <div className="mb-2">
-                      <div className="font-bold text-white">
+                    <div className="mb-2" onClick={e => e.stopPropagation()}>
+                      <Link
+                        href={`/lead/${item.lead_id}`}
+                        className="font-bold text-white hover:text-orange-500 transition-colors block"
+                        style={{ textDecoration: 'none' }}
+                      >
                         {item.first_name} {item.last_name}
-                      </div>
+                      </Link>
                       <div className="text-sm text-[#888]">{item.title}</div>
                       <div className="text-xs text-[#888]">{item.company}</div>
                     </div>

@@ -43,6 +43,8 @@
     { "path": "/api/cron/error-sentinel",               "schedule": "0 12 * * 1-5"  },
     { "path": "/api/cron/error-sentinel",               "schedule": "0 15 * * 1-5"  },
     { "path": "/api/cron/error-sentinel",               "schedule": "0 18 * * 1-5"  },
-    { "path": "/api/cron/daily-backup",                 "schedule": "0 2 * * *"     }
+    { "path": "/api/cron/daily-backup",                 "schedule": "0 2 * * *"     },
+    { "path": "/api/cron/news-agent",                   "schedule": "45 5 * * 1-5"  },
+    { "path": "/api/cron/linkedin-post-generator",      "schedule": "30 6 * * 1-5"  }
   ]
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 
 const CORAL = '#E8472A';
 
@@ -437,16 +438,21 @@ export default function SequencesPage() {
                       onClick={() => openDetail(lead)}
                       onMouseEnter={e => e.currentTarget.style.background = '#1A1A1A'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                      <td style={{ padding: '10px 14px' }}>
-                        <span style={{ fontWeight: 600, color: '#F0F0F5' }}>
+                      <td style={{ padding: '10px 14px' }} onClick={e => e.stopPropagation()}>
+                        <Link
+                          href={`/lead/${lead.id}`}
+                          style={{ fontWeight: 600, color: '#F0F0F5', textDecoration: 'none' }}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#E8472A')}
+                          onMouseLeave={e => (e.currentTarget.style.color = '#F0F0F5')}
+                        >
                           {lead.first_name} {lead.last_name}
-                          {lead.has_opened && (
-                            <span title="Email geoeffnet" style={{ marginLeft: 6, fontSize: 13 }}>&#128293;</span>
-                          )}
-                          {lead.linkedin_connected && (
-                            <span title="LinkedIn vernetzt" style={{ marginLeft: 4, fontSize: 13 }}>&#128279;</span>
-                          )}
-                        </span>
+                        </Link>
+                        {lead.has_opened && (
+                          <span title="Email geoeffnet" style={{ marginLeft: 6, fontSize: 13 }}>&#128293;</span>
+                        )}
+                        {lead.linkedin_connected && (
+                          <span title="LinkedIn vernetzt" style={{ marginLeft: 4, fontSize: 13 }}>&#128279;</span>
+                        )}
                         {lead.title && <p style={{ fontSize: 11, color: '#888', margin: '2px 0 0' }}>{lead.title}</p>}
                       </td>
                       <td style={{ padding: '10px 14px', color: '#ccc' }}>{lead.company || '-'}</td>

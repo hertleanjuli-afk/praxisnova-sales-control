@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import NextLink from 'next/link';
 import { ChevronRight, Link as LinkIcon, Phone, Mail, AlertCircle, CheckCircle, MessageSquare, Clock, AlertTriangle } from 'lucide-react';
 
 interface LinkedInEntry {
@@ -270,7 +271,14 @@ export default function LinkedInTrackingPage() {
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-white truncate">
-                        {item.first_name} {item.last_name}
+                        <NextLink
+                          href={`/lead/${item.lead_id}`}
+                          onClick={e => e.stopPropagation()}
+                          className="text-white hover:text-orange-500 transition-colors"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          {item.first_name} {item.last_name}
+                        </NextLink>
                       </h3>
                       <p className="text-sm text-gray-400 truncate">{item.title}</p>
                     </div>

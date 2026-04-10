@@ -1,10 +1,12 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Phone,
+  Smartphone,
+  Copy,
   Mail,
   Linkedin,
   Globe,
@@ -237,6 +239,15 @@ export default function LeadDetailPage() {
     mobile_phone: '',
   });
 
+  // Copy phone to clipboard
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+  const copyToClipboard = useCallback((text: string, id: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedPhone(id);
+      setTimeout(() => setCopiedPhone(null), 2000);
+    });
+  }, []);
+
   // Fetch lead detail
   const fetchLeadDetail = async () => {
     try {
@@ -415,13 +426,13 @@ export default function LeadDetailPage() {
     <div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Back button */}
-        <Link
-          href="/anrufliste"
-          className="inline-flex items-center text-orange-500 hover:text-orange-600 font-medium mb-6"
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 bg-transparent border border-gray-700 hover:bg-gray-800 text-gray-300 text-sm font-medium py-2 px-4 rounded transition-colors mb-6"
         >
-          <span className="mr-2">←</span>
-          Zurück zur Anrufliste
-        </Link>
+          <span>←</span>
+          Zurück
+        </button>
 
         {/* Message notification */}
         {message && (
@@ -508,13 +519,23 @@ export default function LeadDetailPage() {
                     <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">
                       Telefon
                     </p>
-                    <a
-                      href={`tel:${lead.phone}`}
-                      className="text-orange-400 hover:text-orange-300 text-sm flex items-center gap-2"
-                    >
-                      <Phone className="h-4 w-4" />
-                      {lead.phone}
-                    </a>
+                    <div className="text-white text-sm flex items-center gap-2 tracking-wide">
+                      <Phone className="h-4 w-4 text-gray-400" />
+                      <span>{lead.phone}</span>
+                      <button
+                        onClick={() => copyToClipboard(lead.phone!, 'phone')}
+                        title="Nummer kopieren"
+                        className={`p-1 rounded hover:bg-gray-700 transition-colors ${
+                          copiedPhone === 'phone' ? 'text-green-400' : 'text-gray-500'
+                        }`}
+                      >
+                        {copiedPhone === 'phone' ? (
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -524,13 +545,23 @@ export default function LeadDetailPage() {
                     <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">
                       Mobil
                     </p>
-                    <a
-                      href={`tel:${lead.mobile_phone}`}
-                      className="text-orange-400 hover:text-orange-300 text-sm flex items-center gap-2"
-                    >
-                      <Phone className="h-4 w-4" />
-                      {lead.mobile_phone}
-                    </a>
+                    <div className="text-white text-sm flex items-center gap-2 tracking-wide">
+                      <Smartphone className="h-4 w-4 text-gray-400" />
+                      <span>{lead.mobile_phone}</span>
+                      <button
+                        onClick={() => copyToClipboard(lead.mobile_phone!, 'mobile')}
+                        title="Nummer kopieren"
+                        className={`p-1 rounded hover:bg-gray-700 transition-colors ${
+                          copiedPhone === 'mobile' ? 'text-green-400' : 'text-gray-500'
+                        }`}
+                      >
+                        {copiedPhone === 'mobile' ? (
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -991,13 +1022,22 @@ export default function LeadDetailPage() {
                     />
                   </div>
 
-                  <button
-                    onClick={blockLead}
-                    disabled={saving}
-                    className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 text-white text-sm font-medium py-2 px-3 rounded transition-colors"
-                  >
-                    {saving ? 'Wird blockiert...' : 'Blockieren bestaetigen'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setBlockFormOpen(false)}
+                      disabled={saving}
+                      className="flex-1 bg-transparent border border-gray-600 hover:bg-gray-700 disabled:opacity-50 text-gray-300 text-sm font-medium py-2 px-3 rounded transition-colors"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      onClick={blockLead}
+                      disabled={saving}
+                      className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 text-white text-sm font-medium py-2 px-3 rounded transition-colors"
+                    >
+                      {saving ? 'Wird blockiert...' : 'Blockieren bestaetigen'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1042,13 +1082,27 @@ export default function LeadDetailPage() {
                   />
                 </div>
 
-                <button
-                  onClick={saveEdit}
-                  disabled={saving}
-                  className="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-gray-700 text-white text-sm font-medium py-2 px-3 rounded transition-colors"
-                >
-                  {saving ? 'Wird gespeichert...' : 'Speichern'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() =>
+                      setEditForm({
+                        lead_category: lead?.lead_category || '',
+                        mobile_phone: lead?.mobile_phone || '',
+                      })
+                    }
+                    disabled={saving}
+                    className="flex-1 bg-transparent border border-gray-600 hover:bg-gray-700 disabled:opacity-50 text-gray-300 text-sm font-medium py-2 px-3 rounded transition-colors"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={saveEdit}
+                    disabled={saving}
+                    className="flex-1 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-700 text-white text-sm font-medium py-2 px-3 rounded transition-colors"
+                  >
+                    {saving ? 'Wird gespeichert...' : 'Speichern'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

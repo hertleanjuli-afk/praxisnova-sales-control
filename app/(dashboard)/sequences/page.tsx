@@ -55,6 +55,10 @@ interface Lead {
   blocked_until: string | null;
   pipeline_stage: string;
   phone: string | null;
+  // Signal-Indikatoren (aus /api/sequences/status)
+  has_opened?: boolean;
+  linkedin_connected?: boolean;
+  last_event?: { event_type: string; step_number: number; created_at: string } | null;
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -434,7 +438,15 @@ export default function SequencesPage() {
                       onMouseEnter={e => e.currentTarget.style.background = '#1A1A1A'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       <td style={{ padding: '10px 14px' }}>
-                        <span style={{ fontWeight: 600, color: '#F0F0F5' }}>{lead.first_name} {lead.last_name}</span>
+                        <span style={{ fontWeight: 600, color: '#F0F0F5' }}>
+                          {lead.first_name} {lead.last_name}
+                          {lead.has_opened && (
+                            <span title="Email geoeffnet" style={{ marginLeft: 6, fontSize: 13 }}>&#128293;</span>
+                          )}
+                          {lead.linkedin_connected && (
+                            <span title="LinkedIn vernetzt" style={{ marginLeft: 4, fontSize: 13 }}>&#128279;</span>
+                          )}
+                        </span>
                         {lead.title && <p style={{ fontSize: 11, color: '#888', margin: '2px 0 0' }}>{lead.title}</p>}
                       </td>
                       <td style={{ padding: '10px 14px', color: '#ccc' }}>{lead.company || '-'}</td>

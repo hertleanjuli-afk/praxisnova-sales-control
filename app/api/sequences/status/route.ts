@@ -70,6 +70,11 @@ export async function GET(request: NextRequest) {
   // Get latest email event for each lead
   const leadIds = leads.map((l) => l.id);
   const events: Record<number, { event_type: string; step_number: number; created_at: string }> = {};
+  // Track which leads have at least one "opened" event
+  const opened: Record<number, boolean> = {};
+  // Track LinkedIn connection status per lead
+  const linkedinConnected: Record<number, boolean> = {};
+
   if (leadIds.length > 0) {
     const latestEvents = await sql`
       SELECT DISTINCT ON (lead_id)
@@ -85,11 +90,43 @@ export async function GET(request: NextRequest) {
         created_at: e.created_at,
       };
     }
+
+    // Has-opened aggregate (any opened event across the lead's history)
+    try {
+      const openedRows = await sql`
+        SELECT DISTINCT lead_id FROM email_events
+        WHERE lead_id = ANY(${leadIds}) AND event_type = 'opened'
+      `;
+      for (const r of openedRows) opened[r.lead_id] = true;
+    } catch (e) {
+      console.warn('[sequences/status] opened aggregate failed:', e);
+    }
+
+    // LinkedIn connected (from linkedin_tracking OR from leads.linkedin_status)
+    try {
+      const ltRows = await sql`
+        SELECT lead_id, connection_status FROM linkedin_tracking
+        WHERE lead_id = ANY(${leadIds})
+          AND connection_status IN ('connected', 'replied')
+      `;
+      for (const r of ltRows) linkedinConnected[r.lead_id] = true;
+    } catch (e) {
+      // linkedin_tracking might not exist on older DBs
+      console.warn('[sequences/status] linkedin_tracking lookup failed:', e);
+    }
+    // Fallback: leads table has its own linkedin_status field
+    for (const l of leads) {
+      if (l.linkedin_status === 'connected' || l.linkedin_connected_date) {
+        linkedinConnected[l.id] = true;
+      }
+    }
   }
 
   const enrichedLeads = leads.map((lead) => ({
     ...lead,
     last_event: events[lead.id] || null,
+    has_opened: !!opened[lead.id],
+    linkedin_connected: !!linkedinConnected[lead.id],
   }));
 
   return NextResponse.json({ leads: enrichedLeads });

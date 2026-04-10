@@ -4,7 +4,73 @@ import sql from '@/lib/db';
 /**
  * GET /api/anrufliste?date=2026-04-06 OR ?week=15&year=2026
  * Taegliche oder woechentliche Anrufliste abrufen - zeigt call_queue mit Lead-Details
+ *
+ * Gibt die Ergebnisse sowohl als "items" (vom Frontend erwartet) als auch als
+ * "entries" (Legacy) zurueck.
  */
+
+const CALL_SELECT = `
+  SELECT
+    cq.id,
+    cq.lead_id,
+    cq.queue_date,
+    cq.rank,
+    cq.priority_score,
+    cq.reason_to_call,
+    cq.talking_points,
+    cq.conversation_guide,
+    cq.best_time_to_call,
+    cq.follow_up_action,
+    cq.status,
+    cq.called_at,
+    cq.call_result,
+    cq.call_notes,
+    cq.created_at,
+    l.first_name,
+    l.last_name,
+    l.company,
+    l.email,
+    l.phone,
+    l.mobile_phone,
+    l.title,
+    l.industry,
+    l.lead_score,
+    l.lead_category,
+    l.agent_score,
+    l.sequence_step,
+    l.sequence_type,
+    l.sequence_status,
+    l.pipeline_stage,
+    l.outreach_step,
+    l.source,
+    l.total_call_attempts,
+    l.signal_email_reply,
+    l.signal_linkedin_interest,
+    l.linkedin_url,
+    l.linkedin_status,
+    l.pipeline_notes,
+    COALESCE(lt.message_sent, false) AS linkedin_message_sent,
+    COALESCE(lt.reply_received, false) AS linkedin_reply_received,
+    (SELECT COUNT(*) FROM email_events ee WHERE ee.lead_id = l.id AND ee.event_type = 'opened') AS email_opens,
+    (SELECT COUNT(*) FROM email_events ee WHERE ee.lead_id = l.id AND ee.event_type = 'clicked') AS email_clicks
+  FROM call_queue cq
+  JOIN leads l ON cq.lead_id = l.id
+  LEFT JOIN linkedin_tracking lt ON lt.lead_id = l.id
+`;
+
+function mapRow(r: any) {
+  return {
+    ...r,
+    email_opens: Number(r.email_opens) || 0,
+    email_clicks: Number(r.email_clicks) || 0,
+    total_call_attempts: Number(r.total_call_attempts) || 0,
+    signal_email_reply: !!r.signal_email_reply,
+    signal_linkedin_interest: !!r.signal_linkedin_interest,
+    linkedin_message_sent: !!r.linkedin_message_sent,
+    linkedin_reply_received: !!r.linkedin_reply_received,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -16,12 +82,10 @@ export async function GET(req: NextRequest) {
     let rows: any[] = [];
 
     if (week && year) {
-      // Query by week number - convert week/year to date range
-      // ISO week starts on Monday, we need to find Monday of that week in that year
+      // Query by week number - convert week/year to date range (ISO-week, Mo-So)
       const weekYear = parseInt(year);
       const weekNum = parseInt(week);
 
-      // Calculate the Monday of the given ISO week
       const jan4 = new Date(weekYear, 0, 4);
       const weekStart = new Date(jan4);
       weekStart.setDate(jan4.getDate() - jan4.getDay() + 1); // Get Monday
@@ -31,145 +95,100 @@ export async function GET(req: NextRequest) {
 
       rows = await sql`
         SELECT
-          cq.id,
-          cq.lead_id,
-          cq.queue_date,
-          cq.rank,
-          cq.priority_score,
-          cq.reason_to_call,
-          cq.talking_points,
-          cq.conversation_guide,
-          cq.best_time_to_call,
-          cq.follow_up_action,
-          cq.status,
-          cq.called_at,
-          cq.call_result,
-          cq.call_notes,
-          cq.created_at,
-          l.first_name,
-          l.last_name,
-          l.company,
-          l.email,
-          l.phone,
-          l.title,
-          l.industry,
-          l.lead_score,
-          l.agent_score,
-          l.sequence_step,
-          l.sequence_type,
-          l.sequence_status,
-          l.pipeline_stage,
-          l.signal_email_reply,
-          l.signal_linkedin_interest,
-          l.linkedin_url,
-          l.pipeline_notes
+          cq.id, cq.lead_id, cq.queue_date, cq.rank, cq.priority_score,
+          cq.reason_to_call, cq.talking_points, cq.conversation_guide,
+          cq.best_time_to_call, cq.follow_up_action, cq.status, cq.called_at,
+          cq.call_result, cq.call_notes, cq.created_at,
+          l.first_name, l.last_name, l.company, l.email, l.phone, l.mobile_phone,
+          l.title, l.industry, l.lead_score, l.lead_category, l.agent_score,
+          l.sequence_step, l.sequence_type, l.sequence_status, l.pipeline_stage,
+          l.outreach_step, l.source, l.total_call_attempts,
+          l.signal_email_reply, l.signal_linkedin_interest,
+          l.linkedin_url, l.linkedin_status, l.pipeline_notes,
+          COALESCE(lt.message_sent, false) AS linkedin_message_sent,
+          COALESCE(lt.reply_received, false) AS linkedin_reply_received,
+          (SELECT COUNT(*) FROM email_events ee WHERE ee.lead_id = l.id AND ee.event_type = 'opened') AS email_opens,
+          (SELECT COUNT(*) FROM email_events ee WHERE ee.lead_id = l.id AND ee.event_type = 'clicked') AS email_clicks
         FROM call_queue cq
         JOIN leads l ON cq.lead_id = l.id
+        LEFT JOIN linkedin_tracking lt ON lt.lead_id = l.id
         WHERE cq.queue_date >= ${startDate}::date AND cq.queue_date <= ${endDate}::date
         ORDER BY cq.rank ASC
       `;
     } else if (status === 'called') {
-      // Query for called history
       rows = await sql`
         SELECT
-          cq.id,
-          cq.lead_id,
-          cq.queue_date,
-          cq.rank,
-          cq.priority_score,
-          cq.reason_to_call,
-          cq.talking_points,
-          cq.conversation_guide,
-          cq.best_time_to_call,
-          cq.follow_up_action,
-          cq.status,
-          cq.called_at,
-          cq.call_result,
-          cq.call_notes,
-          cq.created_at,
-          l.first_name,
-          l.last_name,
-          l.company,
-          l.email,
-          l.phone,
-          l.title,
-          l.industry,
-          l.lead_score,
-          l.agent_score,
-          l.sequence_step,
-          l.sequence_type,
-          l.sequence_status,
-          l.pipeline_stage,
-          l.signal_email_reply,
-          l.signal_linkedin_interest,
-          l.linkedin_url,
-          l.pipeline_notes
+          cq.id, cq.lead_id, cq.queue_date, cq.rank, cq.priority_score,
+          cq.reason_to_call, cq.talking_points, cq.conversation_guide,
+          cq.best_time_to_call, cq.follow_up_action, cq.status, cq.called_at,
+          cq.call_result, cq.call_notes, cq.created_at,
+          l.first_name, l.last_name, l.company, l.email, l.phone, l.mobile_phone,
+          l.title, l.industry, l.lead_score, l.lead_category, l.agent_score,
+          l.sequence_step, l.sequence_type, l.sequence_status, l.pipeline_stage,
+          l.outreach_step, l.source, l.total_call_attempts,
+          l.signal_email_reply, l.signal_linkedin_interest,
+          l.linkedin_url, l.linkedin_status, l.pipeline_notes,
+          COALESCE(lt.message_sent, false) AS linkedin_message_sent,
+          COALESCE(lt.reply_received, false) AS linkedin_reply_received,
+          (SELECT COUNT(*) FROM email_events ee WHERE ee.lead_id = l.id AND ee.event_type = 'opened') AS email_opens,
+          (SELECT COUNT(*) FROM email_events ee WHERE ee.lead_id = l.id AND ee.event_type = 'clicked') AS email_clicks
         FROM call_queue cq
         JOIN leads l ON cq.lead_id = l.id
+        LEFT JOIN linkedin_tracking lt ON lt.lead_id = l.id
         WHERE cq.status = 'called' AND cq.called_at IS NOT NULL
         ORDER BY cq.called_at DESC
         LIMIT 100
       `;
     } else {
-      // Query by specific date or default to today
       const queryDate = date || new Date().toISOString().split('T')[0];
       rows = await sql`
         SELECT
-          cq.id,
-          cq.lead_id,
-          cq.queue_date,
-          cq.rank,
-          cq.priority_score,
-          cq.reason_to_call,
-          cq.talking_points,
-          cq.conversation_guide,
-          cq.best_time_to_call,
-          cq.follow_up_action,
-          cq.status,
-          cq.called_at,
-          cq.call_result,
-          cq.call_notes,
-          cq.created_at,
-          l.first_name,
-          l.last_name,
-          l.company,
-          l.email,
-          l.phone,
-          l.title,
-          l.industry,
-          l.lead_score,
-          l.agent_score,
-          l.sequence_step,
-          l.sequence_type,
-          l.sequence_status,
-          l.pipeline_stage,
-          l.signal_email_reply,
-          l.signal_linkedin_interest,
-          l.linkedin_url,
-          l.pipeline_notes
+          cq.id, cq.lead_id, cq.queue_date, cq.rank, cq.priority_score,
+          cq.reason_to_call, cq.talking_points, cq.conversation_guide,
+          cq.best_time_to_call, cq.follow_up_action, cq.status, cq.called_at,
+          cq.call_result, cq.call_notes, cq.created_at,
+          l.first_name, l.last_name, l.company, l.email, l.phone, l.mobile_phone,
+          l.title, l.industry, l.lead_score, l.lead_category, l.agent_score,
+          l.sequence_step, l.sequence_type, l.sequence_status, l.pipeline_stage,
+          l.outreach_step, l.source, l.total_call_attempts,
+          l.signal_email_reply, l.signal_linkedin_interest,
+          l.linkedin_url, l.linkedin_status, l.pipeline_notes,
+          COALESCE(lt.message_sent, false) AS linkedin_message_sent,
+          COALESCE(lt.reply_received, false) AS linkedin_reply_received,
+          (SELECT COUNT(*) FROM email_events ee WHERE ee.lead_id = l.id AND ee.event_type = 'opened') AS email_opens,
+          (SELECT COUNT(*) FROM email_events ee WHERE ee.lead_id = l.id AND ee.event_type = 'clicked') AS email_clicks
         FROM call_queue cq
         JOIN leads l ON cq.lead_id = l.id
+        LEFT JOIN linkedin_tracking lt ON lt.lead_id = l.id
         WHERE cq.queue_date = ${queryDate}::date
         ORDER BY cq.rank ASC
       `;
     }
 
-    // Statistiken fuer den Tag
+    const mapped = rows.map(mapRow);
+
     const stats = {
-      total: rows.length,
-      ready: rows.filter((r: Record<string, unknown>) => r.status === 'ready').length,
-      called: rows.filter((r: Record<string, unknown>) => r.status === 'called').length,
-      reached: rows.filter((r: Record<string, unknown>) => r.call_result === 'reached').length,
-      not_reached: rows.filter((r: Record<string, unknown>) => r.call_result === 'not_reached').length,
-      voicemail: rows.filter((r: Record<string, unknown>) => r.call_result === 'voicemail').length,
-      booked: rows.filter((r: Record<string, unknown>) => r.call_result === 'appointment').length,
+      total: mapped.length,
+      ready: mapped.filter((r: any) => r.status === 'ready').length,
+      called: mapped.filter((r: any) => r.status === 'called').length,
+      reached: mapped.filter((r: any) => r.call_result === 'reached').length,
+      not_reached: mapped.filter((r: any) => r.call_result === 'not_reached').length,
+      voicemail: mapped.filter((r: any) => r.call_result === 'voicemail').length,
+      booked: mapped.filter((r: any) => r.call_result === 'appointment').length,
     };
 
-    return NextResponse.json({ ok: true, date, entries: rows, stats });
+    // Return both "items" (vom Frontend erwartet) und "entries" (Legacy)
+    return NextResponse.json({
+      ok: true,
+      date,
+      items: mapped,
+      entries: mapped,
+      stats,
+    });
   } catch (error) {
     console.error('Anrufliste GET error:', error);
     return NextResponse.json(
-      { error: 'Fehler beim Laden der Anrufliste' },
+      { ok: false, error: 'Fehler beim Laden der Anrufliste', detail: String(error), items: [], entries: [] },
       { status: 500 }
     );
   }
@@ -188,7 +207,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'lead_id ist erforderlich' }, { status: 400 });
     }
 
-    // Pruefen ob Lead existiert und Telefon hat
     const leadRows = await sql`
       SELECT id, phone, first_name, last_name, company, industry
       FROM leads WHERE id = ${lead_id}
@@ -200,7 +218,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Lead hat keine Telefonnummer' }, { status: 400 });
     }
 
-    // Naechsten Rang ermitteln
     const rankRows = await sql`
       SELECT COALESCE(MAX(rank), 0) + 1 as next_rank
       FROM call_queue

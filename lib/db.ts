@@ -281,6 +281,36 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS agent_score INTEGER`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS agent_scored_at TIMESTAMPTZ`;
 
+  // v4 upgrade columns (Anrufliste + Call tracking) - idempotent
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS mobile_phone TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_category TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_call_attempts INTEGER DEFAULT 0`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_call_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS outreach_step TEXT`;
+  // linkedin_tracking table referenced by anrufliste API
+  await sql`
+    CREATE TABLE IF NOT EXISTS linkedin_tracking (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER NOT NULL REFERENCES leads(id),
+      connection_status TEXT DEFAULT 'pending_request',
+      request_due_date DATE,
+      request_sent_at TIMESTAMPTZ,
+      connected_at TIMESTAMPTZ,
+      message_sent BOOLEAN DEFAULT FALSE,
+      message_sent_at TIMESTAMPTZ,
+      message_content TEXT,
+      reply_received BOOLEAN DEFAULT FALSE,
+      reply_received_at TIMESTAMPTZ,
+      reply_content TEXT,
+      linkedin_url TEXT,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_linkedin_tracking_lead ON linkedin_tracking(lead_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_linkedin_tracking_status ON linkedin_tracking(connection_status)`;
+
   // ââ Agent System Tables ââââââââââââââââââââââââââââââââââââââââââââââââââ
   // Partners table (separate from leads â different scoring, different pipeline)
   await sql`

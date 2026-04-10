@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { wrapInternalEmail } from '@/lib/email-template';
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
@@ -9,6 +10,13 @@ interface SendEmailInput {
   tags?: string[];
   senderEmail?: string;
   senderName?: string;
+  /**
+   * When true, wraps the HTML in the dark contrast-safe shell used for
+   * internal reports to Angie (weekly/monthly/quarterly, briefings). Also
+   * skips the DSGVO footer since internal mails don't need it.
+   * Leave false (default) for outreach emails to prospects.
+   */
+  wrapAsInternal?: boolean;
 }
 
 interface SendEmailResult {
@@ -106,15 +114,21 @@ function isSenderError(status: number, data: BrevoSuccessResponse | BrevoErrorRe
 export async function sendTransactionalEmail(
   input: SendEmailInput
 ): Promise<SendEmailResult> {
-  const { to, subject, htmlContent, tags } = input;
+  const { to, subject, htmlContent, tags, wrapAsInternal } = input;
 
   const primarySender = input.senderEmail || process.env.BREVO_SENDER_EMAIL_PRIMARY || 'info@praxisnovaai.com';
   const fallbackSender = process.env.BREVO_SENDER_EMAIL_FALLBACK;
   const senderName = input.senderName || process.env.BREVO_SENDER_NAME || 'Anjuli Hertle';
 
-  // Generate unsubscribe link and append DSGVO footer
-  const unsubscribeLink = generateUnsubscribeLink(to);
-  const fullHtml = htmlContent + buildDsgvoFooter(unsubscribeLink);
+  // Internal reports: wrap in dark contrast-safe shell, skip DSGVO footer.
+  // Outreach emails: append DSGVO unsubscribe footer (UWG compliance).
+  let fullHtml: string;
+  if (wrapAsInternal) {
+    fullHtml = wrapInternalEmail(htmlContent, subject);
+  } else {
+    const unsubscribeLink = generateUnsubscribeLink(to);
+    fullHtml = htmlContent + buildDsgvoFooter(unsubscribeLink);
+  }
 
   // Attempt 1: Primary sender
   console.log(`[Brevo] Sending email to ${to} via primary sender: ${primarySender}`);

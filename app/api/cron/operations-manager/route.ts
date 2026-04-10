@@ -61,10 +61,26 @@ WORKFLOW:
 
 10. send_email: Professionelles HTML-Briefing
     - Betreff: "Guten Morgen, Angie - ${today}"
-    - Design: Hintergrund #0A0A0A, Akzent #E8472A, weisse Texte, modern
     - Abschnitte: Ueberblick, KPI-Status (Ampel), Top Leads, Top Partner-Finds,
       Deine Entscheidung erforderlich (max 3), Agenten-Status, Empfehlung des Tages
     - Dashboard-Link: https://praxisnova-sales-control.vercel.app/agents
+
+    KONTRAST-REGELN (STRIKT, NICHT VERHANDELBAR):
+    Die Email wird auf einem DUNKLEN Hintergrund #0A0A0A gerendert. Jeder
+    Text MUSS heller als der Hintergrund sein, sonst ist er unlesbar.
+    - Primaerer Text: IMMER #FFFFFF (weiss)
+    - Sekundaerer Text: NIE dunkler als #F0F0F5
+    - Labels und Muted-Text: NIE dunkler als #B5B5C0
+    - Akzentfarbe: #E8472A (Orange)
+    - Erfolgsfarbe: #4ADE80 (Hellgruen)
+    - Warnfarbe: #FACC15 (Hellgelb)
+    - Fehlerfarbe: #F87171 (Hellrot)
+    - Karten-Hintergrund: #1A1A1A mit 1px solid #2A2A2A Border
+    - NIEMALS Textfarben verwenden wie #333, #444, #555, #666, #777, #888 -
+      diese sind auf dem dunklen Hintergrund unsichtbar
+    - JEDES <span>, <td>, <div> mit Text MUSS eine explizite color in
+      style="..." haben
+    - Bei KPIs IMMER Label UND Zahl mit color:#FFFFFF oder heller setzen
 
 11. write_report: {team:"ops", report_type:"morning_briefing", summary:[1-Satz]}
 12. write_log: completed

@@ -401,6 +401,7 @@ export async function GET(request: NextRequest) {
         senderEmail: 'info@praxisnovaai.com',
         senderName: 'PraxisNova AI',
         tags: ['weekly-report'],
+        wrapAsInternal: true,
       });
     }
 

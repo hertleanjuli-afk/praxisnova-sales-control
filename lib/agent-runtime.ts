@@ -21,6 +21,7 @@ import {
 } from '@google/generative-ai';
 import sql from '@/lib/db';
 import { getActiveUpdatesForAgents } from '@/app/api/strategic-updates/route';
+import { wrapInternalEmail } from '@/lib/email-template';
 
 // ─── Gemini Client ───────────────────────────────────────────────────────────
 
@@ -500,6 +501,10 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
 
       case 'send_email': {
         const { subject, html } = args as { subject: string; html: string };
+        // Wrap any LLM-generated HTML in the contrast-safe shell.
+        // This rewrites dark text colors to white and forces a readable base.
+        const safeSubject = (subject || 'PraxisNova AI').replace(/[\u2013\u2014]/g, '-');
+        const safeHtml = wrapInternalEmail(html || '', safeSubject);
         const res = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
@@ -510,8 +515,8 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
           body: JSON.stringify({
             sender: { name: 'PraxisNova AI Agent', email: 'info@praxisnovaai.com' },
             to: [{ email: 'hertle.anjuli@praxisnovaai.com', name: 'Angie' }],
-            subject,
-            htmlContent: html,
+            subject: safeSubject,
+            htmlContent: safeHtml,
           }),
         });
         const data = await res.json() as { messageId?: string };

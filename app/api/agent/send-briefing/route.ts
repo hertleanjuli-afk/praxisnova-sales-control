@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       senderEmail: sender_email || DEFAULT_SENDER_EMAIL,
       senderName: sender_name || DEFAULT_SENDER_NAME,
       tags: tags || ['agent-email'],
+      wrapAsInternal: true,
     });
 
     if (result.success) {

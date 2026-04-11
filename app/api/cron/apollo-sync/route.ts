@@ -22,8 +22,15 @@ import { isAuthorized, sendErrorNotification, writeStartLog, writeEndLog } from 
 
 export const maxDuration = 60;
 
-// Apollo People Search endpoint (new /api/v1/ prefix - old /v1/ is deprecated)
-const APOLLO_API_URL = 'https://api.apollo.io/api/v1/mixed_people/search';
+// Apollo People Search endpoint.
+// URL-History (Apollo aendert den Pfad in hoher Frequenz, ~1x pro Monat):
+//   2024 frueh:  /v1/mixed_people/api_search   (urspruenglich)
+//   2025 Q4:     /v1/mixed_people/search        (erste Umbenennung)
+//   2026-04 Q1:  /api/v1/mixed_people/search    (zweite Umbenennung, neuer Prefix)
+//   2026-04-11:  /api/v1/mixed_people/api_search  <-- aktuell, Apollo 422 Deprecation-Error
+//                                                    erzwingt den erneuten Rename zurueck.
+// Siehe LECK-14 und ERROR-CATALOG.md fuer langfristige Strategie-Notiz.
+const APOLLO_API_URL = 'https://api.apollo.io/api/v1/mixed_people/api_search';
 
 // How many contacts to request from Apollo per run
 const PER_PAGE = 100;
@@ -100,12 +107,25 @@ async function fetchApolloContacts(
   });
 
   if (!res.ok) {
+    // Full response text logging (nicht mehr auf 200 Zeichen schneiden).
+    // Apollo wechselt URL und Request-Schema in kurzen Intervallen, und der
+    // gesamte Error-Text ist oft die einzige Quelle die uns sagt was Apollo
+    // diesmal erwartet. Siehe LECK-14 fuer History.
     const text = await res.text();
-    throw new Error(`Apollo API error ${res.status}: ${text.slice(0, 200)}`);
+    console.error(`[apollo-sync] Full Apollo error response (${res.status}):`, text);
+    throw new Error(`Apollo API error ${res.status}: ${text}`);
   }
 
   const data = await res.json();
-  return (data.people || []) as ApolloContact[];
+  // Apollo kann die Top-Level-Key unterschiedlich benennen: altes Schema war
+  // `people`, bei `api_search` koennte es auch `contacts` oder anders heissen.
+  // Wir pruefen beide bekannten Varianten und loggen die Root-Keys wenn nichts
+  // gefunden wird, damit beim naechsten Schema-Change sofort klar ist was da ist.
+  const contacts = (data.people || data.contacts || []) as ApolloContact[];
+  if (contacts.length === 0 && data && typeof data === 'object') {
+    console.log('[apollo-sync] Apollo response keys:', Object.keys(data));
+  }
+  return contacts;
 }
 
 // Map Apollo industry label to our internal industry values
@@ -201,16 +221,24 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const email = contact.email?.toLowerCase().trim() || null;
+      // Apollos neuer api_search Endpoint liefert laut Dokumentation
+      // keine Email/Phone mehr (Enrichment muss separat ueber den
+      // People-Enrichment-Endpoint passieren). Weil leads.email als
+      // TEXT UNIQUE NOT NULL definiert ist, wuerde ein null-Insert
+      // die Constraint brechen. Fallback: Platzhalter-Email die einen
+      // Apollo-Prefix hat, damit Prospect Researcher sie spaeter per
+      // web_fetch durch eine echte ersetzen kann.
+      const rawEmail = contact.email?.toLowerCase().trim() || null;
+      const email = rawEmail || `apollo-${contact.id}@placeholder.praxisnovaai.com`;
       const company = contact.organization?.name?.trim() || null;
 
-      // Dedup by email
-      if (email && existingEmails.has(email)) {
+      // Dedup by email (rawEmail, nicht Platzhalter: Platzhalter sind immer unique)
+      if (rawEmail && existingEmails.has(rawEmail)) {
         skippedDupe++;
         continue;
       }
 
-      // Dedup by name+company (for contacts without email)
+      // Dedup by name+company (fuer Kontakte mit Platzhalter-Email)
       const nameKey = `${firstName.toLowerCase()} ${lastName.toLowerCase()}|${(company || '').toLowerCase()}`;
       if (existingNameKeys.has(nameKey)) {
         skippedDupe++;

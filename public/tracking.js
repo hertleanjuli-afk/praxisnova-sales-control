@@ -1,398 +1,106 @@
 /**
- * PraxisNova Website Tracking Script
- * Standalone IIFE for embedded tracking on praxisnovaai.com
+ * PraxisNova AI Website Tracking (Paket B Teil 1, 2026-04-12)
  *
- * Features:
- * - Generates/persists visitor_id in localStorage
- * - Tracks pageviews with section detection
- * - Auto-tracks CTA clicks (Calendly, Potenzialrechner, custom buttons)
- * - Tracks scroll depth (25/50/75/100%)
- * - Tracks section clicks ("Details ansehen")
- * - Tracks email form submissions
- * - Device type detection
- * - Captures referrer and UTM params
- * - Uses sendBeacon with fetch fallback
+ * Vanilla JS, keine Dependencies. Laeuft bei DOMContentLoaded einmal und
+ * sendet einen Pageview an das Sales-Tool Webhook. POST geht an
+ * /api/webhooks/website-clicks mit Origin-basiertem Auth (kein Secret im
+ * public JS). Das Tool akzeptiert Origin-POSTs nur von praxisnovaai.com.
  *
- * Configuration (optional):
- * window.PraxisNovaTracking = {
- *   endpoint: 'https://your-api.com/api/track-click',
- *   debug: true
- * }
+ * DSGVO-Hinweis: Kein Cookie. Die visitor-ID liegt in localStorage,
+ * laeuft also pro Browser/Geraet und nicht ueber Geraete hinweg. Keine
+ * IP wird clientseitig gesammelt (server-seitig sieht Vercel die IP
+ * ohnehin fuer Rate-Limiting, speichert sie aber nicht persistent).
+ *
+ * Einbindung auf praxisnovaai.com:
+ *   <script async src="https://praxisnova-sales-control.vercel.app/tracking.js"></script>
+ *
+ * Script-Tag gehoert in den <head>.
  */
-
-(function() {
+(function () {
   'use strict';
 
-  // Configuration
-  const CONFIG = {
-    endpoint: (window.PraxisNovaTracking && window.PraxisNovaTracking.endpoint) ||
-              'https://praxisnova-sales-control.vercel.app/api/track-click',
-    debug: (window.PraxisNovaTracking && window.PraxisNovaTracking.debug) || false,
-    storageKeyVisitorId: 'praxisnova_visitor_id',
-  };
+  var ENDPOINT = 'https://praxisnova-sales-control.vercel.app/api/webhooks/website-clicks';
+  var STORAGE_KEY = 'pnova_session_id';
 
-  // State
-  const state = {
-    visitorId: null,
-    pageSection: null,
-    scrollDepthTracked: {
-      25: false,
-      50: false,
-      75: false,
-      100: false,
-    },
-    isReady: false,
-  };
-
-  /**
-   * Log helper for debug mode
-   */
-  function log(message, data) {
-    if (CONFIG.debug) {
-      console.log('[PraxisNova Tracking]', message, data || '');
-    }
+  // Sektor aus URL-Pfad ableiten. Falls kein passender Treffer: "unknown".
+  function detectSector() {
+    var path = (window.location.pathname || '').toLowerCase();
+    if (path.indexOf('/immobilien') === 0 || path.indexOf('/immobilienmakler') === 0) return 'immobilien';
+    if (path.indexOf('/bau') === 0 || path.indexOf('/bauunternehmen') === 0) return 'bau';
+    if (path.indexOf('/handwerk') === 0 || path.indexOf('/handwerker') === 0) return 'handwerk';
+    return 'unknown';
   }
 
-  /**
-   * Generate UUID v4
-   */
-  function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
-  }
-
-  /**
-   * Get or create visitor_id from localStorage
-   */
-  function getOrCreateVisitorId() {
-    let visitorId = localStorage.getItem(CONFIG.storageKeyVisitorId);
-    if (!visitorId) {
-      visitorId = generateUUID();
-      try {
-        localStorage.setItem(CONFIG.storageKeyVisitorId, visitorId);
-      } catch (e) {
-        log('localStorage unavailable, using session visitorId');
+  // Session-ID aus LocalStorage holen oder neu generieren.
+  // Nutzt crypto.randomUUID() wo verfuegbar, sonst Math.random Fallback.
+  function getOrCreateSessionId() {
+    try {
+      var existing = localStorage.getItem(STORAGE_KEY);
+      if (existing) return existing;
+      var uuid;
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        uuid = window.crypto.randomUUID();
+      } else {
+        uuid = 'sess-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
       }
+      localStorage.setItem(STORAGE_KEY, uuid);
+      return uuid;
+    } catch (e) {
+      // LocalStorage kann von Privacy-Tools oder Browser-Settings blockiert
+      // sein. Fallback auf eine session-only ID die nur fuer diesen Request
+      // existiert, damit das Tracking nicht ausfaellt.
+      return 'sess-nostorage-' + Date.now().toString(36);
     }
-    return visitorId;
   }
 
-  /**
-   * Detect device type from screen width
-   */
-  function getDeviceType() {
-    return window.innerWidth < 768 ? 'mobile' : 'desktop';
-  }
-
-  /**
-   * Extract section from URL pathname
-   * /immobilien -> 'immobilien'
-   * /handwerk -> 'handwerk'
-   * /bau -> 'bau'
-   * /automatisierung -> 'automatisierung'
-   * / -> 'homepage'
-   */
-  function detectPageSection() {
-    const pathname = window.location.pathname.toLowerCase();
-    const segments = pathname.split('/').filter(Boolean);
-
-    if (!segments.length) {
-      return 'homepage';
-    }
-
-    const validSections = ['immobilien', 'handwerk', 'bau', 'automatisierung'];
-    const firstSegment = segments[0];
-
-    return validSections.includes(firstSegment) ? firstSegment : 'homepage';
-  }
-
-  /**
-   * Parse UTM parameters from URL
-   */
-  function getUTMParams() {
-    const params = new URLSearchParams(window.location.search);
+  // Query-Parameter aus URL extrahieren (utm_*).
+  function getUtmParams() {
+    var params = new URLSearchParams(window.location.search);
     return {
       utm_source: params.get('utm_source') || null,
       utm_medium: params.get('utm_medium') || null,
       utm_campaign: params.get('utm_campaign') || null,
       utm_content: params.get('utm_content') || null,
+      utm_term: params.get('utm_term') || null,
     };
   }
 
-  /**
-   * Get document referrer
-   */
-  function getReferrer() {
-    return document.referrer || null;
-  }
-
-  /**
-   * Send tracking event to API
-   * Uses sendBeacon if available, falls back to fetch
-   */
-  function sendTrackingEvent(eventData) {
-    const payload = JSON.stringify(eventData);
-    const blob = new Blob([payload], { type: 'application/json' });
-
-    // Try sendBeacon first (preferred for reliability)
-    if (navigator.sendBeacon) {
-      const success = navigator.sendBeacon(CONFIG.endpoint, blob);
-      log('sendBeacon result:', success, eventData);
-      return;
-    }
-
-    // Fallback to fetch
-    fetch(CONFIG.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: payload,
-      keepalive: true, // Allows request to complete even if page unloads
-    }).catch((error) => {
-      log('fetch error:', error);
-    });
-  }
-
-  /**
-   * Build base event payload
-   */
-  function buildBasePayload(buttonId, buttonText) {
-    const utmParams = getUTMParams();
-    return {
-      visitor_id: state.visitorId,
-      page: window.location.pathname,
-      button: buttonId || 'pageview',
-      timestamp: new Date().toISOString(),
-      utm_source: utmParams.utm_source,
-      utm_medium: utmParams.utm_medium,
-      utm_campaign: utmParams.utm_campaign,
-      utm_content: utmParams.utm_content,
-      device_type: getDeviceType(),
-      referrer: getReferrer(),
-    };
-  }
-
-  /**
-   * Track pageview
-   */
-  function trackPageview() {
-    state.pageSection = detectPageSection();
-    const payload = buildBasePayload('pageview');
-    payload.section = state.pageSection;
-    sendTrackingEvent(payload);
-    log('pageview tracked:', payload);
-  }
-
-  /**
-   * Track scroll depth
-   */
-  function trackScrollDepth() {
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.documentElement.scrollHeight - windowHeight;
-
-    if (documentHeight === 0) return;
-
-    const scrollPercent = Math.round((window.scrollY / documentHeight) * 100);
-    const depthThresholds = [25, 50, 75, 100];
-
-    depthThresholds.forEach((threshold) => {
-      if (scrollPercent >= threshold && !state.scrollDepthTracked[threshold]) {
-        state.scrollDepthTracked[threshold] = true;
-        const payload = buildBasePayload('scroll');
-        payload.event_type = 'scroll';
-        payload.scroll_depth = threshold;
-        sendTrackingEvent(payload);
-        log('scroll depth tracked:', threshold);
-      }
-    });
-  }
-
-  /**
-   * Track CTA click
-   * Calendly: data-track='cta-calendly' or href to calendly.com
-   * Potenzialrechner: href contains 'potenzialrechner'
-   * Custom buttons: data-track attribute
-   */
-  function trackCTAClick(element) {
-    const href = element.href || '';
-    const dataTrack = element.getAttribute('data-track');
-    let buttonId = null;
-
-    // Check data-track first
-    if (dataTrack) {
-      buttonId = dataTrack;
-    }
-    // Check for Calendly link
-    else if (href.includes('calendly.com')) {
-      buttonId = 'cta-calendly';
-    }
-    // Check for Potenzialrechner
-    else if (href.includes('potenzialrechner')) {
-      buttonId = 'cta-potenzialrechner';
-    }
-
-    if (buttonId) {
-      const payload = buildBasePayload(buttonId);
-      payload.event_type = 'cta_click';
-      payload.element_text = (element.textContent || '').trim().substring(0, 100);
-      sendTrackingEvent(payload);
-      log('CTA click tracked:', buttonId);
+  // Payload zusammenbauen und per POST an das Sales-Tool schicken.
+  // Kein Browser-Alert, kein console.error bei Fehlern. Wenn das Sales-Tool
+  // down ist, soll die Website NICHT kaputt aussehen.
+  function sendPageview() {
+    try {
+      var sessionId = getOrCreateSessionId();
+      var utm = getUtmParams();
+      var payload = {
+        visitorId: sessionId,
+        page: window.location.pathname,
+        referrer: document.referrer || null,
+        timestamp: new Date().toISOString(),
+        utm_source: utm.utm_source,
+        utm_medium: utm.utm_medium,
+        utm_campaign: utm.utm_campaign,
+        utm_content: utm.utm_content,
+        utm_term: utm.utm_term,
+        event_type: 'pageview',
+        section: detectSector(),
+        device_type: window.innerWidth < 768 ? 'mobile' : 'desktop',
+      };
+      fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'omit',
+        keepalive: true,
+      }).catch(function () { /* silent fail, Website bleibt funktional */ });
+    } catch (e) {
+      /* silent fail */
     }
   }
 
-  /**
-   * Track section click ("Details ansehen")
-   */
-  function trackSectionClick(element) {
-    const text = (element.textContent || '').trim().toLowerCase();
-    if (text.includes('details ansehen') || text.includes('mehr erfahren')) {
-      // Try to infer section from nearby content or data attribute
-      let section = element.getAttribute('data-section') || state.pageSection;
-      const payload = buildBasePayload('section-click');
-      payload.event_type = 'section_click';
-      payload.section = section;
-      payload.element_text = (element.textContent || '').trim().substring(0, 100);
-      sendTrackingEvent(payload);
-      log('section click tracked:', section);
-    }
-  }
-
-  /**
-   * Track email form submission
-   */
-  function trackFormSubmit(email) {
-    if (email && isValidEmail(email)) {
-      const payload = buildBasePayload('form-submit');
-      payload.event_type = 'form_submit';
-      payload.email = email;
-      sendTrackingEvent(payload);
-      log('form submission tracked:', email);
-    }
-  }
-
-  /**
-   * Simple email validation
-   */
-  function isValidEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-  }
-
-  /**
-   * Attach click handlers to relevant elements
-   */
-  function attachClickHandlers() {
-    // Track all links and buttons
-    document.addEventListener('click', function(event) {
-      let target = event.target;
-
-      // Traverse up to find link or button
-      while (target && target !== document.body) {
-        if (target.tagName === 'A') {
-          trackCTAClick(target);
-          break;
-        }
-        if (target.tagName === 'BUTTON' && target.getAttribute('data-track')) {
-          const buttonId = target.getAttribute('data-track');
-          const payload = buildBasePayload(buttonId);
-          payload.event_type = 'button_click';
-          payload.element_text = (target.textContent || '').trim().substring(0, 100);
-          sendTrackingEvent(payload);
-          log('button click tracked:', buttonId);
-          break;
-        }
-        target = target.parentElement;
-      }
-
-      // Check for section clicks
-      target = event.target;
-      while (target && target !== document.body) {
-        const text = (target.textContent || '').trim().toLowerCase();
-        if (text.includes('details ansehen') || text.includes('mehr erfahren')) {
-          trackSectionClick(target);
-          break;
-        }
-        target = target.parentElement;
-      }
-    }, true);
-  }
-
-  /**
-   * Attach scroll handler
-   */
-  function attachScrollHandler() {
-    let scrollTimeout;
-    window.addEventListener('scroll', function() {
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(function() {
-        trackScrollDepth();
-      }, 250); // Debounce
-    });
-  }
-
-  /**
-   * Listen for form submissions (email capture)
-   */
-  function attachFormHandlers() {
-    document.addEventListener('submit', function(event) {
-      const form = event.target;
-      const emailInput = form.querySelector('input[type="email"]');
-
-      if (emailInput && emailInput.value) {
-        trackFormSubmit(emailInput.value);
-      }
-    });
-  }
-
-  /**
-   * Initialize tracking on page load
-   */
-  function init() {
-    if (state.isReady) return;
-
-    // Ensure we have a visitor_id
-    state.visitorId = getOrCreateVisitorId();
-    log('visitor_id:', state.visitorId);
-
-    // Track initial pageview
-    trackPageview();
-
-    // Attach event listeners
-    attachClickHandlers();
-    attachScrollHandler();
-    attachFormHandlers();
-
-    state.isReady = true;
-    log('tracking initialized');
-  }
-
-  /**
-   * Wait for DOM to be ready, then initialize
-   */
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', sendPageview);
   } else {
-    // DOM already loaded
-    init();
+    sendPageview();
   }
-
-  // Also expose a manual track function for custom tracking
-  window.PraxisNovaTrack = function(buttonId, metadata) {
-    if (!state.isReady) {
-      log('tracking not yet ready');
-      return;
-    }
-    const payload = buildBasePayload(buttonId);
-    if (metadata) {
-      Object.assign(payload, metadata);
-    }
-    sendTrackingEvent(payload);
-    log('custom track:', buttonId, metadata);
-  };
-
-  log('script loaded, waiting for page ready');
 })();

@@ -3,7 +3,61 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 
+// Erlaubte Origins fuer browser-basierte POSTs (Paket B Teil 1).
+// Das Tracking-Script im <head> von praxisnovaai.com postet direkt hierher.
+// Weil ein Secret in public JS kein Secret waere, nutzen wir stattdessen
+// einen Origin-Check: wenn der Request-Header Origin auf eine der unten
+// gelisteten Domains zeigt, darf der POST ohne Secret durch. Der alte
+// secret-basierte Pfad bleibt rueckwaerts-kompatibel.
+const ALLOWED_BROWSER_ORIGINS = new Set<string>([
+  'https://praxisnovaai.com',
+  'https://www.praxisnovaai.com',
+]);
+
+// In-Memory Rate Limiter. Vercel Functions sind serverless, also reset bei
+// jedem Cold Start. Mehrere parallele Instanzen koennten das Limit je
+// einzeln durchlassen, aber fuer Anti-Missbrauch der publicen Origin-POSTs
+// reicht das - ein Angreifer muesste durch alle Instanzen gleichzeitig
+// browsen. Fuer saubereres Rate-Limiting spaeter Upstash Redis einsetzen.
+const rateLimitState = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_POSTS = 10;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitState.get(ip);
+  if (!entry || entry.resetAt < now) {
+    rateLimitState.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_MAX_POSTS) return false;
+  entry.count++;
+  return true;
+}
+
+function corsHeadersForOrigin(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+  };
+  if (origin && ALLOWED_BROWSER_ORIGINS.has(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  }
+  return headers;
+}
+
+// CORS Preflight fuer browser-basierte POSTs
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeadersForOrigin(origin),
+  });
+}
+
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get('origin');
   const body = await request.json();
   const {
     visitorId,
@@ -24,12 +78,37 @@ export async function POST(request: NextRequest) {
     dwell_time,
   } = body;
 
-  if (secret !== process.env.INBOUND_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
+  // Auth-Pfad 1: Secret-basiert (fuer interne Aufrufe + Backend-to-Backend)
+  // Auth-Pfad 2: Origin-basiert (fuer Browser-POSTs von praxisnovaai.com)
+  // Einer der beiden muss gelten, sonst 401.
+  const secretMatches = secret === process.env.INBOUND_WEBHOOK_SECRET;
+  const originMatches = origin !== null && ALLOWED_BROWSER_ORIGINS.has(origin);
+
+  if (!secretMatches && !originMatches) {
+    return NextResponse.json(
+      { error: 'Invalid secret or disallowed origin' },
+      { status: 401, headers: corsHeadersForOrigin(origin) },
+    );
+  }
+
+  // Rate-Limit nur fuer Origin-basierte Browser-POSTs. Secret-basierte
+  // interne Aufrufe sind vertraut und duerfen schneller sein.
+  if (originMatches && !secretMatches) {
+    const forwardedFor = request.headers.get('x-forwarded-for') || 'unknown';
+    const ip = forwardedFor.split(',')[0].trim();
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        { status: 429, headers: corsHeadersForOrigin(origin) },
+      );
+    }
   }
 
   if (!visitorId) {
-    return NextResponse.json({ error: 'visitorId is required' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'visitorId is required' },
+      { status: 400, headers: corsHeadersForOrigin(origin) },
+    );
   }
 
   try {
@@ -75,13 +154,13 @@ export async function POST(request: NextRequest) {
       `;
     }
 
-    return NextResponse.json({ ok: true, clickId });
+    return NextResponse.json({ ok: true, clickId }, { headers: corsHeadersForOrigin(origin) });
   } catch (error) {
     const isTimeout = error instanceof Error && (error.message.includes('timeout') || error.message.includes('abort'));
     console.error('Website click webhook error:', isTimeout ? 'DB timeout after retries' : error);
     return NextResponse.json(
       { error: isTimeout ? 'Database timeout' : 'Internal error', retryable: isTimeout },
-      { status: isTimeout ? 504 : 500 }
+      { status: isTimeout ? 504 : 500, headers: corsHeadersForOrigin(origin) }
     );
   }
 }

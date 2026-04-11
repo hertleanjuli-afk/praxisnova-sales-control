@@ -194,7 +194,7 @@ export default function StrategicUpdatesPage() {
 
         <div>
           <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 20px 0', color: '#fff' }}>Alle Updates</h2>
-          {loading ? <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888' }}>Laedt Updates...</div> : updates.length === 0 ? <div style={{ padding: '40px 20px', textAlign: 'center', color: '#666', backgroundColor: '#1a1a1a', borderRadius: '8px', border: '1px solid #1E1E1E' }}>Keine Updates vorhanden. Erstellen Sie Ihr erstes Update oben.</div> : (
+          {loading ? <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888' }}>Lädt Updates...</div> : updates.length === 0 ? <div style={{ padding: '40px 20px', textAlign: 'center', color: '#666', backgroundColor: '#1a1a1a', borderRadius: '8px', border: '1px solid #1E1E1E' }}>Keine Updates vorhanden. Erstellen Sie Ihr erstes Update oben.</div> : (
             <div style={{ display: 'grid', gap: '20px' }}>
               {Object.entries(groupedUpdates).map(([category, categoryUpdates]) => (
                 <div key={category}>

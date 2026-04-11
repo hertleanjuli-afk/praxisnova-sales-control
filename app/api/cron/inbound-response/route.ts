@@ -11,8 +11,9 @@
  * maxIterations: 15
  */
 
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { runAgent, isAuthorized, sendErrorNotification } from '@/lib/agent-runtime';
+import { runAgent, isAuthorized, sendErrorNotification, writeStartLog, writeEndLog } from '@/lib/agent-runtime';
 
 export const maxDuration = 120; // Shorter budget — must complete quickly for 15min cycles
 
@@ -80,7 +81,9 @@ export async function GET(request: NextRequest) {
   }
 
   const startTime = Date.now();
+  const runId = crypto.randomUUID();
   console.log('[inbound-response] Starte als eigenstaendiger Agent (max 15 Iterationen, 120s Budget)...');
+  await writeStartLog(runId, 'inbound_response');
 
   try {
     const result = await runAgent(
@@ -91,6 +94,11 @@ export async function GET(request: NextRequest) {
     );
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
+    await writeEndLog(runId, 'inbound_response', result.success ? 'completed' : 'partial', {
+      iterations: result.iterations,
+      elapsed_seconds: elapsed,
+      summary: `${result.iterations} Iterationen in ${elapsed}s`,
+    });
 
     if (!result.success) {
       await sendErrorNotification('Inbound Response Agent', `Max Iterationen (${result.iterations}/15)`, elapsed);
@@ -103,6 +111,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.error('[inbound-response] Fehler:', err);
+    await writeEndLog(runId, 'inbound_response', 'error', { error: String(err), elapsed_seconds: elapsed });
     await sendErrorNotification('Inbound Response Agent', String(err), elapsed);
     return NextResponse.json({ ok: false, agent: 'inbound_response', error: String(err), elapsed_seconds: elapsed }, { status: 500 });
   }

@@ -424,9 +424,9 @@ export default function CustomerInsightsPage() {
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kundengespräch-Insights</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Validierte Schmerzpunkte aus echten Kundengespraechen - werden von Sales Agents fuer personalisierte Emails genutzt.
+          <h1 className="text-2xl font-bold text-[#F0F0F5]">Kundengespräch-Insights</h1>
+          <p className="text-sm text-[#aaa] mt-1">
+            Validierte Schmerzpunkte aus echten Kundengesprächen - werden von Sales Agents für personalisierte Emails genutzt.
           </p>
         </div>
         <AddInsightForm onSuccess={loadInsights} />
@@ -458,10 +458,10 @@ export default function CustomerInsightsPage() {
       {/* Filter */}
       {filterIndustry && (
         <div className="mb-4 flex items-center gap-2">
-          <span className="text-sm text-gray-600">Filter: {filterIndustry}</span>
+          <span className="text-sm text-[#ccc]">Filter: {filterIndustry}</span>
           <button
             onClick={() => setFilterIndustry('')}
-            className="text-xs text-blue-600 hover:underline"
+            className="text-xs text-[#E8472A] hover:underline"
           >
             Filter entfernen
           </button>
@@ -470,13 +470,13 @@ export default function CustomerInsightsPage() {
 
       {/* Insights Liste */}
       {loading ? (
-        <div className="text-center py-12 text-gray-400">Laden...</div>
+        <div className="text-center py-12 text-[#888]">Laden...</div>
       ) : parsedInsights.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-gray-300 text-5xl mb-3">-</div>
-          <p className="text-gray-500 font-medium">Noch keine Insights erfasst</p>
-          <p className="text-sm text-gray-400 mt-1">
-            Erfasse Schmerzpunkte aus Kundengespraechen um die Email-Personalisierung zu verbessern.
+          <div className="text-[#444] text-5xl mb-3">-</div>
+          <p className="text-[#ccc] font-medium">Noch keine Insights erfasst</p>
+          <p className="text-sm text-[#888] mt-1">
+            Erfasse Schmerzpunkte aus Kundengesprächen um die Email-Personalisierung zu verbessern.
           </p>
         </div>
       ) : (

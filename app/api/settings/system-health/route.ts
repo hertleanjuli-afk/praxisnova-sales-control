@@ -44,16 +44,20 @@ const AGENTS: AgentConfig[] = [
   { key: 'partner_supervisor',       label: 'Partner Supervisor',        schedule: 'Mo-Fr 08:45 UTC',     source: 'agent_logs', agentName: 'partner_supervisor' },
   { key: 'partner_outreach_strategist', label: 'Partner Outreach',      schedule: 'Mo-Fr 12:30 UTC',      source: 'agent_logs', agentName: 'partner_outreach_strategist' },
 
+  // Agents that started logging in the 11.04 audit-fixes patch
+  { key: 'process_sequences',        label: 'Process Sequences',         schedule: '4x taeglich Mo-Fr',    source: 'agent_logs', agentName: 'process_sequences' },
+  { key: 'inbound_response',         label: 'Inbound Response Agent',    schedule: '4x taeglich Mo-Fr',    source: 'agent_logs', agentName: 'inbound_response' },
+  { key: 'linkedin_response_check',  label: 'LinkedIn Response Check',   schedule: 'Mo-Fr 08:00 UTC',      source: 'agent_logs', agentName: 'linkedin_response_check' },
+  { key: 'error_sentinel',           label: 'Error Sentinel',            schedule: '5x taeglich Mo-Fr',    source: 'agent_logs', agentName: 'error_sentinel' },
+  { key: 'apollo_sync',              label: 'Apollo Sync',               schedule: '3x taeglich',          source: 'agent_logs', agentName: 'apollo_sync' },
+
   // Agents inferred from secondary tables
   { key: 'news_agent',               label: 'News Agent',                 schedule: 'Mo-Fr 05:45 UTC',      source: 'industry_news' },
   { key: 'linkedin_post_generator',  label: 'LinkedIn Post Generator',    schedule: 'Mo-Fr 06:30 UTC',      source: 'linkedin_post_drafts' },
 
   // Agents with no log source - schedule only
   { key: 'daily_backup',             label: 'Nightly Backup',             schedule: 'Taeglich 02:00 UTC',   source: 'none' },
-  { key: 'error_sentinel',           label: 'Error Sentinel',             schedule: '5x taeglich Mo-Fr',    source: 'none' },
-  { key: 'apollo_sync',              label: 'Apollo Sync',                schedule: '3x taeglich',          source: 'none' },
   { key: 'brevo_stats_sync',         label: 'Brevo Stats Sync',           schedule: 'Mo-Fr 19:00 UTC',      source: 'none' },
-  { key: 'linkedin_response_check',  label: 'LinkedIn Response Check',    schedule: 'Mo-Fr 08:00 UTC',      source: 'none' },
   { key: 'health_monitor',           label: 'Health Monitor',             schedule: '3x taeglich Mo-Fr',    source: 'none' },
 ];
 

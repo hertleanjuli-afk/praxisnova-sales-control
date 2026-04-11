@@ -15,9 +15,10 @@
  * the same contacts. Uses a stored page-cursor in agent_decisions to
  * track progress across runs.
  */
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { isAuthorized, sendErrorNotification } from '@/lib/agent-runtime';
+import { isAuthorized, sendErrorNotification, writeStartLog, writeEndLog } from '@/lib/agent-runtime';
 
 export const maxDuration = 60;
 
@@ -125,8 +126,10 @@ export async function GET(request: NextRequest) {
   }
 
   const startTime = Date.now();
+  const runId = crypto.randomUUID();
   const today = new Date().toISOString().split('T')[0];
   console.log(`[apollo-sync] Starte Apollo-Sync fuer ${today}...`);
+  await writeStartLog(runId, 'apollo_sync');
 
   try {
     // Determine which search config to use today (rotate daily)
@@ -149,12 +152,17 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       console.error(`[apollo-sync] Apollo API Fehler:`, err);
       await sendErrorNotification('Apollo Sync', String(err), Math.round((Date.now() - startTime) / 1000));
+      await writeEndLog(runId, 'apollo_sync', 'error', { error: String(err), stage: 'fetch_apollo' });
       return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
     }
 
     console.log(`[apollo-sync] Apollo hat ${apolloContacts.length} Kontakte zurueckgegeben`);
 
     if (apolloContacts.length === 0) {
+      await writeEndLog(runId, 'apollo_sync', 'completed', {
+        inserted: 0,
+        summary: 'Apollo hat keine Kontakte zurueckgegeben',
+      });
       return NextResponse.json({ ok: true, inserted: 0, message: 'Apollo hat keine Kontakte zurueckgegeben' });
     }
 
@@ -261,6 +269,16 @@ export async function GET(request: NextRequest) {
       // Non-critical â don't fail the run if logging fails
     }
 
+    await writeEndLog(runId, 'apollo_sync', 'completed', {
+      inserted,
+      skipped_dupe: skippedDupe,
+      skipped_no_name: skippedNoName,
+      config: searchConfig.label,
+      page,
+      elapsed_seconds: elapsed,
+      summary: `${inserted} neue Leads (${skippedDupe} Duplikate, ${skippedNoName} ohne Name) via ${searchConfig.label}`,
+    });
+
     return NextResponse.json({
       ok: true,
       inserted,
@@ -273,6 +291,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.error(`[apollo-sync] Unerwarteter Fehler:`, err);
+    await writeEndLog(runId, 'apollo_sync', 'error', { error: String(err), elapsed_seconds: elapsed });
     await sendErrorNotification('Apollo Sync', String(err), elapsed);
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
   }

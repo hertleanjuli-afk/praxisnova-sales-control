@@ -8,8 +8,10 @@
 // - Kein LinkedIn vorhanden
 // ============================================================
 
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import sql from '@/lib/db';
+import { writeStartLog, writeEndLog } from '@/lib/agent-runtime';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -25,6 +27,9 @@ export async function GET(request: Request) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const runId = crypto.randomUUID();
+  await writeStartLog(runId, 'linkedin_response_check');
 
   try {
     const results = {
@@ -141,14 +146,25 @@ export async function GET(request: Request) {
       }
     }
 
+    const totalQueued = results.request_timeout + results.message_timeout + results.no_linkedin;
+    await writeEndLog(runId, 'linkedin_response_check', 'completed', {
+      request_timeout: results.request_timeout,
+      message_timeout: results.message_timeout,
+      no_linkedin: results.no_linkedin,
+      total_queued: totalQueued,
+      errors: results.errors.length,
+      summary: `${totalQueued} Leads auf Anrufliste gesetzt`,
+    });
+
     return NextResponse.json({
       ok: true,
-      summary: `${results.request_timeout + results.message_timeout + results.no_linkedin} Leads auf Anrufliste gesetzt`,
+      summary: `${totalQueued} Leads auf Anrufliste gesetzt`,
       details: results,
     });
 
   } catch (error) {
     console.error('[linkedin-response-check] Fehler:', error);
+    await writeEndLog(runId, 'linkedin_response_check', 'error', { error: String(error) });
     return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }

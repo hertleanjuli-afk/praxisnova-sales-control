@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
+import { logActivityToHubSpot } from '@/lib/hubspot';
 
 /**
  * POST /api/webhooks/brevo
@@ -44,22 +45,32 @@ async function insertEmailEvent(
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify Brevo webhook signature
+    // Verify Brevo webhook signature.
+    // Hardened: when BREVO_WEBHOOK_SECRET is set, require a valid signature.
+    // Previously this "failed open" - if the header was missing it would accept
+    // unsigned webhooks, which let anyone inject fake open/click events.
     const signature = req.headers.get('X-Brevo-Signature');
     const webhookSecret = process.env.BREVO_WEBHOOK_SECRET;
 
     let payload;
-    if (webhookSecret && signature) {
+    if (webhookSecret) {
+      if (!signature) {
+        console.warn('[brevo-webhook] Missing X-Brevo-Signature header - rejected');
+        return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
+      }
       const { createHmac } = await import('crypto');
       const bodyText = await req.text();
       const expectedSignature = createHmac('sha256', webhookSecret).update(bodyText).digest('hex');
       if (signature !== expectedSignature) {
-        console.warn('[brevo-webhook] Invalid signature');
+        console.warn('[brevo-webhook] Invalid signature - rejected');
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
       // Re-parse body since we consumed it
       payload = JSON.parse(bodyText);
     } else {
+      // Secret not configured - local dev only. Emit a loud warning so this
+      // doesn't go unnoticed in production logs.
+      console.warn('[brevo-webhook] BREVO_WEBHOOK_SECRET not set - accepting unsigned webhook (local dev only)');
       payload = await req.json();
     }
 
@@ -81,12 +92,23 @@ export async function POST(req: NextRequest) {
         if (!email) return NextResponse.json({ ok: true, action: 'no_email' });
 
         const leads = await sql`
-          SELECT id FROM leads WHERE LOWER(email) = LOWER(${email})
+          SELECT id, hubspot_contact_id FROM leads WHERE LOWER(email) = LOWER(${email})
         `;
         if (leads.length === 0) return NextResponse.json({ ok: true, action: 'lead_not_found' });
 
         const lead = leads[0];
         await insertEmailEvent(lead.id, 'opened', messageId, senderEmail, tag);
+
+        // Mirror the engagement event to HubSpot as a Note activity so sales
+        // reps see it on the contact timeline. Non-blocking: HubSpot being
+        // down must never fail our own webhook.
+        if (lead.hubspot_contact_id) {
+          logActivityToHubSpot(
+            lead.hubspot_contact_id,
+            'email',
+            `E-Mail geöffnet${tag ? ` - Sequenz: ${tag}` : ''}`,
+          ).catch(err => console.warn('[Brevo Webhook] HubSpot open sync failed (non-critical):', err));
+        }
 
         console.log(`[Brevo Webhook] Opened: Lead ${lead.id}`);
         return NextResponse.json({ ok: true, action: 'open_tracked', lead_id: lead.id });
@@ -100,12 +122,20 @@ export async function POST(req: NextRequest) {
         if (!email) return NextResponse.json({ ok: true, action: 'no_email' });
 
         const leads = await sql`
-          SELECT id FROM leads WHERE LOWER(email) = LOWER(${email})
+          SELECT id, hubspot_contact_id FROM leads WHERE LOWER(email) = LOWER(${email})
         `;
         if (leads.length === 0) return NextResponse.json({ ok: true, action: 'lead_not_found' });
 
         const lead = leads[0];
         await insertEmailEvent(lead.id, 'clicked', messageId, senderEmail, tag);
+
+        if (lead.hubspot_contact_id) {
+          logActivityToHubSpot(
+            lead.hubspot_contact_id,
+            'email',
+            `E-Mail Link geklickt${tag ? ` - Sequenz: ${tag}` : ''}`,
+          ).catch(err => console.warn('[Brevo Webhook] HubSpot click sync failed (non-critical):', err));
+        }
 
         console.log(`[Brevo Webhook] Clicked: Lead ${lead.id}`);
         return NextResponse.json({ ok: true, action: 'click_tracked', lead_id: lead.id });

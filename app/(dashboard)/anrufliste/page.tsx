@@ -728,7 +728,7 @@ export default function Anrufliste() {
       {/* Callbacks Grid */}
       <div className="flex-1 overflow-y-auto">
         {callbacks.length === 0 ? (
-          <div className="text-center text-[#888] py-8">Keine Rückrufe faellig</div>
+          <div className="text-center text-[#888] py-8">Keine Rückrufe fällig</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-2">
             {[...callbacks].sort((a, b) => new Date(a.callback_date).getTime() - new Date(b.callback_date).getTime()).map(cb => {

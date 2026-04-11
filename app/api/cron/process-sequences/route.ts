@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import sql from '@/lib/db';
 import { sendTransactionalEmail } from '@/lib/brevo';
 import { updateContact } from '@/lib/hubspot';
+import { writeStartLog, writeEndLog } from '@/lib/agent-runtime';
 import { immobilienSequence } from '@/lib/sequences/immobilien';
 import { handwerkSequence } from '@/lib/sequences/handwerk';
 import { bauunternehmenSequence } from '@/lib/sequences/bauunternehmen';
@@ -129,6 +131,12 @@ export async function GET(request: NextRequest) {
   // Enable by upgrading to Pro and setting cron to "30 7,8,9,10,12,13 * * 1-4"
 
   const stats = { processed: 0, sent: 0, failed: 0, completed: 0, linkedin_tasks: 0, resumed: 0 };
+
+  // Observability: track each run in agent_logs so /settings System Status
+  // shows whether process-sequences succeeded. Previously this cron had zero
+  // self-logging, so silent failures would lose emails without any signal.
+  const runId = crypto.randomUUID();
+  await writeStartLog(runId, 'process_sequences');
 
   try {
     // Auto-resume paused leads (OOO) where resume_at has passed
@@ -361,9 +369,24 @@ export async function GET(request: NextRequest) {
       AND enrolled_at < NOW() - INTERVAL '7 days'
     `;
 
+    await writeEndLog(runId, 'process_sequences', 'completed', {
+      emails_sent: stats.sent,
+      leads_processed: stats.processed,
+      failed: stats.failed,
+      completed_sequences: stats.completed,
+      linkedin_tasks: stats.linkedin_tasks,
+      resumed: stats.resumed,
+      summary: `${stats.sent} E-Mails gesendet, ${stats.processed} Leads verarbeitet, ${stats.failed} Fehler`,
+    });
     return NextResponse.json({ ok: true, stats });
   } catch (error) {
     console.error('Cron process-sequences error:', error);
+    await writeEndLog(runId, 'process_sequences', 'error', {
+      error: String(error),
+      emails_sent: stats.sent,
+      leads_processed: stats.processed,
+      summary: `Fehler nach ${stats.sent} E-Mails`,
+    });
     return NextResponse.json({ error: 'Internal error', stats }, { status: 500 });
   }
 }

@@ -448,7 +448,7 @@ export default function SequencesPage() {
                           {lead.first_name} {lead.last_name}
                         </Link>
                         {lead.has_opened && (
-                          <span title="Email geoeffnet" style={{ marginLeft: 6, fontSize: 13 }}>&#128293;</span>
+                          <span title="Email geöffnet" style={{ marginLeft: 6, fontSize: 13 }}>&#128293;</span>
                         )}
                         {lead.linkedin_connected && (
                           <span title="LinkedIn vernetzt" style={{ marginLeft: 4, fontSize: 13 }}>&#128279;</span>

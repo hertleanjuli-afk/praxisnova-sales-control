@@ -270,7 +270,7 @@ export default function WochenberichtPage() {
           accent="#22C55E"
         />
         <KpiCard
-          label="Emails geoeffnet"
+          label="Emails geöffnet"
           value={kpis.totalEmailsOpened}
           sublabel={`${openRate}% Open-Rate`}
           accent="#EAB308"

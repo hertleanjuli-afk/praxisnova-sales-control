@@ -263,6 +263,10 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_medium TEXT`;
   await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_campaign TEXT`;
   await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS utm_content TEXT`;
+  // v7 tracking upgrade columns (event_type/section/device_type applied via migration file)
+  // v8: scroll depth + dwell time tracking
+  await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS scroll_depth INTEGER`;
+  await sql`ALTER TABLE website_clicks ADD COLUMN IF NOT EXISTS dwell_time INTEGER`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS optin_reminded BOOLEAN DEFAULT FALSE`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_status TEXT`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS linkedin_request_date TIMESTAMPTZ`;

@@ -64,7 +64,7 @@ export default function AgentMetricsPage() {
           <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <MetricCard label="E-Mails gesendet" value={a.emails_sent_total} sub={`Diese Woche: ${a.emails_sent_week}`} />
-              <MetricCard label="Oeffnungsrate" value={`${a.open_rate}%`} />
+              <MetricCard label="Öffnungsrate" value={`${a.open_rate}%`} />
               <MetricCard label="Antwortrate" value={`${a.reply_rate}%`} />
               <MetricCard label="Aktive Sequenzen" value={a.active_sequences} />
               <MetricCard label="Leads in Pipeline" value={a.pipeline_leads} />

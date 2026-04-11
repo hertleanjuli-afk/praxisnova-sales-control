@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import GlobalSearch from '@/components/GlobalSearch';
 
 const tiktokEnabled = process.env.NEXT_PUBLIC_TIKTOK_MODULE_ENABLED === 'true';
 
@@ -194,8 +195,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* ── Main Content ────────────────────────────────────────────────── */}
       <div style={{ marginLeft: 260, flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         {/* Top Header */}
-        <header style={{ position: 'sticky', top: 0, zIndex: 20, background: '#0A0A0A', borderBottom: '1px solid #1E1E1E', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 600, color: '#F0F0F5', margin: 0 }}>{pageTitle}</h2>
+        <header style={{ position: 'sticky', top: 0, zIndex: 20, background: '#0A0A0A', borderBottom: '1px solid #1E1E1E', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 24 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 600, color: '#F0F0F5', margin: 0, flexShrink: 0 }}>{pageTitle}</h2>
+          <GlobalSearch />
         </header>
 
         {/* Page Content */}

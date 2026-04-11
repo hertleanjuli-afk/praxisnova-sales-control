@@ -376,7 +376,7 @@ export default function LinkedInPostingTracker() {
                       : 'bg-[#2a2a2a] text-gray-400 hover:text-white'
                   }`}
                 >
-                  {tab === 'heute' ? 'Heute' : 'Entwuerfe'}
+                  {tab === 'heute' ? 'Heute' : 'Entwürfe'}
                   {tab === 'entwuerfe' && newDraftCount > 0 && (
                     <span className="ml-2 bg-[#E8472A] text-white rounded-full px-2 py-0.5 text-xs font-bold">
                       {newDraftCount}
@@ -463,7 +463,7 @@ export default function LinkedInPostingTracker() {
                         onClick={() => setActiveTab('entwuerfe')}
                         style={{ marginTop: 12, padding: '6px 14px', background: '#E8472A', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
                       >
-                        Vollstaendigen Entwurf anzeigen
+                        Vollständigen Entwurf anzeigen
                       </button>
                     </div>
                   );
@@ -829,20 +829,20 @@ export default function LinkedInPostingTracker() {
             {/* Header row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h2 style={{ color: '#F0F0F5', fontSize: 18, fontWeight: 600, margin: 0 }}>
-                KI-Entwuerfe
+                KI-Entwürfe
               </h2>
               <span style={{ color: '#aaa', fontSize: 13 }}>
-                Letzte 7 Tage - {drafts.length} Entwuerfe
+                Letzte 7 Tage - {drafts.length} Entwürfe
               </span>
             </div>
 
             {draftsLoading ? (
-              <div style={{ color: '#aaa', textAlign: 'center', padding: 40 }}>Lade Entwuerfe...</div>
+              <div style={{ color: '#aaa', textAlign: 'center', padding: 40 }}>Lade Entwürfe...</div>
             ) : drafts.length === 0 ? (
               <div style={{ background: '#1a1a1a', borderRadius: 12, padding: 40, textAlign: 'center' }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>-</div>
                 <div style={{ color: '#aaa', fontSize: 14 }}>
-                  Noch keine Entwuerfe. Der KI-Agent generiert jeden Morgen (Mo-Fr) um 08:30 Uhr 2 neue Entwuerfe.
+                  Noch keine Entwürfe. Der KI-Agent generiert jeden Morgen (Mo-Fr) um 08:30 Uhr 2 neue Entwürfe.
                 </div>
               </div>
             ) : (

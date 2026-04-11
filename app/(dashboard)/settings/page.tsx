@@ -447,7 +447,7 @@ export default function SettingsPage() {
               {systemHealth.overallStatus === 'ok'
                 ? 'Alle Systeme laufen normal'
                 : systemHealth.overallStatus === 'error'
-                  ? 'Fehler erkannt - bitte pruefen'
+                  ? 'Fehler erkannt - bitte prüfen'
                   : 'Einige Prozesse noch nicht gelaufen'}
             </span>
           </div>

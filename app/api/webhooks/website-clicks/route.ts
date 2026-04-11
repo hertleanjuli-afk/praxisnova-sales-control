@@ -5,7 +5,24 @@ import sql from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { visitorId, page, buttonId, buttonText, referrer, timestamp, secret, utm_source, utm_medium, utm_campaign, utm_content, event_type, section, device_type } = body;
+  const {
+    visitorId,
+    page,
+    buttonId,
+    buttonText,
+    referrer,
+    timestamp,
+    secret,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_content,
+    event_type,
+    section,
+    device_type,
+    scroll_depth,
+    dwell_time,
+  } = body;
 
   if (secret !== process.env.INBOUND_WEBHOOK_SECRET) {
     return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
@@ -17,13 +34,31 @@ export async function POST(request: NextRequest) {
 
   try {
     const clickedAt = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
+    const scrollDepthInt = Number.isFinite(Number(scroll_depth)) ? Number(scroll_depth) : null;
+    const dwellTimeInt = Number.isFinite(Number(dwell_time)) ? Number(dwell_time) : null;
 
-    // Insert the click
-    const inserted = await sql`
-      INSERT INTO website_clicks (visitor_id, page, button_id, button_text, referrer, clicked_at, utm_source, utm_medium, utm_campaign, utm_content, event_type, section, device_type)
-      VALUES (${visitorId}, ${page || '/'}, ${buttonId || 'unknown'}, ${buttonText || null}, ${referrer || null}, ${clickedAt}, ${utm_source || null}, ${utm_medium || null}, ${utm_campaign || null}, ${utm_content || null}, ${event_type || 'pageview'}, ${section || null}, ${device_type || null})
-      RETURNING id
-    `;
+    // Try insert with new scroll_depth + dwell_time columns. Falls back gracefully
+    // if a fresh database hasn't been through the v8 migration yet.
+    let inserted;
+    try {
+      inserted = await sql`
+        INSERT INTO website_clicks (visitor_id, page, button_id, button_text, referrer, clicked_at, utm_source, utm_medium, utm_campaign, utm_content, event_type, section, device_type, scroll_depth, dwell_time)
+        VALUES (${visitorId}, ${page || '/'}, ${buttonId || 'unknown'}, ${buttonText || null}, ${referrer || null}, ${clickedAt}, ${utm_source || null}, ${utm_medium || null}, ${utm_campaign || null}, ${utm_content || null}, ${event_type || 'pageview'}, ${section || null}, ${device_type || null}, ${scrollDepthInt}, ${dwellTimeInt})
+        RETURNING id
+      `;
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('column')) {
+        // scroll_depth / dwell_time column missing - fall back to the v7 column set
+        console.warn('[website-clicks] scroll_depth/dwell_time columns missing, run initializeDatabase() to add them');
+        inserted = await sql`
+          INSERT INTO website_clicks (visitor_id, page, button_id, button_text, referrer, clicked_at, utm_source, utm_medium, utm_campaign, utm_content, event_type, section, device_type)
+          VALUES (${visitorId}, ${page || '/'}, ${buttonId || 'unknown'}, ${buttonText || null}, ${referrer || null}, ${clickedAt}, ${utm_source || null}, ${utm_medium || null}, ${utm_campaign || null}, ${utm_content || null}, ${event_type || 'pageview'}, ${section || null}, ${device_type || null})
+          RETURNING id
+        `;
+      } else {
+        throw err;
+      }
+    }
 
     const clickId = inserted[0].id;
 

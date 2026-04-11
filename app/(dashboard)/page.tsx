@@ -379,7 +379,7 @@ export default function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 18 }}>📞</span>
                     <span style={{ color: '#F0F0F5', fontWeight: 500 }}>
-                      {actionData.callsDue} {actionData.callsDue === 1 ? 'Anruf faellig' : 'Anrufe faellig'}
+                      {actionData.callsDue} {actionData.callsDue === 1 ? 'Anruf fällig' : 'Anrufe fällig'}
                     </span>
                   </div>
                   <span style={{ color: actionData.callsDue > 0 ? '#E8472A' : '#4ade80', fontSize: 18, fontWeight: 700 }}>
@@ -399,7 +399,7 @@ export default function DashboardPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 18 }}>💼</span>
                     <span style={{ color: '#F0F0F5', fontWeight: 500 }}>
-                      {actionData.linkedinDue} LinkedIn-{actionData.linkedinDue === 1 ? 'Aktion' : 'Aktionen'} faellig
+                      {actionData.linkedinDue} LinkedIn-{actionData.linkedinDue === 1 ? 'Aktion' : 'Aktionen'} fällig
                     </span>
                   </div>
                   <span style={{ color: actionData.linkedinDue > 0 ? '#6366f1' : '#4ade80', fontSize: 18, fontWeight: 700 }}>
@@ -442,7 +442,7 @@ export default function DashboardPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 18 }}>🔥</span>
                       <span style={{ color: '#F0F0F5', fontWeight: 500 }}>
-                        {actionData.hotLeads} {actionData.hotLeads === 1 ? 'Lead hat' : 'Leads haben'} Email geoeffnet - noch keine Antwort
+                        {actionData.hotLeads} {actionData.hotLeads === 1 ? 'Lead hat' : 'Leads haben'} Email geöffnet - noch keine Antwort
                       </span>
                     </div>
                     <span style={{ color: '#fbbf24', fontSize: 18, fontWeight: 700 }}>{actionData.hotLeads}</span>
@@ -491,9 +491,9 @@ export default function DashboardPage() {
                 value={actionData.recentErrors === 0 ? 'Keine' : `${actionData.recentErrors} Fehler`}
                 ok={actionData.recentErrors === 0}
               />
-              <StatusRow label="Backup" value="Laedt..." ok={true} />
-              <StatusRow label="Apollo" value="Laedt..." ok={true} />
-              <StatusRow label="HubSpot" value="Laedt..." ok={true} />
+              <StatusRow label="Backup" value="Lädt..." ok={true} />
+              <StatusRow label="Apollo" value="Lädt..." ok={true} />
+              <StatusRow label="HubSpot" value="Lädt..." ok={true} />
             </div>
 
             {!actionData.systemOk && (

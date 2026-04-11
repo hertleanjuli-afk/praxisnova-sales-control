@@ -19,10 +19,12 @@
  * Schedule: every 30 minutes between 06:00 and 22:00 Berlin time
  */
 
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { sendTransactionalEmail } from '@/lib/brevo';
 import { EMAIL_COLORS } from '@/lib/email-template';
+import { writeStartLog, writeEndLog } from '@/lib/agent-runtime';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -346,40 +348,58 @@ export async function GET(request: NextRequest) {
   }
 
   const startTime = Date.now();
+  const runId = crypto.randomUUID();
   console.log('[error-sentinel] Starte Runtime-Health-Check...');
+  await writeStartLog(runId, 'error_sentinel');
 
-  const issues: Issue[] = [];
+  try {
+    const issues: Issue[] = [];
 
-  // 1. Route pings in parallel
-  const routeResults = await Promise.all(ROUTE_CHECKS.map(pingRoute));
-  for (const r of routeResults) issues.push(...r);
+    // 1. Route pings in parallel
+    const routeResults = await Promise.all(ROUTE_CHECKS.map(pingRoute));
+    for (const r of routeResults) issues.push(...r);
 
-  // 2. DB sanity checks in parallel
-  const dbResults = await Promise.all(DB_CHECKS.map(runDbCheck));
-  for (const r of dbResults) issues.push(...r);
+    // 2. DB sanity checks in parallel
+    const dbResults = await Promise.all(DB_CHECKS.map(runDbCheck));
+    for (const r of dbResults) issues.push(...r);
 
-  // 3. Recent agent errors
-  const agentIssues = await checkRecentAgentErrors();
-  issues.push(...agentIssues);
+    // 3. Recent agent errors
+    const agentIssues = await checkRecentAgentErrors();
+    issues.push(...agentIssues);
 
-  const elapsed = Math.round((Date.now() - startTime) / 1000);
-  const errorCount = issues.filter((i) => i.severity === 'error').length;
-  const warnCount = issues.filter((i) => i.severity === 'warning').length;
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    const errorCount = issues.filter((i) => i.severity === 'error').length;
+    const warnCount = issues.filter((i) => i.severity === 'warning').length;
 
-  console.log(`[error-sentinel] Fertig in ${elapsed}s: ${errorCount} Fehler, ${warnCount} Warnungen`);
+    console.log(`[error-sentinel] Fertig in ${elapsed}s: ${errorCount} Fehler, ${warnCount} Warnungen`);
 
-  // Only send email if there are real issues (not just info-level)
-  if (errorCount > 0 || warnCount > 2) {
-    await sendAlertEmail(issues);
+    // Only send email if there are real issues (not just info-level)
+    if (errorCount > 0 || warnCount > 2) {
+      await sendAlertEmail(issues);
+    }
+
+    await writeEndLog(runId, 'error_sentinel', 'completed', {
+      error_count: errorCount,
+      warn_count: warnCount,
+      issues_found: issues.length,
+      elapsed_seconds: elapsed,
+      summary: errorCount > 0
+        ? `${errorCount} Fehler, ${warnCount} Warnungen`
+        : `Alles gruen - ${warnCount} Warnungen`,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      healthy: errorCount === 0,
+      errorCount,
+      warnCount,
+      issuesFound: issues.length,
+      elapsedSeconds: elapsed,
+      issues,
+    });
+  } catch (err) {
+    console.error('[error-sentinel] Fehler:', err);
+    await writeEndLog(runId, 'error_sentinel', 'error', { error: String(err) });
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
   }
-
-  return NextResponse.json({
-    ok: true,
-    healthy: errorCount === 0,
-    errorCount,
-    warnCount,
-    issuesFound: issues.length,
-    elapsedSeconds: elapsed,
-    issues,
-  });
 }

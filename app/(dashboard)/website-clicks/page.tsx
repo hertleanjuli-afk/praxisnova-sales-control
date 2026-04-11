@@ -19,6 +19,9 @@ interface ClickEntry {
   utm_medium?: string | null;
   utm_campaign?: string | null;
   utm_content?: string | null;
+  event_type?: string | null;
+  section?: string | null;
+  device_type?: string | null;
   created_at: string;
   clicked_at?: string;
 }
@@ -29,11 +32,28 @@ interface Stats {
   identified_visitors: number;
 }
 
-function detectIndustry(page: string, referrer?: string): string {
-  const combined = (page + ' ' + (referrer || '')).toLowerCase();
+// Normalize section/URL to one of: Immobilien | Bau | Handwerk | Sonstige
+// Prefers the tracking script's `section` value (set from URL first segment)
+// and falls back to substring matching on page + referrer + UTM fields.
+function detectIndustry(entry: ClickEntry): string {
+  const section = (entry.section || '').toLowerCase();
+  if (section === 'immobilien') return 'Immobilien';
+  if (section === 'bau') return 'Bau';
+  if (section === 'handwerk') return 'Handwerk';
+
+  const combined = [
+    entry.page,
+    entry.referrer || '',
+    entry.utm_campaign || '',
+    entry.utm_content || '',
+    entry.utm_source || '',
+  ].join(' ').toLowerCase();
+
   if (combined.includes('immobil') || combined.includes('real-estate')) return 'Immobilien';
-  if (combined.includes('bau') || combined.includes('construction')) return 'Bau';
+  if (combined.includes('bauunternehmen') || combined.includes('bautraeger') || combined.includes('construction')) return 'Bau';
   if (combined.includes('handwerk') || combined.includes('craft')) return 'Handwerk';
+  // Only match the bare word "bau" if it's a path segment, to avoid matching "about" or "staubsauger"
+  if (/(^|[\/\-\s])bau([\/\-\s]|$)/.test(combined)) return 'Bau';
   return 'Sonstige';
 }
 
@@ -83,7 +103,7 @@ export default function WebsiteClicksPage() {
     const since = Date.now() - days * 86400000;
     result = result.filter(c => new Date(c.clicked_at || c.created_at).getTime() >= since);
     if (section !== 'alle') {
-      result = result.filter(c => detectIndustry(c.page, c.referrer || undefined) === section);
+      result = result.filter(c => detectIndustry(c) === section);
     }
     return result;
   }, [clicks, period, section]);
@@ -115,7 +135,7 @@ export default function WebsiteClicksPage() {
   const industryBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const c of filtered) {
-      const ind = detectIndustry(c.page, c.referrer || undefined);
+      const ind = detectIndustry(c);
       counts[ind] = (counts[ind] || 0) + 1;
     }
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -182,8 +202,16 @@ export default function WebsiteClicksPage() {
     return filtered.filter(c => new Date(c.clicked_at || c.created_at).getTime() >= since).length;
   }, [filtered]);
 
+  // Count unique visitors who clicked AT LEAST ONE CTA (not raw CTA events).
+  // Using event count would allow >100% when a visitor clicks multiple CTAs.
+  const convertedVisitors = useMemo(
+    () => new Set(ctaClicks.map(c => c.visitor_id)).size,
+    [ctaClicks],
+  );
   const conversionRate =
-    uniqueVisitors > 0 ? Math.round((ctaClicks.length / uniqueVisitors) * 10000) / 100 : 0;
+    uniqueVisitors > 0
+      ? Math.min(100, Math.round((convertedVisitors / uniqueVisitors) * 10000) / 100)
+      : 0;
 
   return (
     <div className="min-h-screen bg-[#111] p-6">

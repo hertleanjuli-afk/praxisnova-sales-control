@@ -51,6 +51,9 @@ const AGENTS: AgentConfig[] = [
   { key: 'error_sentinel',           label: 'Error Sentinel',            schedule: '5x taeglich Mo-Fr',    source: 'agent_logs', agentName: 'error_sentinel' },
   { key: 'apollo_sync',              label: 'Apollo Sync',               schedule: '3x taeglich',          source: 'agent_logs', agentName: 'apollo_sync' },
 
+  // Paket A: Gmail Reply Sync (2026-04-11)
+  { key: 'gmail_reply_sync',         label: 'Gmail Reply Sync',          schedule: 'Alle 15 Min 06-22 UTC',source: 'agent_logs', agentName: 'gmail_reply_sync' },
+
   // Agents inferred from secondary tables
   { key: 'news_agent',               label: 'News Agent',                 schedule: 'Mo-Fr 05:45 UTC',      source: 'industry_news' },
   { key: 'linkedin_post_generator',  label: 'LinkedIn Post Generator',    schedule: 'Mo-Fr 06:30 UTC',      source: 'linkedin_post_drafts' },

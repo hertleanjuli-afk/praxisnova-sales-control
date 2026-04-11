@@ -450,6 +450,13 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_reply_at TIMESTAMPTZ`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS reply_count INTEGER DEFAULT 0`;
 
+  // Paket B, 2026-04-12: Google Calendar Sync
+  // Spalten fuer die Nachverfolgung von Buchungen die via Google Calendar
+  // Appointment Schedule (calendar.app.google/...) eingehen.
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS google_event_id TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_booking_at TIMESTAMPTZ`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_google_event_id ON leads(google_event_id) WHERE google_event_id IS NOT NULL`;
+
   // Dedupe-Tabelle für verarbeitete Gmail-Nachrichten. Primary Key auf
   // der Gmail-Message-ID verhindert Doppelverarbeitung auch wenn der
   // Cron 6x pro Stunde läuft.

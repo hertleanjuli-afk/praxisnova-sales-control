@@ -52,7 +52,10 @@ const AGENTS: AgentConfig[] = [
   { key: 'apollo_sync',              label: 'Apollo Sync',               schedule: '3x taeglich',          source: 'agent_logs', agentName: 'apollo_sync' },
 
   // Paket A: Gmail Reply Sync (2026-04-11)
-  { key: 'gmail_reply_sync',         label: 'Gmail Reply Sync',          schedule: 'Alle 15 Min 06-22 UTC',source: 'agent_logs', agentName: 'gmail_reply_sync' },
+  { key: 'gmail_reply_sync',         label: 'Gmail Reply Sync',          schedule: 'Alle 10 Min 06-22 UTC',source: 'agent_logs', agentName: 'gmail_reply_sync' },
+
+  // Paket B Teil 2: Google Calendar Sync (2026-04-12)
+  { key: 'google_calendar_sync',     label: 'Google Calendar Sync',      schedule: 'Alle 5 Min 06-22 UTC', source: 'agent_logs', agentName: 'google_calendar_sync' },
 
   // Agents inferred from secondary tables
   { key: 'news_agent',               label: 'News Agent',                 schedule: 'Mo-Fr 05:45 UTC',      source: 'industry_news' },

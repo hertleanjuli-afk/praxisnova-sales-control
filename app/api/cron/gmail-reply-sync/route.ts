@@ -1,32 +1,41 @@
 /**
- * Gmail Reply Sync Cron
+ * Gmail Reply Sync Cron (Paket A, 2026-04-11)
  *
- * Problem solved: Brevo does not forward `reply` events to our webhook unless
- * Brevo Inbound Parse is configured. When it's not, real replies from leads
- * arrive in Angie's Gmail inbox but never touch our DB. The tool shows 0
- * replies, sequences run on forever, the 9-month company block never fires,
- * and deals leak silently. Forensic report U3 (2026-04-11) documented this
- * as the highest-priority revenue risk.
+ * Das Tool wartet auf einen Brevo Inbound Webhook, der nie kommt weil
+ * Angies Reply-To Adresse ihre Google-Workspace-Gmail ist und nicht
+ * Brevo. Resultat bisher: Reply-Count = 0 obwohl echte Antworten kommen.
  *
- * Solution: poll the Gmail API every 15 minutes with an OAuth2 refresh token.
- * For each recent inbound message, look up the `From:` email address in our
- * `leads` table. If the sender is a lead, create an `email_events` row with
- * `event_type = 'replied'` and trigger the same downstream logic that the
- * Brevo webhook reply handler triggers (mark lead Replied, 9-month company
- * block, stop active sequences, log to HubSpot).
+ * Dieser Cron laeuft alle 10 Minuten, pollt die Gmail API mit einem
+ * OAuth2 Refresh Token, matcht eingehende Mails gegen `leads.email`
+ * und verarbeitet jedes Match wie folgt:
  *
- * This is a redundant second channel next to Brevo Inbound Parse (if Angie
- * ever activates it). Both writing to email_events with ON CONFLICT DO
- * NOTHING on the dedupe table means duplicate events are impossible even if
- * Brevo and Gmail both detect the same reply.
+ * 1) Ist es eine Abwesenheitsnotiz (OOO)?
+ *    - Ja: setze `leads.oof_until` auf das erkannte Rueckkehrdatum,
+ *      pausiere die Sequenz (sequence_status = 'paused',
+ *      resume_at = oof_until). Schreibe einen ooo-Event in email_events.
+ *      Kein Firmen-Block, keine Angie-Notification. Label setzen.
  *
- * Graceful fail: if any of GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET /
- * GMAIL_REFRESH_TOKEN are missing, the cron returns early with a "not
- * configured" status and writes a warning log. It never crashes the whole
- * cron system while awaiting Angie's one-time OAuth bootstrap.
+ *    - Nein: volle Reply-Verarbeitung wie der Brevo-Webhook-Reply-Handler
+ *      es machen wuerde. Lead auf pipeline_stage = 'Antwort erhalten',
+ *      leads.signal_email_reply = true, leads.last_reply_at = now,
+ *      9-Monats-Firmenblockade, aktive Sequenzen stoppen, HubSpot-Aktivitaet
+ *      loggen, Brevo-Notification an Angie schicken.
  *
- * Schedule: every 15 minutes 06:00-22:00 UTC daily (incl. weekends, because
- * replies arrive on weekends too). See vercel.json.
+ * 2) In beiden Faellen: Label `praxisnova-processed` auf die Mail
+ *    setzen (via gmail.modify Scope) damit Angie in Gmail visuell sieht
+ *    welche Replies bereits im Tool gelandet sind.
+ *
+ * 3) Eintrag in `processed_gmail_messages` schreiben damit derselbe
+ *    Message-ID nie zweimal verarbeitet wird (auch nicht wenn der Cron
+ *    6x pro Stunde laeuft).
+ *
+ * Graceful Fail: ohne GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET /
+ * GMAIL_REFRESH_TOKEN liefert der Cron `status: 'not_configured'` ohne
+ * zu crashen. Das Deployment ist damit sicher bevor Angie den einmaligen
+ * OAuth-Bootstrap macht.
+ *
+ * Schedule: siehe vercel.json - alle 10 Minuten zwischen 06:00 und 22:00
+ * UTC, jeden Tag inkl. Wochenenden. Replies kommen auch am Wochenende.
  */
 
 import crypto from 'crypto';
@@ -34,170 +43,58 @@ import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { writeStartLog, writeEndLog } from '@/lib/agent-runtime';
 import { logActivityToHubSpot } from '@/lib/hubspot';
+import { sendTransactionalEmail } from '@/lib/brevo';
+import {
+  readCredentialsFromEnv,
+  getAccessToken,
+  listInboxMessages,
+  getMessageFull,
+  getHeader,
+  parseEmailAddress,
+  parseMessageId,
+  extractBodyText,
+  modifyMessageLabels,
+  getOrCreateLabel,
+} from '@/lib/gmail-client';
+import { detectOOO } from '@/lib/ooo-detector';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
 
-// How far back to look in the inbox on each run. A window wider than the cron
-// interval gives us slack in case one run is skipped or errors.
-const GMAIL_LOOKBACK = '1d';
+// Wie weit zurueckblicken. Breiter als das Cron-Intervall, damit ein
+// uebersprungener Run aufholen kann.
+const GMAIL_LOOKBACK_WINDOW = '1d';
 
-// ──────────────────────────────────────────────────────────────────────────
-// OAuth2: trade a long-lived refresh token for a short-lived access token.
-// ──────────────────────────────────────────────────────────────────────────
+// Wie viele Mails pro Lauf maximal abrufen.
+const MAX_MESSAGES_PER_RUN = 100;
 
-async function getAccessToken(): Promise<string | null> {
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+// Name des Labels das auf verarbeitete Mails gesetzt wird.
+// Erscheint in Angies Gmail-Oberflaeche als Tag.
+const PROCESSED_LABEL_NAME = 'praxisnova-processed';
 
-  if (!clientId || !clientSecret || !refreshToken) {
-    return null;
-  }
+// ─── Reply-Verarbeitung (echter Reply, kein OOO) ─────────────────────────
 
-  const body = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    refresh_token: refreshToken,
-    grant_type: 'refresh_token',
-  });
-
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gmail OAuth token refresh failed: ${res.status} ${errText.substring(0, 300)}`);
-  }
-
-  const data = (await res.json()) as { access_token?: string; error?: string };
-  if (!data.access_token) {
-    throw new Error(`Gmail OAuth response missing access_token: ${data.error || 'unknown'}`);
-  }
-  return data.access_token;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Gmail API wrappers.
-// ──────────────────────────────────────────────────────────────────────────
-
-type GmailListMessage = { id: string; threadId: string };
-type GmailHeader = { name: string; value: string };
-type GmailMessageMetadata = {
-  id: string;
-  threadId: string;
-  labelIds?: string[];
-  payload?: { headers?: GmailHeader[] };
+type Lead = {
+  id: number;
+  company: string | null;
+  hubspot_contact_id: string | null;
+  signal_email_reply: boolean;
+  first_name: string | null;
+  last_name: string | null;
 };
 
-async function listInboxMessages(accessToken: string): Promise<GmailListMessage[]> {
-  // Query: inbox messages newer than 1 day, excluding ones we sent ourselves.
-  // The `-from:me` filter skips our own outgoing mail that may end up in Inbox
-  // due to aliases or self-BCC rules.
-  const query = `in:inbox newer_than:${GMAIL_LOOKBACK} -from:me`;
-  const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=100`;
-
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gmail list messages failed: ${res.status} ${errText.substring(0, 300)}`);
-  }
-
-  const data = (await res.json()) as { messages?: GmailListMessage[] };
-  return data.messages || [];
-}
-
-async function getMessageMetadata(accessToken: string, messageId: string): Promise<GmailMessageMetadata> {
-  const url =
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}` +
-    `?format=metadata` +
-    `&metadataHeaders=From` +
-    `&metadataHeaders=In-Reply-To` +
-    `&metadataHeaders=References` +
-    `&metadataHeaders=Subject` +
-    `&metadataHeaders=Date`;
-
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!res.ok) {
-    throw new Error(`Gmail get message ${messageId} failed: ${res.status}`);
-  }
-
-  return (await res.json()) as GmailMessageMetadata;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Header helpers.
-// ──────────────────────────────────────────────────────────────────────────
-
-function getHeader(msg: GmailMessageMetadata, name: string): string | null {
-  const headers = msg.payload?.headers || [];
-  const h = headers.find(h => h.name.toLowerCase() === name.toLowerCase());
-  return h?.value || null;
-}
-
-// Extract the bare email address from a "From: Name <email@domain>" header.
-function parseEmailAddress(header: string | null): string | null {
-  if (!header) return null;
-  // Match "<email@domain>" first, then fall back to raw address.
-  const bracketed = header.match(/<([^>]+)>/);
-  if (bracketed) return bracketed[1].trim().toLowerCase();
-  // Raw address form (no brackets, no display name)
-  const raw = header.trim();
-  if (raw.includes('@')) return raw.toLowerCase();
-  return null;
-}
-
-// Extract the Message-ID from In-Reply-To header. Format is `<msg-id@domain>`.
-function parseMessageId(header: string | null): string | null {
-  if (!header) return null;
-  const m = header.match(/<([^>]+)>/);
-  return m ? m[1].trim() : header.trim();
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Reply processing - mirrors app/api/webhooks/brevo/route.ts:147-212 exactly
-// so Gmail-detected replies trigger the same downstream effects as Brevo
-// Inbound Parse would.
-// ──────────────────────────────────────────────────────────────────────────
-
-type ReplyProcessResult = {
-  leadId: number;
-  email: string;
-  companyBlockCount: number;
-  alreadyReplied: boolean;
-};
-
-async function processReply(
-  email: string,
+async function handleRealReply(
+  lead: Lead,
+  fromEmail: string,
+  subject: string | null,
   inReplyTo: string | null,
   gmailMessageId: string,
-): Promise<ReplyProcessResult | null> {
-  // 1. Lead lookup
-  const leads = await sql`
-    SELECT id, company, hubspot_contact_id, signal_email_reply
-    FROM leads
-    WHERE LOWER(email) = LOWER(${email})
-  `;
-  if (leads.length === 0) return null;
-
-  const lead = leads[0];
-
-  // 2. Skip if already marked as replied (prevents duplicate processing
-  // even across the dedupe table, e.g. if Brevo and Gmail both detect it)
+): Promise<{ companyBlockCount: number; firstTime: boolean }> {
   const alreadyReplied = lead.signal_email_reply === true;
+  const firstTime = !alreadyReplied;
 
-  // 3. Insert email_events row. We store the Gmail message ID as the
-  // "brevo_message_id" surrogate so the /lead/[id] timeline can render it.
-  // The sequence_type column gets 'gmail-reply-sync' to distinguish source.
+  // 1. email_events Row (auch bei wiederholter Antwort, damit die Timeline
+  // lueckenlos ist)
   await sql`
     INSERT INTO email_events (
       lead_id, event_type, brevo_message_id, sender_used, sequence_type, created_at
@@ -206,69 +103,185 @@ async function processReply(
     )
   `;
 
-  if (!alreadyReplied) {
-    // 4. Mark lead as Replied
-    await sql`
+  // 2. leads.last_reply_at aktualisieren (unabhaengig davon ob es die
+  // erste Antwort ist)
+  await sql`
+    UPDATE leads SET last_reply_at = NOW() WHERE id = ${lead.id}
+  `;
+
+  // Downstream-Effekte nur beim ersten Mal ausloesen
+  if (!firstTime) {
+    return { companyBlockCount: 0, firstTime: false };
+  }
+
+  // 3. Lead als "Antwort erhalten" markieren
+  await sql`
+    UPDATE leads SET
+      signal_email_reply = true,
+      pipeline_stage = 'Antwort erhalten',
+      pipeline_stage_updated_at = NOW(),
+      pipeline_notes = CONCAT(
+        COALESCE(pipeline_notes, ''),
+        ' | Email-Antwort erkannt via Gmail am ', NOW()::text
+      )
+    WHERE id = ${lead.id}
+  `;
+
+  // 4. Firmenweite 9-Monats-Blockade
+  let companyBlockCount = 0;
+  if (lead.company) {
+    const result = await sql`
       UPDATE leads SET
-        signal_email_reply = true,
-        pipeline_stage = 'Replied',
+        pipeline_stage = 'Blocked',
+        block_reason = 'company_block',
+        blocked_until = NOW() + INTERVAL '9 months',
         pipeline_notes = CONCAT(
           COALESCE(pipeline_notes, ''),
-          ' | Email-Antwort erkannt via Gmail am ', NOW()::text
+          ' | Firmen-Block: Kontakt ', ${fromEmail}, ' hat via Gmail geantwortet am ', NOW()::text
+        )
+      WHERE LOWER(company) = LOWER(${lead.company})
+        AND id != ${lead.id}
+        AND pipeline_stage NOT IN ('Antwort erhalten', 'Booked', 'Customer', 'Replied')
+    `;
+    companyBlockCount = (result as unknown as { count?: number }).count || 0;
+  }
+
+  // 5. Aktive Sequenzen stoppen
+  await sql`
+    UPDATE sequence_entries SET
+      status = 'replied',
+      stopped_at = NOW()
+    WHERE lead_id = ${lead.id}
+      AND status IN ('active', 'pending', 'paused')
+  `.catch(() => { /* Tabelle existiert evtl. noch nicht */ });
+
+  // 6. HubSpot-Aktivitaet loggen (non-blocking)
+  if (lead.hubspot_contact_id) {
+    logActivityToHubSpot(
+      lead.hubspot_contact_id,
+      'email',
+      `Email-Antwort erkannt via Gmail${subject ? ` - Betreff: ${subject}` : ''}`,
+    ).catch(err =>
+      console.warn('[gmail-reply-sync] HubSpot sync failed (non-critical):', err),
+    );
+  }
+
+  return { companyBlockCount, firstTime: true };
+}
+
+// ─── OOO-Verarbeitung ────────────────────────────────────────────────────
+
+async function handleOOO(
+  lead: Lead,
+  fromEmail: string,
+  returnDate: Date | null,
+  gmailMessageId: string,
+  reason: string | null,
+): Promise<void> {
+  // 1. email_events Row mit Spezial-Typ 'ooo'
+  await sql`
+    INSERT INTO email_events (
+      lead_id, event_type, brevo_message_id, sender_used, sequence_type, created_at
+    ) VALUES (
+      ${lead.id}, 'ooo', ${gmailMessageId}, 'gmail-detected', 'gmail-reply-sync', NOW()
+    )
+  `;
+
+  // 2. leads.oof_until setzen (optional, nur wenn Rueckkehrdatum parsebar war)
+  if (returnDate) {
+    const isoDate = returnDate.toISOString();
+    await sql`
+      UPDATE leads SET
+        oof_until = ${isoDate},
+        sequence_status = 'paused',
+        paused_at = NOW(),
+        resume_at = ${isoDate},
+        pause_reason = 'ooo',
+        pipeline_notes = CONCAT(
+          COALESCE(pipeline_notes, ''),
+          ' | OOO erkannt via Gmail am ', NOW()::text, ', Wiederaufnahme: ', ${isoDate},
+          ${reason ? `, Pattern: ${reason}` : ''}
         )
       WHERE id = ${lead.id}
     `;
-
-    // 5. Company-wide 9-month block (same logic as Brevo webhook)
-    let companyBlockCount = 0;
-    if (lead.company) {
-      const result = await sql`
-        UPDATE leads SET
-          pipeline_stage = 'Blocked',
-          block_reason = 'company_block',
-          blocked_until = NOW() + INTERVAL '9 months',
-          pipeline_notes = CONCAT(
-            COALESCE(pipeline_notes, ''),
-            ' | Firmen-Block: Kontakt ', ${email}, ' hat via Gmail geantwortet am ', NOW()::text
-          )
-        WHERE LOWER(company) = LOWER(${lead.company})
-          AND id != ${lead.id}
-          AND pipeline_stage NOT IN ('Replied', 'Booked', 'Customer')
-      `;
-      companyBlockCount = (result as unknown as { count?: number }).count || 0;
-    }
-
-    // 6. Stop active sequences
+  } else {
+    // Kein Datum parsebar - pausiere unbefristet mit Fallback 7 Tage
     await sql`
-      UPDATE sequence_entries SET
-        status = 'replied',
-        stopped_at = NOW()
-      WHERE lead_id = ${lead.id}
-        AND status IN ('active', 'pending', 'paused')
-    `.catch(() => { /* table may not exist on older deployments */ });
-
-    // 7. Mirror to HubSpot (non-blocking)
-    if (lead.hubspot_contact_id) {
-      logActivityToHubSpot(
-        lead.hubspot_contact_id,
-        'email',
-        'Email-Antwort erkannt via Gmail',
-      ).catch(err =>
-        console.warn('[gmail-reply-sync] HubSpot sync failed (non-critical):', err),
-      );
-    }
-
-    return { leadId: lead.id, email, companyBlockCount, alreadyReplied: false };
+      UPDATE leads SET
+        sequence_status = 'paused',
+        paused_at = NOW(),
+        resume_at = NOW() + INTERVAL '7 days',
+        pause_reason = 'ooo',
+        pipeline_notes = CONCAT(
+          COALESCE(pipeline_notes, ''),
+          ' | OOO erkannt via Gmail am ', NOW()::text, ', Rueckkehrdatum unbekannt, Fallback 7 Tage',
+          ${reason ? `, Pattern: ${reason}` : ''}
+        )
+      WHERE id = ${lead.id}
+    `;
   }
-
-  return { leadId: lead.id, email, companyBlockCount: 0, alreadyReplied: true };
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// Main handler.
-// ──────────────────────────────────────────────────────────────────────────
+// ─── Angie-Benachrichtigung ──────────────────────────────────────────────
+
+async function notifyAngie(
+  lead: Lead,
+  fromEmail: string,
+  subject: string | null,
+  snippet: string,
+  companyBlockCount: number,
+): Promise<void> {
+  const angieEmail = process.env.USER_1_EMAIL || 'hertle.anjuli@praxisnovaai.com';
+  const leadName =
+    [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim() || fromEmail;
+  const leadUrl = `https://praxisnova-sales-control.vercel.app/lead/${lead.id}`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; background: #0A0A0A; color: #F0F0F5; padding: 24px; max-width: 640px;">
+      <h2 style="color: #E8472A; margin: 0 0 8px;">Neue Antwort erhalten</h2>
+      <p style="color: #ccc; margin: 0 0 20px; font-size: 14px;">
+        ${leadName}${lead.company ? ` (${lead.company})` : ''} hat auf eine Ihrer Sequenz-Mails geantwortet.
+      </p>
+
+      <div style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+        <div style="color: #888; font-size: 12px; margin-bottom: 4px;">Absender</div>
+        <div style="color: #F0F0F5; font-size: 14px; margin-bottom: 12px;">${fromEmail}</div>
+        <div style="color: #888; font-size: 12px; margin-bottom: 4px;">Betreff</div>
+        <div style="color: #F0F0F5; font-size: 14px; margin-bottom: 12px;">${subject || '(kein Betreff)'}</div>
+        <div style="color: #888; font-size: 12px; margin-bottom: 4px;">Ausschnitt</div>
+        <div style="color: #ccc; font-size: 13px; line-height: 1.5; font-style: italic; white-space: pre-wrap;">${snippet}</div>
+      </div>
+
+      ${companyBlockCount > 0 ? `
+        <div style="background: #2a1a00; border: 1px solid #5a3a00; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: #fbbf24; font-size: 13px;">
+          Firmenblockade aktiviert: ${companyBlockCount} weitere Kontakte bei ${lead.company} wurden fuer 9 Monate gesperrt.
+        </div>
+      ` : ''}
+
+      <a href="${leadUrl}" style="display: inline-block; background: #E8472A; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+        Lead im Sales-Tool oeffnen
+      </a>
+
+      <p style="color: #555; margin: 20px 0 0; font-size: 11px;">
+        Automatisch erkannt durch gmail-reply-sync um ${new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })} Berlin-Zeit.
+      </p>
+    </div>
+  `;
+
+  await sendTransactionalEmail({
+    to: angieEmail,
+    subject: `Antwort von ${leadName}${lead.company ? ' (' + lead.company + ')' : ''}`,
+    htmlContent: html,
+    wrapAsInternal: true,
+  }).catch(err =>
+    console.warn('[gmail-reply-sync] Brevo notification to Angie failed (non-critical):', err),
+  );
+}
+
+// ─── Haupt-Handler ───────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  // Auth
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -278,77 +291,158 @@ export async function GET(request: NextRequest) {
   await writeStartLog(runId, 'gmail_reply_sync');
 
   try {
-    // 1. Get access token (graceful fail if credentials missing)
-    const accessToken = await getAccessToken();
-    if (!accessToken) {
-      console.warn('[gmail-reply-sync] GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET / GMAIL_REFRESH_TOKEN not configured - skipping');
+    // 1) Credentials lesen - graceful fail wenn unkonfiguriert
+    const creds = readCredentialsFromEnv();
+    if (!creds) {
+      console.warn('[gmail-reply-sync] GMAIL_* env vars not configured - skipping');
       await writeEndLog(runId, 'gmail_reply_sync', 'partial', {
         status: 'not_configured',
-        summary: 'Gmail OAuth nicht eingerichtet - siehe setup-doc',
+        summary: 'Gmail OAuth nicht eingerichtet - siehe SETUP-gmail-reply-sync.md',
       });
       return NextResponse.json({ ok: true, status: 'not_configured' });
     }
 
-    // 2. Ensure dedupe table exists (idempotent)
+    // 2) Dedupe-Tabelle sicherstellen (idempotent)
     await sql`
       CREATE TABLE IF NOT EXISTS processed_gmail_messages (
         gmail_message_id TEXT PRIMARY KEY,
         lead_id INTEGER REFERENCES leads(id),
         from_email TEXT,
+        was_ooo BOOLEAN DEFAULT FALSE,
         processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `;
 
-    // 3. List recent inbox messages
-    const messages = await listInboxMessages(accessToken);
+    // 3) Access Token holen
+    const accessToken = await getAccessToken(creds);
 
+    // 4) Label-ID holen (einmal erzeugen, dann cachen fuer die Dauer des Laufs)
+    let processedLabelId: string | null = null;
+    try {
+      processedLabelId = await getOrCreateLabel(accessToken, PROCESSED_LABEL_NAME);
+    } catch (labelErr) {
+      console.warn('[gmail-reply-sync] Could not get/create label (non-critical):', labelErr);
+    }
+
+    // 5) Inbox-Messages listen
+    // Filter: Inbox, juenger als X, nicht von mir selbst, noch ohne unser Label
+    const query = `in:inbox newer_than:${GMAIL_LOOKBACK_WINDOW} -from:me -label:${PROCESSED_LABEL_NAME}`;
+    const messages = await listInboxMessages(accessToken, query, MAX_MESSAGES_PER_RUN);
+
+    // Counter fuer Summary
     let newReplies = 0;
-    let alreadyRepliedSkipped = 0;
+    let repliesAlreadyMarked = 0;
+    let oooDetected = 0;
     let notALead = 0;
     let totalCompanyBlocks = 0;
     const errors: string[] = [];
 
-    // 4. Process each message (skip ones we already processed)
+    // 6) Jede Message einzeln verarbeiten
     for (const msg of messages) {
       try {
-        // Dedupe check: have we seen this Gmail message before?
+        // Dedupe-Check
         const existing = await sql`
           SELECT gmail_message_id FROM processed_gmail_messages WHERE gmail_message_id = ${msg.id}
         `;
         if (existing.length > 0) continue;
 
-        const meta = await getMessageMetadata(accessToken, msg.id);
-        const fromHeader = getHeader(meta, 'From');
-        const inReplyTo = parseMessageId(getHeader(meta, 'In-Reply-To'));
+        // Volle Message laden (inkl. Body fuer OOO-Detection)
+        const full = await getMessageFull(accessToken, msg.id);
+        const fromHeader = getHeader(full, 'From');
+        const subject = getHeader(full, 'Subject');
+        const inReplyTo = parseMessageId(getHeader(full, 'In-Reply-To'));
+        const autoSubmitted = getHeader(full, 'Auto-Submitted');
+        const xAutoreply = getHeader(full, 'X-Autoreply');
+        const xAutoresponse = getHeader(full, 'X-Autoresponse');
+        const precedence = getHeader(full, 'Precedence');
         const fromEmail = parseEmailAddress(fromHeader);
+        const body = extractBodyText(full);
 
         if (!fromEmail) {
-          // No parseable sender, mark as processed to avoid re-fetching
           await sql`
-            INSERT INTO processed_gmail_messages (gmail_message_id, lead_id, from_email)
-            VALUES (${msg.id}, NULL, NULL)
+            INSERT INTO processed_gmail_messages (gmail_message_id, lead_id, from_email, was_ooo)
+            VALUES (${msg.id}, NULL, NULL, FALSE)
             ON CONFLICT DO NOTHING
           `;
           continue;
         }
 
-        const result = await processReply(fromEmail, inReplyTo, msg.id);
-
-        // Record as processed regardless of whether a lead matched
-        await sql`
-          INSERT INTO processed_gmail_messages (gmail_message_id, lead_id, from_email)
-          VALUES (${msg.id}, ${result?.leadId ?? null}, ${fromEmail})
-          ON CONFLICT DO NOTHING
+        // Lead-Lookup
+        const leads = await sql`
+          SELECT id, company, hubspot_contact_id, signal_email_reply, first_name, last_name
+          FROM leads
+          WHERE LOWER(email) = LOWER(${fromEmail})
         `;
 
-        if (!result) {
+        if (leads.length === 0) {
           notALead++;
-        } else if (result.alreadyReplied) {
-          alreadyRepliedSkipped++;
-        } else {
-          newReplies++;
-          totalCompanyBlocks += result.companyBlockCount;
+          await sql`
+            INSERT INTO processed_gmail_messages (gmail_message_id, lead_id, from_email, was_ooo)
+            VALUES (${msg.id}, NULL, ${fromEmail}, FALSE)
+            ON CONFLICT DO NOTHING
+          `;
+          // Label auch auf Nicht-Leads setzen damit der Query sie beim naechsten
+          // Lauf nicht nochmal zurueckliefert
+          if (processedLabelId) {
+            await modifyMessageLabels(accessToken, msg.id, [processedLabelId], []).catch(() => {});
+          }
+          continue;
         }
+
+        const lead = leads[0] as unknown as Lead;
+
+        // OOO-Detection zuerst
+        const ooo = detectOOO({
+          subject,
+          body,
+          autoSubmitted,
+          xAutoreply,
+          xAutoresponse,
+          precedence,
+        });
+
+        if (ooo.isOOO) {
+          oooDetected++;
+          await handleOOO(lead, fromEmail, ooo.returnDate, msg.id, ooo.reason);
+          console.log(
+            `[gmail-reply-sync] OOO detected for ${fromEmail} (lead ${lead.id}), ` +
+            `confidence=${ooo.confidence}, returnDate=${ooo.returnDate?.toISOString() || 'unknown'}, pattern=${ooo.matchedPattern}`,
+          );
+        } else {
+          // Echter Reply
+          const { companyBlockCount, firstTime } = await handleRealReply(
+            lead,
+            fromEmail,
+            subject,
+            inReplyTo,
+            msg.id,
+          );
+
+          if (firstTime) {
+            newReplies++;
+            totalCompanyBlocks += companyBlockCount;
+
+            // Benachrichtigung an Angie
+            const snippet = (full.snippet || body.substring(0, 500)).substring(0, 500);
+            await notifyAngie(lead, fromEmail, subject, snippet, companyBlockCount);
+          } else {
+            repliesAlreadyMarked++;
+          }
+        }
+
+        // Label setzen (in allen Faellen)
+        if (processedLabelId) {
+          await modifyMessageLabels(accessToken, msg.id, [processedLabelId], []).catch(err =>
+            console.warn(`[gmail-reply-sync] Label set failed for ${msg.id} (non-critical):`, err),
+          );
+        }
+
+        // In Dedupe-Tabelle eintragen
+        await sql`
+          INSERT INTO processed_gmail_messages (gmail_message_id, lead_id, from_email, was_ooo)
+          VALUES (${msg.id}, ${lead.id}, ${fromEmail}, ${ooo.isOOO})
+          ON CONFLICT DO NOTHING
+        `;
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         errors.push(`msg ${msg.id}: ${errMsg.substring(0, 150)}`);
@@ -357,25 +451,32 @@ export async function GET(request: NextRequest) {
     }
 
     const summary =
-      `${newReplies} neue Replies, ${alreadyRepliedSkipped} bereits markiert, ` +
+      `${newReplies} neue Antworten, ${oooDetected} OOO, ${repliesAlreadyMarked} bereits markiert, ` +
       `${notALead} von Nicht-Leads, ${totalCompanyBlocks} Firmen-Blocks, ` +
-      `${messages.length} geprueft${errors.length ? `, ${errors.length} Fehler` : ''}`;
+      `${messages.length} Mails geprueft${errors.length ? `, ${errors.length} Fehler` : ''}`;
 
-    await writeEndLog(runId, 'gmail_reply_sync', errors.length > 0 ? 'partial' : 'completed', {
-      messages_checked: messages.length,
-      new_replies: newReplies,
-      already_replied_skipped: alreadyRepliedSkipped,
-      not_a_lead: notALead,
-      company_blocks: totalCompanyBlocks,
-      errors: errors.length,
-      summary,
-    });
+    await writeEndLog(
+      runId,
+      'gmail_reply_sync',
+      errors.length > 0 ? 'partial' : 'completed',
+      {
+        messages_checked: messages.length,
+        new_replies: newReplies,
+        ooo_detected: oooDetected,
+        already_marked: repliesAlreadyMarked,
+        not_a_lead: notALead,
+        company_blocks: totalCompanyBlocks,
+        errors: errors.length,
+        summary,
+      },
+    );
 
     return NextResponse.json({
       ok: true,
       messages_checked: messages.length,
       new_replies: newReplies,
-      already_replied_skipped: alreadyRepliedSkipped,
+      ooo_detected: oooDetected,
+      already_marked: repliesAlreadyMarked,
       not_a_lead: notALead,
       company_blocks: totalCompanyBlocks,
       errors: errors.length > 0 ? errors : undefined,
@@ -384,7 +485,7 @@ export async function GET(request: NextRequest) {
     console.error('[gmail-reply-sync] Fatal error:', err);
     await writeEndLog(runId, 'gmail_reply_sync', 'error', {
       error: String(err),
-      summary: `Fatal: ${String(err).substring(0, 200)}`,
+      summary: `Fataler Fehler: ${String(err).substring(0, 200)}`,
     });
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
   }

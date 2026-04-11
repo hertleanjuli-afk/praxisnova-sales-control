@@ -444,19 +444,26 @@ export async function initializeDatabase(): Promise<void> {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS resume_at TIMESTAMPTZ`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pause_reason TEXT`;
 
-  // Gmail reply sync dedupe table (Package A, 2026-04-11)
-  // Used by app/api/cron/gmail-reply-sync to track which Gmail message IDs
-  // have already been processed, so the same inbound reply never creates
-  // duplicate email_events rows even if the cron runs 4 times per hour.
+  // Paket A, 2026-04-11: Gmail Reply Sync
+  // Zusätzliche Lead-Spalten für OOO- und Reply-Tracking.
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS oof_until TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_reply_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS reply_count INTEGER DEFAULT 0`;
+
+  // Dedupe-Tabelle für verarbeitete Gmail-Nachrichten. Primary Key auf
+  // der Gmail-Message-ID verhindert Doppelverarbeitung auch wenn der
+  // Cron 6x pro Stunde läuft.
   await sql`
     CREATE TABLE IF NOT EXISTS processed_gmail_messages (
       gmail_message_id TEXT PRIMARY KEY,
       lead_id INTEGER REFERENCES leads(id),
       from_email TEXT,
+      was_ooo BOOLEAN DEFAULT FALSE,
       processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_processed_gmail_from ON processed_gmail_messages(from_email)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_processed_gmail_lead ON processed_gmail_messages(lead_id)`;
 }
 
 export interface Lead {

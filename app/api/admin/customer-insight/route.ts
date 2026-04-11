@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     const {
       industry,
       customer_type,
+      sub_category,
       region,
       pain_points,
       key_insight,
@@ -54,6 +55,11 @@ export async function POST(req: NextRequest) {
       date: new Date().toISOString().split('T')[0],
       industry,
       customer_type: customer_type || '',
+      // Sub-category taxonomy (added 2026-04-11): explicit tag inside data_payload so
+      // agents can filter insights by sub-industry (Hausverwaltung vs Makler, SHK vs
+      // Elektriker, etc). Stored in the JSONB because agent_decisions has no schema
+      // column for it and we don't want to migrate a shared table.
+      sub_category: sub_category || null,
       region: region || 'DACH',
       pain_points,
       key_insight: key_insight || '',

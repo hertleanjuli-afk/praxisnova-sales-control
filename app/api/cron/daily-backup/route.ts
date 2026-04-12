@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
       const csv = rowsToCsv(rows);
       const key = `praxisnova-backup/${today}/${table.name}.csv`;
       const blob = await put(key, csv, {
-        access: 'public',
+        access: 'private',
         contentType: 'text/csv; charset=utf-8',
         addRandomSuffix: false,
         allowOverwrite: true,

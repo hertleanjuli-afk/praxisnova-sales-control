@@ -66,11 +66,13 @@ export async function GET(
     }
 
     // 2. Email events
+    // email_events schema: id, lead_id, sequence_type, step_number,
+    // event_type, brevo_message_id, sender_used, created_at, sentiment
     const emailEvents = await sql`
-      SELECT id, event_type, timestamp, subject, opened_at, clicked_at, replied_at, bounced_at
+      SELECT id, event_type, sequence_type, step_number, created_at
       FROM email_events
       WHERE lead_id = ${leadId}
-      ORDER BY timestamp DESC
+      ORDER BY created_at DESC
     `;
 
     for (const event of emailEvents) {
@@ -79,14 +81,15 @@ export async function GET(
         clicked: 'Link geklickt',
         replied: 'Email beantwortet',
         bounced: 'Email verursacht Bounce',
+        sent: 'Email gesendet',
       };
 
       timelineEvents.push({
         id: `email_${event.id}`,
-        type: event.event_type,
-        timestamp: new Date(event.timestamp).toISOString(),
+        type: event.event_type === 'sent' ? 'email_sent' : event.event_type,
+        timestamp: new Date(event.created_at).toISOString(),
         title: eventMap[event.event_type] || event.event_type,
-        description: event.subject || null,
+        description: event.sequence_type ? `${event.sequence_type} Schritt ${event.step_number}` : null,
       });
     }
 
@@ -114,25 +117,27 @@ export async function GET(
       });
     }
 
-    // 4. Call dispositions
-    const callDispositions = await sql`
-      SELECT id, outcome, call_notes, created_at
-      FROM call_dispositions
-      WHERE lead_id = ${leadId}
-      ORDER BY created_at DESC
-    `;
+    // 4. Call dispositions (table may not exist on all installs)
+    try {
+      const callDispositions = await sql`
+        SELECT id, outcome, call_notes, created_at
+        FROM call_dispositions
+        WHERE lead_id = ${leadId}
+        ORDER BY created_at DESC
+      `;
 
-    for (const disposition of callDispositions) {
-      const outcomeLabel = callDispositionLabels[disposition.outcome] || disposition.outcome;
+      for (const disposition of callDispositions) {
+        const outcomeLabel = callDispositionLabels[disposition.outcome] || disposition.outcome;
 
-      timelineEvents.push({
-        id: `call_disposition_${disposition.id}`,
-        type: 'call_result',
-        timestamp: new Date(disposition.created_at).toISOString(),
-        title: outcomeLabel,
-        description: disposition.call_notes || null,
-      });
-    }
+        timelineEvents.push({
+          id: `call_disposition_${disposition.id}`,
+          type: 'call_result',
+          timestamp: new Date(disposition.created_at).toISOString(),
+          title: outcomeLabel,
+          description: disposition.call_notes || null,
+        });
+      }
+    } catch { /* call_dispositions table may not exist yet */ }
 
     // 5. Call queue (call attempts)
     const callQueueEntries = await sql`
@@ -153,45 +158,47 @@ export async function GET(
       });
     }
 
-    // 6. Sequence entries
-    const sequenceEntries = await sql`
-      SELECT id, sequence_id, status, started_at, stopped_at, paused_at
-      FROM sequence_entries
-      WHERE lead_id = ${leadId}
-      ORDER BY started_at DESC
-    `;
+    // 6. Sequence entries (table may not exist on older installs)
+    try {
+      const sequenceEntries = await sql`
+        SELECT id, sequence_id, status, started_at, stopped_at, paused_at
+        FROM sequence_entries
+        WHERE lead_id = ${leadId}
+        ORDER BY started_at DESC
+      `;
 
-    for (const entry of sequenceEntries) {
-      if (entry.started_at) {
-        timelineEvents.push({
-          id: `seq_start_${entry.id}`,
-          type: 'sequence_started',
-          timestamp: new Date(entry.started_at).toISOString(),
-          title: 'Sequenz gestartet',
-          description: `Sequence ID: ${entry.sequence_id}`,
-        });
-      }
+      for (const entry of sequenceEntries) {
+        if (entry.started_at) {
+          timelineEvents.push({
+            id: `seq_start_${entry.id}`,
+            type: 'sequence_started',
+            timestamp: new Date(entry.started_at).toISOString(),
+            title: 'Sequenz gestartet',
+            description: `Sequence ID: ${entry.sequence_id}`,
+          });
+        }
 
-      if (entry.stopped_at) {
-        timelineEvents.push({
-          id: `seq_stopped_${entry.id}`,
-          type: 'sequence_stopped',
-          timestamp: new Date(entry.stopped_at).toISOString(),
-          title: 'Sequenz gestoppt',
-          description: null,
-        });
-      }
+        if (entry.stopped_at) {
+          timelineEvents.push({
+            id: `seq_stopped_${entry.id}`,
+            type: 'sequence_stopped',
+            timestamp: new Date(entry.stopped_at).toISOString(),
+            title: 'Sequenz gestoppt',
+            description: null,
+          });
+        }
 
-      if (entry.paused_at) {
-        timelineEvents.push({
-          id: `seq_paused_${entry.id}`,
-          type: 'sequence_paused',
-          timestamp: new Date(entry.paused_at).toISOString(),
-          title: 'Sequenz pausiert',
-          description: null,
-        });
+        if (entry.paused_at) {
+          timelineEvents.push({
+            id: `seq_paused_${entry.id}`,
+            type: 'sequence_paused',
+            timestamp: new Date(entry.paused_at).toISOString(),
+            title: 'Sequenz pausiert',
+            description: null,
+          });
+        }
       }
-    }
+    } catch { /* sequence_entries table may not exist yet */ }
 
     // 7. LinkedIn tracking events
     const linkedinTracking = await sql`

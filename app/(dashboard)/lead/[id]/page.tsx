@@ -253,6 +253,12 @@ export default function LeadDetailPage() {
     try {
       setLoading(true);
       const response = await fetch(`/api/leads/${id}/detail`);
+
+      if (response.status === 401) {
+        setMessage({ type: 'error', text: 'Sitzung abgelaufen - bitte neu einloggen' });
+        return;
+      }
+
       const data: ApiResponse = await response.json();
 
       if (data.ok) {

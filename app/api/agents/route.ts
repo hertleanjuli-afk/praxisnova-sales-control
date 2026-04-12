@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 
 const AGENTS = [
@@ -22,6 +24,9 @@ function getStatus(lastActive: string | null): 'active' | 'idle' | 'never_run' {
 }
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     // Run all per-agent queries in parallel
     const agentResults = await Promise.all(

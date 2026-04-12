@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 
 /**
@@ -8,6 +10,9 @@ import sql from '@/lib/db';
  * Unterstuetzt Suche nach Name, Firma, Email und Filter nach Pipeline-Stage
  */
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';

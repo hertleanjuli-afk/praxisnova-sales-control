@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 
 interface PartnerRow {
@@ -44,6 +46,9 @@ function mapCategoryToPartnershipPotential(category: string | null): string {
 }
 
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const tier = searchParams.get('tier');

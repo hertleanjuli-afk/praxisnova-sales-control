@@ -22,6 +22,7 @@ import {
 import sql from '@/lib/db';
 import { getActiveUpdatesForAgents } from '@/app/api/strategic-updates/route';
 import { wrapInternalEmail } from '@/lib/email-template';
+import { sendTransactionalEmail } from '@/lib/brevo';
 
 // ─── Gemini Client ───────────────────────────────────────────────────────────
 
@@ -529,31 +530,26 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
           to_email: string; to_name: string; subject: string; html: string; from_name?: string;
         };
         // --- EMAIL SANITIZATION (Issues #3, #4, #5) ---
-      let cleanHtml = html.replace(/,,/g, ',').replace(/\.\./g, '.').replace(/!!/g, '!');
-      if (!cleanHtml.includes('<p>') && !cleanHtml.includes('<p ')) {
-        cleanHtml = cleanHtml.split(/\n\n+/).map(p => '<p>' + p.trim() + '</p>').filter(p => p !== '<p></p>').join('\n');
-      }
-      let cleanSubject = subject.replace(/\{Spintax:\s*/gi, '').replace(/\{[^}]*\|([^}]*)\}/g, '$1').replace(/[{}|]/g, '');
-      cleanSubject = cleanSubject.replace(/[\u2013\u2014]/g, '-');
-      cleanHtml = cleanHtml.replace(/[\u2013\u2014]/g, '-');
+        let cleanHtml = html.replace(/,,/g, ',').replace(/\.\./g, '.').replace(/!!/g, '!');
+        if (!cleanHtml.includes('<p>') && !cleanHtml.includes('<p ')) {
+          cleanHtml = cleanHtml.split(/\n\n+/).map(p => '<p>' + p.trim() + '</p>').filter(p => p !== '<p></p>').join('\n');
+        }
+        let cleanSubject = subject.replace(/\{Spintax:\s*/gi, '').replace(/\{[^}]*\|([^}]*)\}/g, '$1').replace(/[{}|]/g, '');
+        cleanSubject = cleanSubject.replace(/[\u2013\u2014]/g, '-');
+        cleanHtml = cleanHtml.replace(/[\u2013\u2014]/g, '-');
 
-      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'accept': 'application/json',
-            'api-key': process.env.BREVO_API_KEY!,
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            sender: { name: from_name, email: 'hertle.anjuli@praxisnovaai.com' },
-            to: [{ email: to_email, name: to_name }],
-            subject: cleanSubject,
-            htmlContent: cleanHtml,
-          }),
+        // Use sendTransactionalEmail which appends DSGVO footer with
+        // signed unsubscribe link (UWG compliance for external recipients)
+        const result = await sendTransactionalEmail({
+          to: to_email,
+          subject: cleanSubject,
+          htmlContent: cleanHtml,
+          senderEmail: 'hertle.anjuli@praxisnovaai.com',
+          senderName: from_name,
+          tags: ['outreach', 'agent'],
         });
-        const data = await res.json() as { messageId?: string };
-        if (!res.ok) throw new Error(`Brevo ${res.status}: ${JSON.stringify(data)}`);
-        return { ok: true, messageId: data.messageId, to: to_email };
+        if (!result.success) throw new Error(`Brevo send failed: ${result.error}`);
+        return { ok: true, messageId: result.messageId, to: to_email };
       }
 
       case 'block_lead': {

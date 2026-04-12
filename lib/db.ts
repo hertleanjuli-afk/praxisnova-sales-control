@@ -471,6 +471,74 @@ export async function initializeDatabase(): Promise<void> {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_processed_gmail_from ON processed_gmail_messages(from_email)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_processed_gmail_lead ON processed_gmail_messages(lead_id)`;
+
+  // --- Tables from migrations v4/v5 that code references ---
+
+  // sequence_entries (v5): tracks individual sequence runs per lead
+  await sql`
+    CREATE TABLE IF NOT EXISTS sequence_entries (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      sequence_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      stopped_at TIMESTAMPTZ,
+      paused_at TIMESTAMPTZ,
+      pause_reason TEXT,
+      current_step INTEGER DEFAULT 1,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sequence_entries_lead_id ON sequence_entries(lead_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sequence_entries_status ON sequence_entries(status)`;
+
+  // email_performance_daily (v4): aggregated Brevo stats per day
+  await sql`
+    CREATE TABLE IF NOT EXISTS email_performance_daily (
+      id SERIAL PRIMARY KEY,
+      report_date DATE NOT NULL,
+      emails_sent INTEGER DEFAULT 0,
+      emails_delivered INTEGER DEFAULT 0,
+      emails_opened INTEGER DEFAULT 0,
+      unique_opens INTEGER DEFAULT 0,
+      emails_clicked INTEGER DEFAULT 0,
+      unique_clicks INTEGER DEFAULT 0,
+      bounces INTEGER DEFAULT 0,
+      hard_bounces INTEGER DEFAULT 0,
+      soft_bounces INTEGER DEFAULT 0,
+      unsubscribes INTEGER DEFAULT 0,
+      spam_complaints INTEGER DEFAULT 0,
+      replies INTEGER DEFAULT 0,
+      open_rate NUMERIC(5,2),
+      click_rate NUMERIC(5,2),
+      bounce_rate NUMERIC(5,2),
+      reply_rate NUMERIC(5,2),
+      open_rate_change NUMERIC(5,2),
+      click_rate_change NUMERIC(5,2),
+      data_source TEXT DEFAULT 'brevo_api',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(report_date)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_email_perf_date ON email_performance_daily(report_date)`;
+
+  // hubspot_sync_log (v4): tracks HubSpot sync operations
+  await sql`
+    CREATE TABLE IF NOT EXISTS hubspot_sync_log (
+      id SERIAL PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      entity_id INTEGER NOT NULL,
+      hubspot_id TEXT,
+      action TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      error_message TEXT,
+      payload JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      synced_at TIMESTAMPTZ
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_hubspot_sync_status ON hubspot_sync_log(status)`;
 }
 
 export interface Lead {

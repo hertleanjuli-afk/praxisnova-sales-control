@@ -177,6 +177,72 @@ async function updateContactInHubSpot(
 }
 
 // ============================================================
+// Convenience Exports: createContact, searchContactByEmail, updateContact
+// These wrap the internal functions for use by route handlers.
+// ============================================================
+
+export async function createContact(lead: {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  company?: string;
+  title?: string;
+  industry?: string;
+  phone?: string;
+  website_url?: string;
+  [key: string]: unknown;
+}): Promise<{ id: string } | null> {
+  const result = await syncContactToHubSpot({
+    id: 0,
+    email: lead.email,
+    first_name: lead.first_name,
+    last_name: lead.last_name,
+    company: lead.company,
+    title: lead.title,
+    industry: lead.industry,
+    phone: lead.phone,
+    website_url: lead.website_url,
+  });
+  if (result.ok && result.hubspot_id) {
+    return { id: result.hubspot_id };
+  }
+  return null;
+}
+
+export async function searchContactByEmail(
+  email: string
+): Promise<{ id: string } | null> {
+  const searchResult = await hubspotRequest('POST', '/crm/v3/objects/contacts/search', {
+    filterGroups: [{
+      filters: [{
+        propertyName: 'email',
+        operator: 'EQ',
+        value: email,
+      }],
+    }],
+    limit: 1,
+  });
+
+  if (!searchResult.ok || !searchResult.data) return null;
+
+  const results = (searchResult.data as { results?: { id: string }[] }).results;
+  if (!results || results.length === 0) return null;
+
+  return { id: results[0].id };
+}
+
+export async function updateContact(
+  hubspotId: string,
+  properties: Record<string, string>
+): Promise<void> {
+  await hubspotRequest(
+    'PATCH',
+    `/crm/v3/objects/contacts/${hubspotId}`,
+    { properties }
+  );
+}
+
+// ============================================================
 // Activity Log: Anruf, Email, LinkedIn-Aktion loggen
 // ============================================================
 export async function logActivityToHubSpot(

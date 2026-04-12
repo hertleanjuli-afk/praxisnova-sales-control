@@ -58,7 +58,7 @@ export default function LinkedInTrackingPage() {
     total: 0,
   });
   const [selectedItem, setSelectedItem] = useState<LinkedInEntry | null>(null);
-  const [activeFilter, setActiveFilter] = useState<FilterTab>('actions_due');
+  const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [messageText, setMessageText] = useState('');
   const [replyText, setReplyText] = useState('');
   const [notesText, setNotesText] = useState('');

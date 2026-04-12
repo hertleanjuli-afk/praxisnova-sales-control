@@ -107,33 +107,46 @@ export async function GET(request: Request) {
         ORDER BY lt.request_due_date ASC
       `;
     } else {
-      // Alle (mit Limit)
+      // Alle Leads in aktiven Sequenzen (mit LinkedIn-Tracking wenn vorhanden)
       items = await sql`
-        SELECT lt.*, l.first_name, l.last_name, l.company, l.title,
-               l.email, l.phone, l.agent_score, l.lead_category,
-               l.pipeline_stage, l.outreach_step, l.linkedin_url
-        FROM linkedin_tracking lt
-        JOIN leads l ON lt.lead_id = l.id
-        WHERE l.pipeline_stage NOT IN ('Blocked')
-        ORDER BY lt.updated_at DESC
+        SELECT
+          COALESCE(lt.id, 0) as id,
+          l.id as lead_id,
+          l.first_name, l.last_name, l.company, l.title,
+          l.email, l.phone, l.agent_score, l.lead_category,
+          l.pipeline_stage, l.outreach_step,
+          COALESCE(l.linkedin_url, lt.linkedin_url) as linkedin_url,
+          COALESCE(lt.connection_status, 'none') as connection_status,
+          lt.request_due_date, lt.request_sent_at, lt.connected_at,
+          COALESCE(lt.message_sent, false) as message_sent,
+          lt.message_sent_at, lt.message_content,
+          COALESCE(lt.reply_received, false) as reply_received,
+          lt.reply_received_at, lt.reply_content,
+          lt.notes
+        FROM leads l
+        LEFT JOIN linkedin_tracking lt ON lt.lead_id = l.id
+        WHERE l.pipeline_stage NOT IN ('Blocked', 'Booked')
+          AND l.sequence_status IN ('active', 'paused', 'none')
+        ORDER BY l.agent_score DESC NULLS LAST, l.created_at DESC
         LIMIT 200
       `;
     }
 
-    // Stats berechnen
+    // Stats berechnen (LEFT JOIN so dass auch Leads ohne Tracking gezaehlt werden)
     const [stats] = await sql`
       SELECT
-        COUNT(*) FILTER (WHERE connection_status = 'pending_request') as pending,
-        COUNT(*) FILTER (WHERE connection_status = 'request_sent') as request_sent,
-        COUNT(*) FILTER (WHERE connection_status = 'connected' AND message_sent = false) as connected_no_msg,
-        COUNT(*) FILTER (WHERE connection_status = 'connected' AND message_sent = true AND reply_received = false) as message_sent,
-        COUNT(*) FILTER (WHERE reply_received = true) as replied,
-        COUNT(*) FILTER (WHERE connection_status = 'no_linkedin') as no_linkedin,
-        COUNT(*) FILTER (WHERE connection_status = 'ignored') as ignored,
+        COUNT(*) FILTER (WHERE lt.connection_status = 'pending_request') as pending,
+        COUNT(*) FILTER (WHERE lt.connection_status = 'request_sent') as request_sent,
+        COUNT(*) FILTER (WHERE lt.connection_status = 'connected' AND lt.message_sent = false) as connected_no_msg,
+        COUNT(*) FILTER (WHERE lt.connection_status = 'connected' AND lt.message_sent = true AND lt.reply_received = false) as message_sent,
+        COUNT(*) FILTER (WHERE lt.reply_received = true) as replied,
+        COUNT(*) FILTER (WHERE lt.connection_status = 'no_linkedin') as no_linkedin,
+        COUNT(*) FILTER (WHERE lt.connection_status = 'ignored') as ignored,
         COUNT(*) as total
-      FROM linkedin_tracking lt
-      JOIN leads l ON lt.lead_id = l.id
-      WHERE l.pipeline_stage NOT IN ('Blocked')
+      FROM leads l
+      LEFT JOIN linkedin_tracking lt ON lt.lead_id = l.id
+      WHERE l.pipeline_stage NOT IN ('Blocked', 'Booked')
+        AND l.sequence_status IN ('active', 'paused', 'none')
     `;
 
     return NextResponse.json({

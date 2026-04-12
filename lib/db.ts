@@ -539,6 +539,28 @@ export async function initializeDatabase(): Promise<void> {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_hubspot_sync_status ON hubspot_sync_log(status)`;
+
+  // Partner LinkedIn tracking (mirrors linkedin_tracking but for partners table)
+  await sql`
+    CREATE TABLE IF NOT EXISTS partner_linkedin_tracking (
+      id SERIAL PRIMARY KEY,
+      partner_id INTEGER NOT NULL REFERENCES partners(id),
+      connection_status TEXT DEFAULT 'none',
+      request_due_date DATE,
+      request_sent_at TIMESTAMPTZ,
+      connected_at TIMESTAMPTZ,
+      message_sent BOOLEAN DEFAULT FALSE,
+      message_sent_at TIMESTAMPTZ,
+      message_content TEXT,
+      reply_received BOOLEAN DEFAULT FALSE,
+      reply_received_at TIMESTAMPTZ,
+      reply_content TEXT,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_partner_linkedin_tracking_partner ON partner_linkedin_tracking(partner_id)`;
 }
 
 export interface Lead {

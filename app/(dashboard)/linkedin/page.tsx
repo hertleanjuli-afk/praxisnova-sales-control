@@ -29,8 +29,25 @@ interface LinkedInEntry {
   lead_category: string | null;
   pipeline_stage: string;
   outreach_step: string;
+  industry: string | null;
   action_required?: 'anfrage_senden' | 'timeout_keine_akzeptierung' | 'nachricht_senden' | 'timeout_keine_antwort' | 'keine_aktion';
 }
+
+const industryColors: Record<string, { bg: string; text: string }> = {
+  immobilien: { bg: 'bg-purple-500/20', text: 'text-purple-300' },
+  bau: { bg: 'bg-orange-500/20', text: 'text-orange-300' },
+  bauunternehmen: { bg: 'bg-orange-500/20', text: 'text-orange-300' },
+  handwerk: { bg: 'bg-green-500/20', text: 'text-green-300' },
+  makler: { bg: 'bg-yellow-500/20', text: 'text-yellow-300' },
+};
+const getIndustryStyle = (ind: string | null) => {
+  if (!ind) return null;
+  const key = ind.toLowerCase();
+  for (const [k, v] of Object.entries(industryColors)) {
+    if (key.includes(k)) return { ...v, label: ind };
+  }
+  return { bg: 'bg-gray-700/30', text: 'text-gray-500', label: ind };
+};
 
 interface Stats {
   pending: number;
@@ -59,6 +76,7 @@ export default function LinkedInTrackingPage() {
   });
   const [selectedItem, setSelectedItem] = useState<LinkedInEntry | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+  const [industryFilter, setIndustryFilter] = useState<string>('');
   const [messageText, setMessageText] = useState('');
   const [replyText, setReplyText] = useState('');
   const [notesText, setNotesText] = useState('');
@@ -83,17 +101,19 @@ export default function LinkedInTrackingPage() {
     setLoading(true);
     setError(null);
     try {
-      let url = '/api/linkedin-tracking';
+      const params = new URLSearchParams();
       if (activeFilter === 'actions_due') {
-        url += '?actions_due=true';
+        params.set('actions_due', 'true');
       } else if (activeFilter === 'request_sent') {
-        url += '?status=request_sent';
+        params.set('status', 'request_sent');
       } else if (activeFilter === 'connected') {
-        url += '?status=connected';
+        params.set('status', 'connected');
       } else if (activeFilter === 'replied') {
-        url += '?status=replied';
+        params.set('status', 'replied');
       }
+      if (industryFilter) params.set('industry', industryFilter);
 
+      const url = `/api/linkedin-tracking${params.toString() ? '?' + params.toString() : ''}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch LinkedIn entries');
       const data = await response.json();
@@ -105,7 +125,7 @@ export default function LinkedInTrackingPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilter]);
+  }, [activeFilter, industryFilter]);
 
   useEffect(() => {
     fetchItems();
@@ -247,6 +267,23 @@ export default function LinkedInTrackingPage() {
             />
           </div>
 
+          {/* Industry Filter */}
+          <div className="flex gap-1 px-4 pb-3 overflow-x-auto">
+            {['', 'immobilien', 'bau', 'handwerk', 'makler'].map((ind) => (
+              <button
+                key={ind}
+                onClick={() => setIndustryFilter(ind)}
+                className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
+                  industryFilter === ind
+                    ? 'bg-orange-500/30 text-orange-300'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                {ind === '' ? 'Alle Branchen' : ind.charAt(0).toUpperCase() + ind.slice(1)}
+              </button>
+            ))}
+          </div>
+
           {/* Items List */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
@@ -289,13 +326,29 @@ export default function LinkedInTrackingPage() {
                       {getStatusStyle(item.connection_status).label}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mb-2 truncate">{item.company}</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-xs text-gray-500 truncate">{item.company}</p>
+                    {(() => {
+                      const indStyle = getIndustryStyle(item.industry);
+                      return indStyle ? (
+                        <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${indStyle.bg} ${indStyle.text}`}>
+                          {indStyle.label}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      {item.lead_category && (
-                        <span className="inline-block px-2 py-0.5 bg-gray-700/50 text-gray-300 text-xs rounded">
-                          {item.lead_category}
-                        </span>
+                      {item.linkedin_url && (
+                        <a
+                          href={item.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded hover:bg-blue-500/30"
+                        >
+                          <LinkIcon size={10} /> LinkedIn
+                        </a>
                       )}
                       <span className="inline-block px-2 py-0.5 bg-gray-700/50 text-gray-300 text-xs rounded">
                         {item.agent_score}pts

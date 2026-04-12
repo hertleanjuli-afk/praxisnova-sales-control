@@ -549,6 +549,21 @@ export async function handleTool(name: string, args: Record<string, unknown>): P
           tags: ['outreach', 'agent'],
         });
         if (!result.success) throw new Error(`Brevo send failed: ${result.error}`);
+
+        // Auto-create linkedin_tracking entry for outreach leads
+        try {
+          const [lead] = await sql`
+            SELECT id FROM leads WHERE LOWER(email) = LOWER(${to_email}) LIMIT 1
+          `;
+          if (lead) {
+            await sql`
+              INSERT INTO linkedin_tracking (lead_id, connection_status, notes, created_at)
+              SELECT ${lead.id}, 'pending', 'Auto: Email gesendet, LinkedIn-Anfrage geplant', NOW()
+              WHERE NOT EXISTS (SELECT 1 FROM linkedin_tracking WHERE lead_id = ${lead.id})
+            `;
+          }
+        } catch (e) { console.warn('[agent-runtime] linkedin_tracking auto-create failed:', e); }
+
         return { ok: true, messageId: result.messageId, to: to_email };
       }
 

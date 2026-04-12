@@ -312,7 +312,7 @@ export async function initializeDatabase(): Promise<void> {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_linkedin_tracking_lead ON linkedin_tracking(lead_id)`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_linkedin_tracking_lead ON linkedin_tracking(lead_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_linkedin_tracking_status ON linkedin_tracking(connection_status)`;
 
   // ââ Agent System Tables ââââââââââââââââââââââââââââââââââââââââââââââââââ

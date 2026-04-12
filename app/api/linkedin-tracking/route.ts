@@ -28,6 +28,7 @@ export async function GET(request: Request) {
   const dueToday = searchParams.get('due_today');
   const leadId = searchParams.get('lead_id');
   const actionsDue = searchParams.get('actions_due');
+  const industry = searchParams.get('industry');
 
   try {
     let items;
@@ -114,7 +115,7 @@ export async function GET(request: Request) {
           l.id as lead_id,
           l.first_name, l.last_name, l.company, l.title,
           l.email, l.phone, l.agent_score, l.lead_category,
-          l.pipeline_stage, l.outreach_step,
+          l.pipeline_stage, l.outreach_step, l.industry,
           COALESCE(l.linkedin_url, lt.linkedin_url) as linkedin_url,
           COALESCE(lt.connection_status, 'none') as connection_status,
           lt.request_due_date, lt.request_sent_at, lt.connected_at,
@@ -127,6 +128,7 @@ export async function GET(request: Request) {
         LEFT JOIN linkedin_tracking lt ON lt.lead_id = l.id
         WHERE l.pipeline_stage NOT IN ('Blocked', 'Booked')
           AND l.sequence_status IN ('active', 'paused', 'none')
+          AND (${industry}::text IS NULL OR LOWER(l.industry) LIKE '%' || LOWER(${industry}::text) || '%')
         ORDER BY l.agent_score DESC NULLS LAST, l.created_at DESC
         LIMIT 200
       `;

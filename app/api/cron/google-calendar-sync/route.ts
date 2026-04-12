@@ -214,6 +214,16 @@ export async function runGoogleCalendarSync(): Promise<{
         } else {
           existingLeads++;
         }
+
+        // Stop active sequences for this lead (a booked lead should
+        // not receive further outreach emails)
+        await sql`
+          UPDATE leads SET
+            sequence_status = 'completed',
+            cooldown_until = NOW() + INTERVAL '90 days'
+          WHERE id = ${result.leadId}
+            AND sequence_status IN ('active', 'paused')
+        `.catch(() => {});
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         errorList.push(`event ${event.id}: ${errMsg.substring(0, 150)}`);

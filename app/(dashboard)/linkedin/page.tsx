@@ -237,7 +237,7 @@ export default function LinkedInTrackingPage() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - List */}
-        <div className="w-full md:w-96 flex flex-col border-r" style={{ borderColor: '#1E1E1E', backgroundColor: '#111' }}>
+        <div className="w-full md:flex-1 flex flex-col border-r" style={{ borderColor: '#1E1E1E', backgroundColor: '#111' }}>
           {/* Filter Tabs */}
           <div className="flex border-b overflow-x-auto" style={{ borderColor: '#1E1E1E' }}>
             <FilterTab
@@ -267,9 +267,9 @@ export default function LinkedInTrackingPage() {
             />
           </div>
 
-          {/* Industry Filter */}
-          <div className="flex gap-1 px-4 pb-3 overflow-x-auto">
-            {['', 'immobilien', 'bau', 'handwerk', 'makler'].map((ind) => (
+          {/* Industry Filter (Makler = Unterkategorie von Immobilien, daher nicht separat) */}
+          <div className="flex gap-1 px-4 py-2 overflow-x-auto border-b" style={{ borderColor: '#1E1E1E' }}>
+            {['', 'immobilien', 'bau', 'handwerk'].map((ind) => (
               <button
                 key={ind}
                 onClick={() => setIndustryFilter(ind)}
@@ -296,72 +296,67 @@ export default function LinkedInTrackingPage() {
             ) : items.length === 0 ? (
               <div className="p-4 text-gray-400">Keine Einträge gefunden</div>
             ) : (
+              /* Compact row layout: ~48px per row, 10+ visible without scroll
+               * Data flow: All leads with sequence_status in (active, paused, none)
+               * and pipeline_stage not Blocked/Booked are shown via LEFT JOIN with
+               * linkedin_tracking. Sources include apollo, website_popup, manual,
+               * website_calendar_booking. Every lead entering a sequence automatically
+               * gets a linkedin_tracking entry via send_outreach_email in agent-runtime.
+               * TODO: lead_type field needed in leads table for Prospects/Partners split
+               */
               items.map((item) => (
                 <div
-                  key={item.id}
+                  key={`${item.lead_id}-${item.id}`}
                   onClick={() => handleSelectItem(item)}
-                  className={`p-4 border-b cursor-pointer transition-colors ${
-                    selectedItem?.id === item.id ? 'bg-orange-500/10' : 'hover:bg-white/5'
+                  className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors border-b ${
+                    selectedItem?.lead_id === item.lead_id ? 'bg-orange-500/10' : 'hover:bg-white/5'
                   }`}
-                  style={{
-                    borderColor: selectedItem?.id === item.id ? '#E8472A' : '#1E1E1E',
-                    backgroundColor: selectedItem?.id === item.id ? 'rgba(232, 71, 42, 0.1)' : undefined,
-                  }}
+                  style={{ borderColor: '#1E1E1E' }}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-white truncate">
-                        <NextLink
-                          href={`/lead/${item.lead_id}`}
-                          onClick={e => e.stopPropagation()}
-                          className="text-white hover:text-orange-500 transition-colors"
-                          style={{ textDecoration: 'none' }}
-                        >
-                          {item.first_name} {item.last_name}
-                        </NextLink>
-                      </h3>
-                      <p className="text-sm text-gray-400 truncate">{item.title}</p>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded whitespace-nowrap flex-shrink-0 ${getStatusStyle(item.connection_status).bg} ${getStatusStyle(item.connection_status).text}`}>
-                      {getStatusStyle(item.connection_status).label}
-                    </span>
+                  {/* Name + Title + Company */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {item.first_name} {item.last_name}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {item.title}{item.company ? ` - ${item.company}` : ''}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <p className="text-xs text-gray-500 truncate">{item.company}</p>
+
+                  {/* Badges + Actions (right side) */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {/* Industry Badge */}
                     {(() => {
                       const indStyle = getIndustryStyle(item.industry);
                       return indStyle ? (
-                        <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${indStyle.bg} ${indStyle.text}`}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${indStyle.bg} ${indStyle.text}`}>
                           {indStyle.label}
                         </span>
                       ) : null;
                     })()}
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {item.linkedin_url && (
-                        <a
-                          href={item.linkedin_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded hover:bg-blue-500/30"
-                        >
-                          <LinkIcon size={10} /> LinkedIn
-                        </a>
-                      )}
-                      <span className="inline-block px-2 py-0.5 bg-gray-700/50 text-gray-300 text-xs rounded">
-                        {item.agent_score}pts
-                      </span>
-                    </div>
+
+                    {/* Status Badge */}
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${getStatusStyle(item.connection_status).bg} ${getStatusStyle(item.connection_status).text}`}>
+                      {getStatusStyle(item.connection_status).label}
+                    </span>
+
+                    {/* LinkedIn Profile Link */}
+                    {item.linkedin_url && (
+                      <a
+                        href={item.linkedin_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-blue-400 hover:text-blue-300 p-1"
+                        title="LinkedIn Profil"
+                      >
+                        <LinkIcon size={14} />
+                      </a>
+                    )}
+
+                    {/* Action indicator */}
                     {getActionBadge(item)}
                   </div>
-                  {(item.request_due_date || item.request_sent_at) && (
-                    <p className="text-xs text-gray-500 mt-2">
-                      {item.request_due_date && 'Fallig: ' + formatDate(item.request_due_date)}
-                      {item.request_sent_at && 'Gesendet: ' + formatDate(item.request_sent_at)}
-                    </p>
-                  )}
                 </div>
               ))
             )}

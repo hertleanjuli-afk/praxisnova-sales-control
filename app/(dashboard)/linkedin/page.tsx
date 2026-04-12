@@ -33,20 +33,24 @@ interface LinkedInEntry {
   action_required?: 'anfrage_senden' | 'timeout_keine_akzeptierung' | 'nachricht_senden' | 'timeout_keine_antwort' | 'keine_aktion';
 }
 
-const industryColors: Record<string, { bg: string; text: string }> = {
-  immobilien: { bg: 'bg-purple-500/20', text: 'text-purple-300' },
-  bau: { bg: 'bg-orange-500/20', text: 'text-orange-300' },
-  bauunternehmen: { bg: 'bg-orange-500/20', text: 'text-orange-300' },
-  handwerk: { bg: 'bg-green-500/20', text: 'text-green-300' },
-  makler: { bg: 'bg-yellow-500/20', text: 'text-yellow-300' },
+// Map raw DB industry values (immobilien, bauunternehmen, handwerk)
+// to display names and colors. Apollo sync writes these exact values.
+const industryDisplayName = (industry: string | null): string => {
+  if (!industry) return '';
+  const lower = industry.toLowerCase();
+  if (lower.includes('immobil') || lower.includes('real estate') || lower.includes('makler') || lower.includes('wohnen')) return 'Immobilien';
+  if (lower.includes('bau') || lower.includes('construction') || lower.includes('architekt')) return 'Bau';
+  if (lower.includes('handwerk') || lower.includes('craft') || lower.includes('sanitaer') || lower.includes('elektro')) return 'Handwerk';
+  return industry;
 };
+
 const getIndustryStyle = (ind: string | null) => {
-  if (!ind) return null;
-  const key = ind.toLowerCase();
-  for (const [k, v] of Object.entries(industryColors)) {
-    if (key.includes(k)) return { ...v, label: ind };
-  }
-  return { bg: 'bg-gray-700/30', text: 'text-gray-500', label: ind };
+  const display = industryDisplayName(ind);
+  if (!display) return null;
+  if (display === 'Immobilien') return { bg: 'bg-purple-500/20', text: 'text-purple-300', label: display };
+  if (display === 'Bau') return { bg: 'bg-orange-500/20', text: 'text-orange-300', label: display };
+  if (display === 'Handwerk') return { bg: 'bg-green-500/20', text: 'text-green-300', label: display };
+  return { bg: 'bg-gray-700/30', text: 'text-gray-500', label: display };
 };
 
 interface Stats {
@@ -111,7 +115,6 @@ export default function LinkedInTrackingPage() {
       } else if (activeFilter === 'replied') {
         params.set('status', 'replied');
       }
-      if (industryFilter) params.set('industry', industryFilter);
 
       const url = `/api/linkedin-tracking${params.toString() ? '?' + params.toString() : ''}`;
       const response = await fetch(url);
@@ -125,7 +128,12 @@ export default function LinkedInTrackingPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilter, industryFilter]);
+  }, [activeFilter]);
+
+  // Client-side industry filter (maps raw DB values to display names)
+  const filteredItems = industryFilter
+    ? items.filter(item => industryDisplayName(item.industry) === industryFilter)
+    : items;
 
   useEffect(() => {
     fetchItems();
@@ -267,9 +275,9 @@ export default function LinkedInTrackingPage() {
             />
           </div>
 
-          {/* Industry Filter (Makler = Unterkategorie von Immobilien, daher nicht separat) */}
+          {/* Industry Filter (client-side, maps raw DB values to display names) */}
           <div className="flex gap-1 px-4 py-2 overflow-x-auto border-b" style={{ borderColor: '#1E1E1E' }}>
-            {['', 'immobilien', 'bau', 'handwerk'].map((ind) => (
+            {['', 'Immobilien', 'Bau', 'Handwerk'].map((ind) => (
               <button
                 key={ind}
                 onClick={() => setIndustryFilter(ind)}
@@ -279,7 +287,7 @@ export default function LinkedInTrackingPage() {
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                 }`}
               >
-                {ind === '' ? 'Alle Branchen' : ind.charAt(0).toUpperCase() + ind.slice(1)}
+                {ind === '' ? 'Alle Branchen' : ind}
               </button>
             ))}
           </div>
@@ -293,8 +301,8 @@ export default function LinkedInTrackingPage() {
                 <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
-            ) : items.length === 0 ? (
-              <div className="p-4 text-gray-400">Keine Einträge gefunden</div>
+            ) : filteredItems.length === 0 ? (
+              <div className="p-4 text-gray-400">Keine Eintraege gefunden</div>
             ) : (
               /* Compact row layout: ~48px per row, 10+ visible without scroll
                * Data flow: All leads with sequence_status in (active, paused, none)
@@ -304,7 +312,7 @@ export default function LinkedInTrackingPage() {
                * gets a linkedin_tracking entry via send_outreach_email in agent-runtime.
                * TODO: lead_type field needed in leads table for Prospects/Partners split
                */
-              items.map((item) => (
+              filteredItems.map((item) => (
                 <div
                   key={`${item.lead_id}-${item.id}`}
                   onClick={() => handleSelectItem(item)}
@@ -340,15 +348,26 @@ export default function LinkedInTrackingPage() {
                       {getStatusStyle(item.connection_status).label}
                     </span>
 
-                    {/* LinkedIn Profile Link */}
-                    {item.linkedin_url && (
+                    {/* LinkedIn Profile Link (blue if URL known, gray fallback search) */}
+                    {item.linkedin_url ? (
                       <a
                         href={item.linkedin_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={e => e.stopPropagation()}
-                        className="text-blue-400 hover:text-blue-300 p-1"
+                        className="text-blue-400 hover:text-blue-300 p-1 flex-shrink-0"
                         title="LinkedIn Profil"
+                      >
+                        <LinkIcon size={14} />
+                      </a>
+                    ) : (
+                      <a
+                        href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((item.first_name + ' ' + item.last_name + ' ' + (item.company || '')).trim())}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-gray-600 hover:text-gray-400 p-1 flex-shrink-0"
+                        title="LinkedIn suchen"
                       >
                         <LinkIcon size={14} />
                       </a>

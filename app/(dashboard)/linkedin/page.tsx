@@ -65,9 +65,41 @@ interface Stats {
 }
 
 type FilterTab = 'actions_due' | 'all' | 'request_sent' | 'connected' | 'replied';
+type MainTab = 'prospects' | 'partners';
+
+interface PartnerEntry {
+  id: number;
+  partner_id: number;
+  company: string;
+  contact_name: string;
+  title: string;
+  email: string;
+  linkedin_url: string | null;
+  category: string | null;
+  tier: number | null;
+  partner_status: string;
+  connection_status: string;
+  request_sent_at: string | null;
+  connected_at: string | null;
+  message_sent: boolean;
+  message_sent_at: string | null;
+  message_content: string | null;
+  reply_received: boolean;
+  reply_received_at: string | null;
+  reply_content: string | null;
+  notes: string | null;
+}
+
+const tierLabels: Record<number, { label: string; color: string }> = {
+  1: { label: 'Gold', color: 'bg-amber-500/20 text-amber-300 border border-amber-500/30' },
+  2: { label: 'Silber', color: 'bg-gray-400/20 text-gray-300 border border-gray-400/30' },
+  3: { label: 'Bronze', color: 'bg-orange-700/20 text-orange-400 border border-orange-700/30' },
+};
 
 export default function LinkedInTrackingPage() {
+  const [mainTab, setMainTab] = useState<MainTab>('prospects');
   const [items, setItems] = useState<LinkedInEntry[]>([]);
+  const [partnerItems, setPartnerItems] = useState<PartnerEntry[]>([]);
   const [stats, setStats] = useState<Stats>({
     pending: 0,
     request_sent: 0,
@@ -79,6 +111,7 @@ export default function LinkedInTrackingPage() {
     total: 0,
   });
   const [selectedItem, setSelectedItem] = useState<LinkedInEntry | null>(null);
+  const [selectedPartner, setSelectedPartner] = useState<PartnerEntry | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [industryFilter, setIndustryFilter] = useState<string>('');
   const [messageText, setMessageText] = useState('');
@@ -135,9 +168,48 @@ export default function LinkedInTrackingPage() {
     ? items.filter(item => industryDisplayName(item.industry) === industryFilter)
     : items;
 
+  // Fetch partner items
+  const fetchPartners = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/partner-linkedin-tracking');
+      if (!response.ok) throw new Error('Failed to fetch partners');
+      const data = await response.json();
+      setPartnerItems(data.items || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Update partner status
+  const updatePartnerStatus = useCallback(
+    async (action: string, extra?: { message_content?: string; reply_content?: string }) => {
+      if (!selectedPartner) return;
+      setUpdating(true);
+      try {
+        const response = await fetch('/api/partner-linkedin-tracking', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ partner_id: selectedPartner.partner_id, action, ...extra }),
+        });
+        if (!response.ok) throw new Error('Failed to update partner status');
+        await fetchPartners();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [selectedPartner, fetchPartners]
+  );
+
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    if (mainTab === 'prospects') fetchItems();
+    else fetchPartners();
+  }, [fetchItems, fetchPartners, mainTab]);
 
   const updateStatus = useCallback(
     async (action: string, extra?: { message_content?: string; reply_content?: string }) => {
@@ -242,10 +314,33 @@ export default function LinkedInTrackingPage() {
         </div>
       </div>
 
+      {/* Main Tab: Prospects / Partner */}
+      <div className="flex border-b" style={{ borderColor: '#1E1E1E' }}>
+        <button
+          onClick={() => { setMainTab('prospects'); setSelectedPartner(null); }}
+          className={`px-6 py-3 text-sm font-semibold border-b-2 transition-colors ${
+            mainTab === 'prospects' ? 'text-white' : 'text-gray-500 border-transparent hover:text-gray-400'
+          }`}
+          style={{ borderBottomColor: mainTab === 'prospects' ? '#E8472A' : 'transparent' }}
+        >
+          Prospects
+        </button>
+        <button
+          onClick={() => { setMainTab('partners'); setSelectedItem(null); }}
+          className={`px-6 py-3 text-sm font-semibold border-b-2 transition-colors ${
+            mainTab === 'partners' ? 'text-white' : 'text-gray-500 border-transparent hover:text-gray-400'
+          }`}
+          style={{ borderBottomColor: mainTab === 'partners' ? '#F59E0B' : 'transparent' }}
+        >
+          Partner
+        </button>
+      </div>
+
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - List */}
         <div className="w-full md:flex-1 flex flex-col border-r" style={{ borderColor: '#1E1E1E', backgroundColor: '#111' }}>
+          {mainTab === 'prospects' ? (<>
           {/* Filter Tabs */}
           <div className="flex border-b overflow-x-auto" style={{ borderColor: '#1E1E1E' }}>
             <FilterTab
@@ -380,6 +475,61 @@ export default function LinkedInTrackingPage() {
               ))
             )}
           </div>
+          </>) : (
+          /* Partner List */
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="p-4 text-gray-400">Wird geladen...</div>
+            ) : partnerItems.length === 0 ? (
+              <div className="p-4 text-gray-400">Keine Partner gefunden</div>
+            ) : (
+              partnerItems.map((p) => (
+                <div
+                  key={`partner-${p.partner_id}`}
+                  onClick={() => setSelectedPartner(p)}
+                  className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors border-b ${
+                    selectedPartner?.partner_id === p.partner_id ? 'bg-amber-500/10' : 'hover:bg-white/5'
+                  }`}
+                  style={{ borderColor: '#1E1E1E' }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {p.contact_name || p.company}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {p.title}{p.contact_name && p.company ? ` - ${p.company}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="px-1.5 py-0.5 text-xs font-bold rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      PARTNER
+                    </span>
+                    {p.tier && tierLabels[p.tier] && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${tierLabels[p.tier].color}`}>
+                        {tierLabels[p.tier].label}
+                      </span>
+                    )}
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${getStatusStyle(p.connection_status).bg} ${getStatusStyle(p.connection_status).text}`}>
+                      {getStatusStyle(p.connection_status).label}
+                    </span>
+                    {p.linkedin_url ? (
+                      <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer"
+                         onClick={e => e.stopPropagation()} className="text-blue-400 hover:text-blue-300 p-1" title="LinkedIn Profil">
+                        <LinkIcon size={14} />
+                      </a>
+                    ) : (
+                      <a href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((p.contact_name + ' ' + p.company).trim())}`}
+                         target="_blank" rel="noopener noreferrer"
+                         onClick={e => e.stopPropagation()} className="text-gray-600 hover:text-gray-400 p-1" title="LinkedIn suchen">
+                        <LinkIcon size={14} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          )}
         </div>
 
         {/* Right Detail Panel */}
@@ -626,9 +776,83 @@ export default function LinkedInTrackingPage() {
                 </div>
               )}
             </>
+          ) : selectedPartner ? (
+            <>
+              {/* Partner Detail Header */}
+              <div className="border-b p-6" style={{ borderColor: '#1E1E1E' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-0.5 text-xs font-bold rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">PARTNER</span>
+                  {selectedPartner.tier && tierLabels[selectedPartner.tier] && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${tierLabels[selectedPartner.tier].color}`}>
+                      {tierLabels[selectedPartner.tier].label}
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-xl font-bold text-white mb-1">{selectedPartner.contact_name || selectedPartner.company}</h2>
+                <p className="text-sm text-gray-400">{selectedPartner.title}</p>
+                <p className="text-sm text-gray-500 mb-4">{selectedPartner.company}</p>
+                <div className="space-y-2 mb-4">
+                  {selectedPartner.linkedin_url && (
+                    <a href={selectedPartner.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300">
+                      <LinkIcon size={16} /> LinkedIn Profil
+                    </a>
+                  )}
+                  {selectedPartner.email && (
+                    <div className="flex items-center gap-2 text-sm text-gray-400"><Mail size={16} /> {selectedPartner.email}</div>
+                  )}
+                </div>
+                {selectedPartner.category && (
+                  <div className="px-3 py-2 rounded" style={{ backgroundColor: '#111' }}>
+                    <p className="text-xs text-gray-500 mb-1">Kategorie</p>
+                    <p className="text-sm font-medium text-white">{selectedPartner.category}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Partner Status Update */}
+              <div className="border-b p-6 space-y-4" style={{ borderColor: '#1E1E1E' }}>
+                <h3 className="font-semibold text-white">Status aktualisieren</h3>
+                {(selectedPartner.connection_status === 'none') && (
+                  <div className="flex gap-2">
+                    <button onClick={() => updatePartnerStatus('request_sent')} disabled={updating}
+                      className="flex-1 px-3 py-2 bg-blue-500/20 text-blue-300 rounded text-sm font-medium hover:bg-blue-500/30 disabled:opacity-50">
+                      Anfrage gesendet
+                    </button>
+                    <button onClick={() => updatePartnerStatus('no_linkedin')} disabled={updating}
+                      className="flex-1 px-3 py-2 bg-gray-500/20 text-gray-400 rounded text-sm font-medium hover:bg-gray-500/30 disabled:opacity-50">
+                      Kein LinkedIn
+                    </button>
+                  </div>
+                )}
+                {selectedPartner.connection_status === 'request_sent' && (
+                  <div className="flex gap-2">
+                    <button onClick={() => updatePartnerStatus('connected')} disabled={updating}
+                      className="flex-1 px-3 py-2 bg-green-500/20 text-green-300 rounded text-sm font-medium hover:bg-green-500/30 disabled:opacity-50">
+                      Verbunden
+                    </button>
+                    <button onClick={() => updatePartnerStatus('ignored')} disabled={updating}
+                      className="flex-1 px-3 py-2 bg-gray-500/20 text-gray-400 rounded text-sm font-medium hover:bg-gray-500/30 disabled:opacity-50">
+                      Ignoriert
+                    </button>
+                  </div>
+                )}
+                {selectedPartner.connection_status === 'connected' && !selectedPartner.message_sent && (
+                  <button onClick={() => updatePartnerStatus('message_sent')} disabled={updating}
+                    className="w-full px-3 py-2 bg-purple-500/20 text-purple-300 rounded text-sm font-medium hover:bg-purple-500/30 disabled:opacity-50">
+                    Nachricht gesendet
+                  </button>
+                )}
+                {selectedPartner.connection_status === 'connected' && selectedPartner.message_sent && !selectedPartner.reply_received && (
+                  <button onClick={() => updatePartnerStatus('reply_received')} disabled={updating}
+                    className="w-full px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded text-sm font-medium hover:bg-emerald-500/30 disabled:opacity-50">
+                    Antwort erhalten
+                  </button>
+                )}
+              </div>
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-500">
-              <p className="text-center">Wahlen Sie einen Kontakt aus, um Details zu sehen</p>
+              <p className="text-center">Kontakt auswaehlen um Details zu sehen</p>
             </div>
           )}
         </div>

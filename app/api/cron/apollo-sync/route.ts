@@ -187,9 +187,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get existing emails to deduplicate
+    // Neon sql`` returns an array directly, not { rows: [] }
     const existingEmailsResult = await sql`SELECT email FROM leads WHERE email IS NOT NULL`;
     const existingEmails = new Set(
-      (existingEmailsResult.rows as { email: string }[]).map((r) => r.email.toLowerCase().trim())
+      (existingEmailsResult as { email: string }[]).map((r) => r.email.toLowerCase().trim())
     );
 
     // Also deduplicate by name+company for contacts without email
@@ -198,7 +199,7 @@ export async function GET(request: NextRequest) {
       FROM leads
     `;
     const existingNameKeys = new Set(
-      (existingNamesResult.rows as { key: string }[]).map((r) => r.key)
+      (existingNamesResult as { key: string }[]).map((r) => r.key)
     );
 
     // Filter and insert new leads

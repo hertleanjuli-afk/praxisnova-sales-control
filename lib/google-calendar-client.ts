@@ -61,10 +61,12 @@ export async function getCalendarAccessToken(creds: CalendarCredentials): Promis
     );
   }
 
-  const data = (await res.json()) as { access_token?: string; error?: string };
+  const data = (await res.json()) as { access_token?: string; error?: string; scope?: string; token_type?: string };
   if (!data.access_token) {
     throw new Error(`Google Calendar OAuth response missing access_token: ${data.error || 'unknown'}`);
   }
+  // Log scope to diagnose 401 on events.list (scope mismatch?)
+  console.log(`[google-calendar] Token refreshed OK. scope=${data.scope || 'not-returned'}, token_type=${data.token_type || 'unknown'}`);
   return data.access_token;
 }
 

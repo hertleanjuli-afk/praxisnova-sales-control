@@ -64,57 +64,60 @@ export async function GET(
       });
     }
 
-    // 2. Email events
-    // email_events schema: id, lead_id, sequence_type, step_number,
-    // event_type, brevo_message_id, sender_used, created_at, sentiment
-    const emailEvents = await sql`
-      SELECT id, event_type, sequence_type, step_number, created_at
-      FROM email_events
-      WHERE lead_id = ${leadId}
-      ORDER BY created_at DESC
-    `;
+    // 2. Email events (wrapped - table columns may vary)
+    try {
+      const emailEvents = await sql`
+        SELECT id, event_type, sequence_type, step_number, created_at
+        FROM email_events
+        WHERE lead_id = ${leadId}
+        ORDER BY created_at DESC
+      `;
 
-    for (const event of emailEvents) {
-      const eventMap: Record<string, string> = {
-        opened: 'Email geoffnet',
-        clicked: 'Link geklickt',
-        replied: 'Email beantwortet',
-        bounced: 'Email verursacht Bounce',
-        sent: 'Email gesendet',
-      };
+      for (const event of emailEvents) {
+        const eventMap: Record<string, string> = {
+          opened: 'Email geoffnet',
+          clicked: 'Link geklickt',
+          replied: 'Email beantwortet',
+          bounced: 'Email verursacht Bounce',
+          sent: 'Email gesendet',
+        };
 
-      timelineEvents.push({
-        id: `email_${event.id}`,
-        type: event.event_type === 'sent' ? 'email_sent' : event.event_type,
-        timestamp: new Date(event.created_at).toISOString(),
-        title: eventMap[event.event_type] || event.event_type,
-        description: event.sequence_type ? `${event.sequence_type} Schritt ${event.step_number}` : null,
-      });
-    }
+        timelineEvents.push({
+          id: `email_${event.id}`,
+          type: event.event_type === 'sent' ? 'email_sent' : event.event_type,
+          timestamp: new Date(event.created_at).toISOString(),
+          title: eventMap[event.event_type] || event.event_type,
+          description: event.sequence_type ? `${event.sequence_type} Schritt ${event.step_number}` : null,
+        });
+      }
+    } catch (e) { console.error('email_events query failed:', e); }
 
     // 3. Agent decisions (outreach sent)
-    const agentDecisions = await sql`
-      SELECT id, decision_type, created_at, data_payload
-      FROM agent_decisions
-      WHERE lead_id = ${leadId}
-      AND decision_type = 'outreach_sent'
-      ORDER BY created_at DESC
-    `;
+    // agent_decisions uses subject_id (not lead_id)
+    try {
+      const agentDecisions = await sql`
+        SELECT id, decision_type, created_at, data_payload
+        FROM agent_decisions
+        WHERE subject_id = ${leadId}
+        AND decision_type = 'outreach_sent'
+        ORDER BY created_at DESC
+      `;
 
-    for (const decision of agentDecisions) {
-      const payload = typeof decision.data_payload === 'string'
-        ? JSON.parse(decision.data_payload)
-        : decision.data_payload;
+      for (const decision of agentDecisions) {
+        const payload = typeof decision.data_payload === 'string'
+          ? JSON.parse(decision.data_payload)
+          : decision.data_payload;
 
-      timelineEvents.push({
-        id: `agent_decision_${decision.id}`,
-        type: 'email_sent',
-        timestamp: new Date(decision.created_at).toISOString(),
-        title: payload?.subject || 'Email gesendet',
-        description: lead.company || null,
-        metadata: { subject: payload?.subject },
-      });
-    }
+        timelineEvents.push({
+          id: `agent_decision_${decision.id}`,
+          type: 'email_sent',
+          timestamp: new Date(decision.created_at).toISOString(),
+          title: payload?.subject || 'Email gesendet',
+          description: lead.company || null,
+          metadata: { subject: payload?.subject },
+        });
+      }
+    } catch (e) { console.error('agent_decisions query failed:', e); }
 
     // 4. Call dispositions (table may not exist on all installs)
     try {
@@ -139,23 +142,25 @@ export async function GET(
     } catch { /* call_dispositions table may not exist yet */ }
 
     // 5. Call queue (call attempts)
-    const callQueueEntries = await sql`
-      SELECT id, status, created_at
-      FROM call_queue
-      WHERE lead_id = ${leadId}
-      AND status = 'called'
-      ORDER BY created_at DESC
-    `;
+    try {
+      const callQueueEntries = await sql`
+        SELECT id, status, created_at
+        FROM call_queue
+        WHERE lead_id = ${leadId}
+        AND status = 'called'
+        ORDER BY created_at DESC
+      `;
 
-    for (const entry of callQueueEntries) {
-      timelineEvents.push({
-        id: `call_queue_${entry.id}`,
-        type: 'call_made',
-        timestamp: new Date(entry.created_at).toISOString(),
-        title: 'Anruf versucht',
-        description: null,
-      });
-    }
+      for (const entry of callQueueEntries) {
+        timelineEvents.push({
+          id: `call_queue_${entry.id}`,
+          type: 'call_made',
+          timestamp: new Date(entry.created_at).toISOString(),
+          title: 'Anruf versucht',
+          description: null,
+        });
+      }
+    } catch (e) { console.error('call_queue query failed:', e); }
 
     // 6. Sequence entries (table may not exist on older installs)
     try {
@@ -200,60 +205,59 @@ export async function GET(
     } catch { /* sequence_entries table may not exist yet */ }
 
     // 7. LinkedIn tracking events
-    const linkedinTracking = await sql`
-      SELECT id, connection_status, request_sent_at, connected_at, message_sent_at, reply_received_at
-      FROM linkedin_tracking
-      WHERE lead_id = ${leadId}
-    `;
+    let linkedinRow = null;
+    try {
+      const linkedinTracking = await sql`
+        SELECT id, connection_status, request_sent_at, connected_at, message_sent_at, reply_received_at
+        FROM linkedin_tracking
+        WHERE lead_id = ${leadId}
+      `;
 
-    if (linkedinTracking.length > 0) {
-      const lt = linkedinTracking[0];
+      if (linkedinTracking.length > 0) {
+        const lt = linkedinTracking[0];
+        linkedinRow = lt;
 
-      if (lt.request_sent_at) {
-        timelineEvents.push({
-          id: `linkedin_request_${lt.id}`,
-          type: 'linkedin_request',
-          timestamp: new Date(lt.request_sent_at).toISOString(),
-          title: 'LinkedIn-Anfrage gesendet',
-          description: null,
-        });
+        if (lt.request_sent_at) {
+          timelineEvents.push({
+            id: `linkedin_request_${lt.id}`,
+            type: 'linkedin_request',
+            timestamp: new Date(lt.request_sent_at).toISOString(),
+            title: 'LinkedIn-Anfrage gesendet',
+            description: null,
+          });
+        }
+
+        if (lt.connected_at) {
+          timelineEvents.push({
+            id: `linkedin_connected_${lt.id}`,
+            type: 'linkedin_connected',
+            timestamp: new Date(lt.connected_at).toISOString(),
+            title: 'LinkedIn-Verbindung hergestellt',
+            description: null,
+          });
+        }
+
+        if (lt.message_sent_at) {
+          timelineEvents.push({
+            id: `linkedin_message_${lt.id}`,
+            type: 'linkedin_message',
+            timestamp: new Date(lt.message_sent_at).toISOString(),
+            title: 'LinkedIn-Nachricht gesendet',
+            description: null,
+          });
+        }
+
+        if (lt.reply_received_at) {
+          timelineEvents.push({
+            id: `linkedin_reply_${lt.id}`,
+            type: 'linkedin_reply',
+            timestamp: new Date(lt.reply_received_at).toISOString(),
+            title: 'LinkedIn-Antwort erhalten',
+            description: null,
+          });
+        }
       }
-
-      if (lt.connected_at) {
-        timelineEvents.push({
-          id: `linkedin_connected_${lt.id}`,
-          type: 'linkedin_connected',
-          timestamp: new Date(lt.connected_at).toISOString(),
-          title: 'LinkedIn-Verbindung hergestellt',
-          description: null,
-        });
-      }
-
-      if (lt.message_sent_at) {
-        timelineEvents.push({
-          id: `linkedin_message_${lt.id}`,
-          type: 'linkedin_message',
-          timestamp: new Date(lt.message_sent_at).toISOString(),
-          title: 'LinkedIn-Nachricht gesendet',
-          description: null,
-        });
-      }
-
-      if (lt.reply_received_at) {
-        timelineEvents.push({
-          id: `linkedin_reply_${lt.id}`,
-          type: 'linkedin_reply',
-          timestamp: new Date(lt.reply_received_at).toISOString(),
-          title: 'LinkedIn-Antwort erhalten',
-          description: null,
-        });
-      }
-    }
-
-    // Fetch linkedin_tracking row for response
-    const [linkedinRow] = await sql`
-      SELECT * FROM linkedin_tracking WHERE lead_id = ${leadId}
-    `;
+    } catch (e) { console.error('linkedin_tracking query failed:', e); }
 
     // Sort timeline by timestamp, newest first
     timelineEvents.sort(
@@ -268,9 +272,10 @@ export async function GET(
       linkedin: linkedinRow || null,
     });
   } catch (error) {
-    console.error('Lead detail error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Lead detail error FULL:', errorMessage, error);
     return NextResponse.json(
-      { error: 'Interner Fehler beim Abrufen von Lead-Details' },
+      { ok: false, error: errorMessage },
       { status: 500 }
     );
   }

@@ -67,6 +67,7 @@ export default function LinkedInTrackingPage() {
   const [error, setError] = useState<string | null>(null);
 
   const statusColors: Record<string, { bg: string; text: string; label: string }> = {
+    none: { bg: 'bg-gray-700/30', text: 'text-gray-400', label: 'Kein Tracking' },
     pending_request: { bg: 'bg-yellow-500/20', text: 'text-yellow-300', label: 'Anfrage fällig' },
     request_sent: { bg: 'bg-blue-500/20', text: 'text-blue-300', label: 'Angefragt' },
     connected: { bg: 'bg-green-500/20', text: 'text-green-300', label: 'Verbunden' },
@@ -75,6 +76,8 @@ export default function LinkedInTrackingPage() {
     no_linkedin: { bg: 'bg-gray-500/20', text: 'text-gray-400', label: 'Kein LinkedIn' },
     ignored: { bg: 'bg-gray-500/20', text: 'text-gray-400', label: 'Ignoriert' },
   };
+  const getStatusStyle = (status: string | null) =>
+    statusColors[status || 'none'] || statusColors.none;
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -282,8 +285,8 @@ export default function LinkedInTrackingPage() {
                       </h3>
                       <p className="text-sm text-gray-400 truncate">{item.title}</p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded whitespace-nowrap flex-shrink-0 ${statusColors[item.connection_status].bg} ${statusColors[item.connection_status].text}`}>
-                      {statusColors[item.connection_status].label}
+                    <span className={`text-xs px-2 py-1 rounded whitespace-nowrap flex-shrink-0 ${getStatusStyle(item.connection_status).bg} ${getStatusStyle(item.connection_status).text}`}>
+                      {getStatusStyle(item.connection_status).label}
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mb-2 truncate">{item.company}</p>

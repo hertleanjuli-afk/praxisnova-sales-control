@@ -149,11 +149,23 @@ export async function GET(request: Request) {
         AND l.sequence_status IN ('active', 'paused', 'none')
     `;
 
+    // Normalize null fields from LEFT JOIN for frontend safety
+    const safeItems = items.map((item: Record<string, unknown>) => ({
+      ...item,
+      connection_status: item.connection_status || 'none',
+      message_sent: item.message_sent ?? false,
+      reply_received: item.reply_received ?? false,
+      first_name: item.first_name || '',
+      last_name: item.last_name || '',
+      company: item.company || '',
+      title: item.title || '',
+    }));
+
     return NextResponse.json({
       ok: true,
       stats,
-      items,
-      count: items.length,
+      items: safeItems,
+      count: safeItems.length,
     });
 
   } catch (error) {

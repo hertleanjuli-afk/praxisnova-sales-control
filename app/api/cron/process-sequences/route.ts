@@ -229,6 +229,24 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
+      // Duplicate protection: if the Inbound Response Agent already sent a
+      // personalized email to this lead in the last 24 hours, skip this step
+      // to avoid double-emailing on the same day.
+      if (lead.sequence_type === 'inbound' && lead.outreach_source === 'agent_inbound_response') {
+        const recentAgentEmail = await sql`
+          SELECT id FROM agent_decisions
+          WHERE subject_id = ${lead.id}
+            AND agent_name = 'inbound_response_agent'
+            AND decision_type = 'inbound_response_sent'
+            AND created_at > NOW() - INTERVAL '24 hours'
+          LIMIT 1
+        `;
+        if (recentAgentEmail.length > 0) {
+          console.log(`[process-sequences] Skipping lead ${lead.id} - Inbound Agent already emailed in last 24h`);
+          continue;
+        }
+      }
+
       if (step.channel === 'linkedin') {
         // LinkedIn steps are manual tasks – just log and advance
         await sql`

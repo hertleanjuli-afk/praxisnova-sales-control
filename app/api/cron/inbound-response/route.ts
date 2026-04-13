@@ -4,16 +4,16 @@
  * Responds to new website form submissions. Scores click-path intent,
  * researches company, sends personalized response.
  *
- * Schedule: 08:00, 11:00, 14:00, 17:00 Berlin time (4x daily).
- * Time window: 6 Stunden (360 min) - muss groesser sein als der Abstand
- * zwischen zwei Cron-Runs, sonst werden Leads uebersprungen.
+ * Schedule: Every 15 minutes, 06:00-22:00 UTC Mon-Fri.
+ * Time window: 20 min - slightly longer than the 15-min cron interval
+ * to avoid edge-case gaps.
  *
  * maxIterations: 15
  */
 
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { runAgent, isAuthorized, sendErrorNotification, writeStartLog, writeEndLog } from '@/lib/agent-runtime';
+import { runAgent, isAuthorized, isAlreadyRunning, sendErrorNotification, writeStartLog, writeEndLog } from '@/lib/agent-runtime';
 
 export const maxDuration = 120; // Shorter budget — must complete quickly for 15min cycles
 
@@ -26,7 +26,7 @@ ALLE Texte auf DEUTSCH. Kein Em-Dash oder En-Dash.
 ZIEL: Antwort innerhalb von 15 Minuten nach Formular-Einsendung. Geschwindigkeit vor Perfektion!
 
 VERFUEGBARE TOOLS:
-- read_inbound_leads {minutes: 360, limit: 5} - Neue Inbound-Leads der letzten 6 Stunden laden
+- read_inbound_leads {minutes: 20, limit: 5} - Neue Inbound-Leads der letzten 20 Minuten laden
 - read_intel - Market Intelligence (hot_topics, stat_of_the_week)
 - web_fetch {url} - Firmen-Website recherchieren
 - send_outreach_email {to_email, to_name, subject, html} - Personalisierte Antwort senden
@@ -37,7 +37,7 @@ VERFUEGBARE TOOLS:
 WORKFLOW:
 1. Generiere run_id (UUID)
 2. write_log: started
-3. read_inbound_leads {minutes: 360, limit: 5} - Neue Leads der letzten 6 Stunden
+3. read_inbound_leads {minutes: 20, limit: 5} - Neue Leads der letzten 20 Minuten
 4. Wenn keine neuen Leads: write_log completed, fertig.
 5. read_intel - aktuelle Themen laden (falls vorhanden)
 6. Fuer jeden neuen Lead (max 5, aelteste zuerst):
@@ -80,6 +80,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'GEMINI_API_KEY nicht konfiguriert' }, { status: 500 });
   }
 
+  // Concurrent-run guard: skip if another run started in the last 10 minutes
+  const alreadyRunning = await isAlreadyRunning('inbound_response', 10);
+  if (alreadyRunning) {
+    console.log('[inbound-response] Skipped - another run is still active');
+    return NextResponse.json({ ok: true, skipped: true, reason: 'concurrent_run_active' });
+  }
+
   const startTime = Date.now();
   const runId = crypto.randomUUID();
   console.log('[inbound-response] Starte als eigenstaendiger Agent (max 15 Iterationen, 120s Budget)...');
@@ -88,7 +95,7 @@ export async function GET(request: NextRequest) {
   try {
     const result = await runAgent(
       getSystemPrompt(),
-      'Pruefe auf neue Inbound-Leads der letzten 6 Stunden (read_inbound_leads mit minutes: 360) und antworte personalisiert. WICHTIG: 6 Stunden, nicht 30 Minuten, weil der Cron nur alle 3 Stunden laeuft und wir sonst Leads verpassen.',
+      'Pruefe auf neue Inbound-Leads der letzten 20 Minuten (read_inbound_leads mit minutes: 20) und antworte personalisiert. Der Cron laeuft alle 15 Minuten, das 20-Minuten-Fenster verhindert Luecken.',
       15,
       'inbound-response',
     );

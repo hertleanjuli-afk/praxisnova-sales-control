@@ -12,8 +12,9 @@ Absender aller Emails: hertle.anjuli@praxisnovaai.com (Anjuli Hertle, CEO & Head
 
 ## Zeitplan
 
-Läuft alle 15 Minuten, täglich zwischen 06:00 und 22:00 Uhr Berlin.
-Cron: `*/15 6-22 * * *`
+Laeuft alle 15 Minuten, Montag-Freitag zwischen 06:00 und 22:00 Uhr UTC.
+Cron: `*/15 6-22 * * 1-5`
+Zeitfenster: 20 Minuten (etwas groesser als der 15-Min-Takt, verhindert Luecken)
 
 ---
 
@@ -31,13 +32,13 @@ BREVO_API: https://api.brevo.com/v3 (direkt — kein Proxy)
 ### Phase 1: Neue Inbound-Leads finden
 
 ```bash
-node scripts/agent-db.mjs read-inbound-leads '{"minutes":30}'
+node scripts/agent-db.mjs read-inbound-leads '{"minutes":20}'
 ```
 
-Filtert automatisch: `sequence_type = 'inbound'`, `outreach_source IS NULL`, `created_at > jetzt minus 30 Minuten`
+Filtert automatisch: `pipeline_stage = 'Neu'`, `outreach_source IS NULL`, `created_at > jetzt minus 20 Minuten`
 
-Wenn keine neuen Leads → kurzes Log schreiben → beenden.
-Max. 5 Leads pro Lauf, älteste zuerst.
+Wenn keine neuen Leads -> kurzes Log schreiben -> beenden.
+Max. 5 Leads pro Lauf, aelteste zuerst.
 
 ---
 

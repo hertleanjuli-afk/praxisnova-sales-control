@@ -125,24 +125,27 @@ Angie reviews and sends manually.
 MORNING (07:00-08:30):
 - Partner Researcher (07:00)
 - Operations Manager (07:15)
-- Prospect Researcher (08:30)
-- Inbound Response Handler (08:00)
+- Prospect Researcher (06:00, 09:45, 13:45)
 
-MIDDAY (09:00-12:00):
-- Outreach Strategist (09:00, 11:00, 13:00, 15:00, 17:00 - every 2 hours)
-- Sales Supervisor (09:00, 14:00)
+MIDDAY (09:00-17:00):
+- Outreach Strategist (08:00, 11:00, 13:00, 15:00, 17:00)
+- Sales Supervisor (09:15, 14:30)
 - Partner Outreach Strategist (12:30 - weekdays only)
+- Follow-Up Tracker (09:00)
+
+INBOUND (HIGH FREQUENCY):
+- Inbound Response Agent (*/15 06:00-22:00 - every 15 min, Mon-Fri)
 
 PROCESS JOBS:
 - Process Sequences (07:30, 10:30, 13:30, 16:30)
-- Inbound Response (08:00, 11:00, 14:00, 17:00)
 
 MONITORING:
-- Health Monitor (07:00, 11:00, 15:00)
-- LinkedIn Response Check (08:00)
-- LinkedIn Posting Check (16:00)
-- Daily Summary (11:00, 17:00)
-- Weekly Report (Monday 06:00)
+- Health Monitor (07:05, 11:50, 15:20)
+- Error Sentinel (06:15, 09:30, 12:00, 15:15, 18:00)
+- LinkedIn Response Check (08:10)
+- LinkedIn Posting Check (15:30)
+- Daily Summary (11:45, 17:45)
+- Weekly Report (Monday 06:45)
 ```
 
 ### Custom Commands (type these in Claude Code terminal)

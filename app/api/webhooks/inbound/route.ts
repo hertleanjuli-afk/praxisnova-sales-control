@@ -42,17 +42,43 @@ async function sendInboundAlert(
   }
 }
 
-export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { name, email, secret, visitorId } = body;
+// CORS headers for direct website calls
+const ALLOWED_ORIGINS = new Set([
+  'https://praxisnovaai.com',
+  'https://www.praxisnovaai.com',
+]);
 
-  // Verify webhook secret
-  if (secret !== process.env.INBOUND_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
+function corsHeaders(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+  };
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  }
+  return headers;
+}
+
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  return new NextResponse(null, { status: 204, headers: corsHeaders(origin) });
+}
+
+export async function POST(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  const body = await request.json();
+  const { name, email, secret, visitorId, source } = body;
+
+  // Auth: either webhook secret OR origin-based (for direct website calls)
+  const hasValidSecret = secret && secret === process.env.INBOUND_WEBHOOK_SECRET;
+  const hasValidOrigin = origin && ALLOWED_ORIGINS.has(origin);
+  if (!hasValidSecret && !hasValidOrigin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders(origin) });
   }
 
   if (!email) {
-    return NextResponse.json({ error: 'E-Mail ist erforderlich' }, { status: 400 });
+    return NextResponse.json({ error: 'E-Mail ist erforderlich' }, { status: 400, headers: corsHeaders(origin) });
   }
 
   try {
@@ -62,26 +88,28 @@ export async function POST(request: NextRequest) {
     if (existing.length > 0) {
       const ex = existing[0];
       if (ex.sequence_status === 'active' || ex.sequence_status === 'pending_optin') {
-        return NextResponse.json({ ok: true, message: 'Lead already exists' });
+        return NextResponse.json({ ok: true, message: 'Lead already exists' }, { headers: corsHeaders(origin) });
       }
       if (ex.sequence_status === 'unsubscribed') {
-        return NextResponse.json({ ok: true, message: 'Lead is unsubscribed' });
+        return NextResponse.json({ ok: true, message: 'Lead is unsubscribed' }, { headers: corsHeaders(origin) });
       }
       if (ex.cooldown_until && new Date(ex.cooldown_until) > new Date()) {
-        return NextResponse.json({ ok: true, message: 'Lead is in cooldown' });
+        return NextResponse.json({ ok: true, message: 'Lead is in cooldown' }, { headers: corsHeaders(origin) });
       }
     }
 
     const firstName = name?.split(' ')[0] || '';
     const lastName = name?.split(' ').slice(1).join(' ') || '';
+    const leadSource = typeof source === 'string' && source ? source : 'website_popup';
 
     // Insert or update lead as pending (awaiting double opt-in)
     const result = await sql`
-      INSERT INTO leads (email, first_name, last_name, industry, sequence_status, sequence_type, sequence_step)
-      VALUES (${email}, ${firstName}, ${lastName}, 'inbound', 'pending_optin', 'inbound', 0)
+      INSERT INTO leads (email, first_name, last_name, industry, source, pipeline_stage, sequence_status, sequence_type, sequence_step)
+      VALUES (${email}, ${firstName}, ${lastName}, 'inbound', ${leadSource}, 'Neu', 'pending_optin', 'inbound', 0)
       ON CONFLICT (email) DO UPDATE SET
         first_name = COALESCE(${firstName}, leads.first_name),
         last_name = COALESCE(${lastName}, leads.last_name),
+        source = COALESCE(${leadSource}, leads.source),
         sequence_status = 'pending_optin',
         sequence_type = 'inbound',
         sequence_step = 0
@@ -151,7 +179,10 @@ export async function POST(request: NextRequest) {
       ).catch(() => {});
     }
 
-    return NextResponse.json({ ok: true, message: 'Bestätigungs-E-Mail gesendet' });
+    return NextResponse.json(
+      { ok: true, message: 'Bestaetigungs-E-Mail gesendet' },
+      { headers: corsHeaders(origin) },
+    );
   } catch (error) {
     console.error('Inbound webhook error:', error);
     // KRITISCH: Angie sofort benachrichtigen damit keine Inbound-Leads verloren gehen
@@ -160,6 +191,6 @@ export async function POST(request: NextRequest) {
       `Inbound-Lead konnte nicht verarbeitet werden (email: ${email}): ${String(error)}`,
       0,
     ).catch(() => {});
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500, headers: corsHeaders(origin) });
   }
 }

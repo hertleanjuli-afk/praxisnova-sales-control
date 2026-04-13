@@ -237,6 +237,7 @@ export default function LeadDetailPage() {
   const [editForm, setEditForm] = useState({
     lead_category: '',
     mobile_phone: '',
+    pipeline_stage: '',
   });
 
   // Copy phone to clipboard
@@ -270,6 +271,7 @@ export default function LeadDetailPage() {
         setEditForm({
           lead_category: data.lead.lead_category || '',
           mobile_phone: data.lead.mobile_phone || '',
+          pipeline_stage: data.lead.pipeline_stage || '',
         });
       } else {
         setMessage({ type: 'error', text: 'Lead konnte nicht geladen werden' });
@@ -318,6 +320,9 @@ export default function LeadDetailPage() {
       const payload: Record<string, unknown> = {};
       if (editForm.lead_category) payload.lead_category = editForm.lead_category;
       if (editForm.mobile_phone) payload.mobile_phone = editForm.mobile_phone;
+      if (editForm.pipeline_stage && editForm.pipeline_stage !== lead.pipeline_stage) {
+        payload.pipeline_stage = editForm.pipeline_stage;
+      }
 
       const response = await fetch(`/api/leads/${id}`, {
         method: 'PATCH',
@@ -335,6 +340,57 @@ export default function LeadDetailPage() {
     } catch (error) {
       setMessage({ type: 'error', text: 'Fehler beim Aktualisieren' });
       console.error('Error saving edit:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Stop sequence (single lead)
+  const stopSequence = async () => {
+    try {
+      setSaving(true);
+      const response = await fetch('/api/leads/stop-sequence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: Number(id) }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessage({ type: 'success', text: `Sequenz gestoppt (${data.affectedLeads} Lead(s))` });
+        fetchLeadDetail();
+      } else {
+        setMessage({ type: 'error', text: 'Sequenz konnte nicht gestoppt werden' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Fehler beim Stoppen der Sequenz' });
+      console.error('Error stopping sequence:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Stop all sequences for the same company
+  const stopCompanySequences = async () => {
+    if (!lead?.company) return;
+    try {
+      setSaving(true);
+      const response = await fetch('/api/leads/stop-sequence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyName: lead.company }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessage({ type: 'success', text: `Alle Sequenzen fuer ${lead.company} gestoppt (${data.affectedLeads} Leads)` });
+        fetchLeadDetail();
+      } else {
+        setMessage({ type: 'error', text: 'Firmen-Sequenzen konnten nicht gestoppt werden' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Fehler beim Firmen-Stopp' });
+      console.error('Error stopping company sequences:', error);
     } finally {
       setSaving(false);
     }
@@ -957,10 +1013,24 @@ export default function LeadDetailPage() {
                   <Calendar className="h-4 w-4" />
                   Termin buchen
                 </button>
-                <button className="w-full bg-transparent border border-red-600 hover:bg-red-900/20 text-red-400 text-sm font-medium py-2 px-3 rounded transition-colors flex items-center justify-center gap-2">
+                <button
+                  onClick={stopSequence}
+                  disabled={saving}
+                  className="w-full bg-transparent border border-red-600 hover:bg-red-900/20 disabled:opacity-50 text-red-400 text-sm font-medium py-2 px-3 rounded transition-colors flex items-center justify-center gap-2"
+                >
                   <XCircle className="h-4 w-4" />
                   Sequenz stoppen
                 </button>
+                {lead.company && (
+                  <button
+                    onClick={stopCompanySequences}
+                    disabled={saving}
+                    className="w-full bg-transparent border border-yellow-600 hover:bg-yellow-900/20 disabled:opacity-50 text-yellow-400 text-sm font-medium py-2 px-3 rounded transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Ban className="h-4 w-4" />
+                    Alle Sequenzen ({lead.company}) stoppen
+                  </button>
+                )}
                 <button
                   onClick={() => setBlockFormOpen(!blockFormOpen)}
                   className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-3 rounded transition-colors flex items-center justify-center gap-2"
@@ -1054,6 +1124,30 @@ export default function LeadDetailPage() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs text-gray-400 mb-2">
+                    Pipeline-Stage
+                  </label>
+                  <select
+                    value={editForm.pipeline_stage}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, pipeline_stage: e.target.value })
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                  >
+                    <option value="">-- Nicht aendern --</option>
+                    <option value="Neu">Neu</option>
+                    <option value="In Outreach">In Outreach</option>
+                    <option value="Nurture">Nurture</option>
+                    <option value="Antwort erhalten">Antwort erhalten</option>
+                    <option value="Booked">Booked</option>
+                    <option value="Customer">Customer</option>
+                    <option value="Nicht qualifiziert">Nicht qualifiziert</option>
+                    <option value="Wieder aufnehmen">Wieder aufnehmen</option>
+                    <option value="Blocked">Blocked</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-400 mb-2">
                     Kategorie
                   </label>
                   <select
@@ -1094,6 +1188,7 @@ export default function LeadDetailPage() {
                       setEditForm({
                         lead_category: lead?.lead_category || '',
                         mobile_phone: lead?.mobile_phone || '',
+                        pipeline_stage: lead?.pipeline_stage || '',
                       })
                     }
                     disabled={saving}

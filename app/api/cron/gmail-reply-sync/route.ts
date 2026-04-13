@@ -72,6 +72,14 @@ const MAX_MESSAGES_PER_RUN = 100;
 // Erscheint in Angies Gmail-Oberflaeche als Tag.
 const PROCESSED_LABEL_NAME = 'praxisnova-processed';
 
+// Free-Mail-Domains die beim Domain-Matching uebersprungen werden.
+const FREE_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'web.de', 'gmx.de', 'gmx.net', 'yahoo.com',
+  'hotmail.com', 'outlook.com', 't-online.de', 'freenet.de',
+  'posteo.de', 'icloud.com', 'live.de', 'live.com', 'aol.com',
+  'mail.de', 'protonmail.com',
+]);
+
 // ─── Reply-Verarbeitung (echter Reply, kein OOO) ─────────────────────────
 
 type Lead = {
@@ -230,6 +238,7 @@ async function notifyAngie(
   subject: string | null,
   snippet: string,
   companyBlockCount: number,
+  domainMatchContext?: { originalLeadName: string; isDomainMatch: boolean },
 ): Promise<void> {
   const angieEmail = process.env.USER_1_EMAIL || 'hertle.anjuli@praxisnovaai.com';
   const leadName =
@@ -240,7 +249,9 @@ async function notifyAngie(
     <div style="font-family: Arial, sans-serif; background: #0A0A0A; color: #F0F0F5; padding: 24px; max-width: 640px;">
       <h2 style="color: #E8472A; margin: 0 0 8px;">Neue Antwort erhalten</h2>
       <p style="color: #ccc; margin: 0 0 20px; font-size: 14px;">
-        ${leadName}${lead.company ? ` (${lead.company})` : ''} hat auf eine Ihrer Sequenz-Mails geantwortet.
+        ${domainMatchContext?.isDomainMatch
+          ? `Antwort von einem Kollegen: ${fromEmail} hat auf eine Outreach-Mail an ${domainMatchContext.originalLeadName} geantwortet.`
+          : `${leadName}${lead.company ? ` (${lead.company})` : ''} hat auf eine Ihrer Sequenz-Mails geantwortet.`}
       </p>
 
       <div style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
@@ -334,6 +345,7 @@ export async function GET(request: NextRequest) {
     let repliesAlreadyMarked = 0;
     let oooDetected = 0;
     let notALead = 0;
+    let domainMatches = 0;
     let totalCompanyBlocks = 0;
     const errors: string[] = [];
 
@@ -375,6 +387,99 @@ export async function GET(request: NextRequest) {
         `;
 
         if (leads.length === 0) {
+          // --- Domain-based matching: check if a colleague from the same company replied ---
+          const emailParts = fromEmail.split('@');
+          const domain = emailParts.length === 2 ? emailParts[1].toLowerCase() : null;
+
+          if (domain && !FREE_EMAIL_DOMAINS.has(domain)) {
+            const domainLeads = await sql`
+              SELECT id, company, hubspot_contact_id, signal_email_reply, first_name, last_name
+              FROM leads
+              WHERE email LIKE ${'%@' + domain}
+                AND pipeline_stage NOT IN ('Blocked', 'Lost')
+              LIMIT 1
+            `;
+
+            if (domainLeads.length > 0) {
+              const originalLead = domainLeads[0] as unknown as Lead;
+              domainMatches++;
+
+              // Parse first/last name from the From header display name
+              let parsedFirst: string | null = null;
+              let parsedLast: string | null = null;
+              if (fromHeader) {
+                const displayName = fromHeader.replace(/<[^>]+>/, '').replace(/"/g, '').trim();
+                if (displayName && displayName !== fromEmail) {
+                  const nameParts = displayName.split(/\s+/);
+                  parsedFirst = nameParts[0] || null;
+                  parsedLast = nameParts.slice(1).join(' ') || null;
+                }
+              }
+
+              const originalLeadName = [originalLead.first_name, originalLead.last_name]
+                .filter(Boolean).join(' ').trim() || 'unbekannt';
+
+              // Auto-create the new lead for the replier
+              const newLeadResult = await sql`
+                INSERT INTO leads (
+                  email, first_name, last_name, company,
+                  pipeline_stage, source, manual_entry, sequence_status,
+                  signal_email_reply, pipeline_notes, created_at
+                ) VALUES (
+                  ${fromEmail},
+                  ${parsedFirst},
+                  ${parsedLast},
+                  ${originalLead.company},
+                  'Antwort erhalten',
+                  'email_reply_domain_match',
+                  false,
+                  'completed',
+                  true,
+                  ${'Auto-erstellt durch Domain-Match: Antwort von ' + fromEmail + ' erkannt, verknuepft mit ' + (originalLead.company || 'unbekannt')},
+                  NOW()
+                )
+                RETURNING id
+              `;
+
+              const newLeadId = newLeadResult[0]?.id;
+
+              // Trigger handleRealReply on the ORIGINAL lead found by domain
+              const { companyBlockCount, firstTime } = await handleRealReply(
+                originalLead,
+                fromEmail,
+                subject,
+                inReplyTo,
+                msg.id,
+              );
+
+              if (firstTime) {
+                newReplies++;
+                totalCompanyBlocks += companyBlockCount;
+              } else {
+                repliesAlreadyMarked++;
+              }
+
+              // Notify Angie with domain match context
+              const snippet = (full.snippet || body.substring(0, 500)).substring(0, 500);
+              await notifyAngie(originalLead, fromEmail, subject, snippet, companyBlockCount, {
+                originalLeadName,
+                isDomainMatch: true,
+              });
+
+              // Label and dedupe
+              if (processedLabelId) {
+                await modifyMessageLabels(accessToken, msg.id, [processedLabelId], []).catch(() => {});
+              }
+              await sql`
+                INSERT INTO processed_gmail_messages (gmail_message_id, lead_id, from_email, was_ooo)
+                VALUES (${msg.id}, ${newLeadId || originalLead.id}, ${fromEmail}, FALSE)
+                ON CONFLICT DO NOTHING
+              `;
+              continue;
+            }
+          }
+
+          // No exact match and no domain match - truly not a lead
           notALead++;
           await sql`
             INSERT INTO processed_gmail_messages (gmail_message_id, lead_id, from_email, was_ooo)
@@ -452,7 +557,7 @@ export async function GET(request: NextRequest) {
 
     const summary =
       `${newReplies} neue Antworten, ${oooDetected} OOO, ${repliesAlreadyMarked} bereits markiert, ` +
-      `${notALead} von Nicht-Leads, ${totalCompanyBlocks} Firmen-Blocks, ` +
+      `${domainMatches} Domain-Matches, ${notALead} von Nicht-Leads, ${totalCompanyBlocks} Firmen-Blocks, ` +
       `${messages.length} Mails geprueft${errors.length ? `, ${errors.length} Fehler` : ''}`;
 
     await writeEndLog(
@@ -464,6 +569,7 @@ export async function GET(request: NextRequest) {
         new_replies: newReplies,
         ooo_detected: oooDetected,
         already_marked: repliesAlreadyMarked,
+        domain_matches: domainMatches,
         not_a_lead: notALead,
         company_blocks: totalCompanyBlocks,
         errors: errors.length,
@@ -477,6 +583,7 @@ export async function GET(request: NextRequest) {
       new_replies: newReplies,
       ooo_detected: oooDetected,
       already_marked: repliesAlreadyMarked,
+      domain_matches: domainMatches,
       not_a_lead: notALead,
       company_blocks: totalCompanyBlocks,
       errors: errors.length > 0 ? errors : undefined,

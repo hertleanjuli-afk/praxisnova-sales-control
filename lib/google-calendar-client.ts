@@ -33,7 +33,11 @@ export type CalendarCredentials = {
 
 export function readCalendarCredentialsFromEnv(): CalendarCredentials | null {
   const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  // Bevorzuge GOOGLE_CALENDAR_CLIENT_SECRET (separater OAuth-Client fuer
+  // Calendar-Scope) mit Fallback auf GMAIL_CLIENT_SECRET (geteilter Client).
+  // Hintergrund: Angie hat am 2026-04-12 einen separaten Client-Secret
+  // gesetzt, der zum GOOGLE_CALENDAR_REFRESH_TOKEN gehoert.
+  const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_CALENDAR_REFRESH_TOKEN;
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
   if (!clientId || !clientSecret || !refreshToken || !calendarId) return null;

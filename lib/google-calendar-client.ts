@@ -32,15 +32,16 @@ export type CalendarCredentials = {
 };
 
 export function readCalendarCredentialsFromEnv(): CalendarCredentials | null {
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  // Bevorzuge GOOGLE_CALENDAR_CLIENT_SECRET (separater OAuth-Client fuer
-  // Calendar-Scope) mit Fallback auf GMAIL_CLIENT_SECRET (geteilter Client).
-  // Hintergrund: Angie hat am 2026-04-12 einen separaten Client-Secret
-  // gesetzt, der zum GOOGLE_CALENDAR_REFRESH_TOKEN gehoert.
+  // Calendar kann einen eigenen OAuth-Client haben (GOOGLE_CALENDAR_CLIENT_ID
+  // + GOOGLE_CALENDAR_CLIENT_SECRET) oder den geteilten Gmail-Client nutzen.
+  // Bevorzuge die Calendar-spezifischen Werte, Fallback auf Gmail.
+  const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID || process.env.GMAIL_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_CALENDAR_REFRESH_TOKEN;
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
   if (!clientId || !clientSecret || !refreshToken || !calendarId) return null;
+  // Log welche Credentials verwendet werden (nur Key-Praefix, kein Secret leaken)
+  console.log(`[google-calendar] Using clientId=${clientId.substring(0, 12)}..., secretSource=${process.env.GOOGLE_CALENDAR_CLIENT_SECRET ? 'GOOGLE_CALENDAR' : 'GMAIL'}, idSource=${process.env.GOOGLE_CALENDAR_CLIENT_ID ? 'GOOGLE_CALENDAR' : 'GMAIL'}`);
   return { clientId, clientSecret, refreshToken, calendarId };
 }
 

@@ -75,7 +75,28 @@ export async function POST(req: NextRequest) {
     }
 
     const body = payload;
-    const event = body.event;
+    // Brevo sendet Event-Namen in verschiedenen Formaten je nach API-Version
+    // und Webhook-Typ (transactional vs. marketing). Wir normalisieren hier.
+    const rawEvent = body.event || '';
+    const EVENT_MAP: Record<string, string> = {
+      'opened': 'opened',
+      'unique_opened': 'opened',
+      'click': 'clicked',
+      'clicked': 'clicked',
+      'reply': 'reply',
+      'hard_bounce': 'hardBounce',
+      'hardBounce': 'hardBounce',
+      'soft_bounce': 'softBounce',
+      'softBounce': 'softBounce',
+      'unsubscribed': 'unsubscribed',
+      'unsubscribe': 'unsubscribed',
+      'complaint': 'complaint',
+      'spam': 'complaint',
+      'delivered': 'delivered',
+      'request': 'delivered',
+      'deferred': 'deferred',
+    };
+    const event = EVENT_MAP[rawEvent] || rawEvent;
     const messageId = body['message-id'] || body.messageId || null;
     const senderEmail = body.sender || 'hertle.anjuli@praxisnovaai.com';
     // Brevo sendet Tags als Array oder String
@@ -261,6 +282,23 @@ export async function POST(req: NextRequest) {
           `;
         }
         return NextResponse.json({ ok: true, action: 'unsubscribe_processed' });
+      }
+
+      // ----------------------------------------------------------------
+      // DELIVERED - Email erfolgreich zugestellt (nur loggen)
+      // ----------------------------------------------------------------
+      case 'delivered':
+      case 'deferred': {
+        const email = body.email || body['email-id'];
+        if (email) {
+          const leads = await sql`
+            SELECT id FROM leads WHERE LOWER(email) = LOWER(${email})
+          `;
+          if (leads.length > 0) {
+            await insertEmailEvent(leads[0].id, event, messageId, senderEmail, tag);
+          }
+        }
+        return NextResponse.json({ ok: true, action: `${event}_tracked` });
       }
 
       // ----------------------------------------------------------------

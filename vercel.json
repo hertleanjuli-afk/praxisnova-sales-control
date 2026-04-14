@@ -23,7 +23,7 @@
     { "path": "/api/cron/partner-supervisor",           "schedule": "45 8 * * 1-5"  },
 
     { "path": "/api/cron/follow-up-tracker",            "schedule": "0 9 * * 1-5"   },
-    { "path": "/api/cron/sales-supervisor",             "schedule": "15 9 * * 1-5"  },
+    { "path": "/api/cron/sales-supervisor",             "schedule": "20 9 * * 1-5"  },
     { "path": "/api/cron/error-sentinel",               "schedule": "30 9 * * 1-5"  },
     { "path": "/api/cron/prospect-researcher",          "schedule": "45 9 * * *"    },
 
@@ -37,7 +37,7 @@
     { "path": "/api/cron/outreach-strategist",          "schedule": "0 13 * * 1-5"  },
     { "path": "/api/cron/process-sequences",            "schedule": "30 13 * * 1-5" },
     { "path": "/api/cron/prospect-researcher",          "schedule": "45 13 * * *"   },
-    { "path": "/api/cron/sales-supervisor",             "schedule": "30 14 * * 1-5" },
+    { "path": "/api/cron/sales-supervisor",             "schedule": "20 14 * * 1-5" },
     { "path": "/api/cron/outreach-strategist",          "schedule": "0 15 * * 1-5"  },
     { "path": "/api/cron/error-sentinel",               "schedule": "15 15 * * 1-5" },
     { "path": "/api/cron/health-monitor",               "schedule": "20 15 * * 1-5" },

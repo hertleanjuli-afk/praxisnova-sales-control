@@ -17,7 +17,7 @@
     { "path": "/api/cron/process-sequences",            "schedule": "30 7 * * 1-5"  },
     { "path": "/api/cron/call-list-generator",          "schedule": "45 7 * * 1-5"  },
 
-    { "path": "/api/cron/outreach-strategist",          "schedule": "0 8 * * 1-5"   },
+    { "path": "/api/cron/outreach-strategist",          "schedule": "10 8 * * 1-5"  },
     { "path": "/api/cron/linkedin-response-check",      "schedule": "10 8 * * 1-5"  },
     { "path": "/api/cron/inbound-response",             "schedule": "0 8,12,16,20 * * 1-5" },
     { "path": "/api/cron/partner-supervisor",           "schedule": "45 8 * * 1-5"  },

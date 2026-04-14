@@ -19,7 +19,7 @@
 
     { "path": "/api/cron/outreach-strategist",          "schedule": "0 8 * * 1-5"   },
     { "path": "/api/cron/linkedin-response-check",      "schedule": "10 8 * * 1-5"  },
-    { "path": "/api/cron/inbound-response",             "schedule": "*/15 6-22 * * 1-5" },
+    { "path": "/api/cron/inbound-response",             "schedule": "0 8,12,16,20 * * 1-5" },
     { "path": "/api/cron/partner-supervisor",           "schedule": "45 8 * * 1-5"  },
 
     { "path": "/api/cron/follow-up-tracker",            "schedule": "0 9 * * 1-5"   },

@@ -50,15 +50,17 @@ interface RouteCheck {
   requiresAuth?: boolean;
 }
 
+// Route-Checks fuer runtime Health. WICHTIG: Nur unauthed, existierende Routes
+// aufnehmen. Der Sentinel ruft diese Routes ohne Auth-Header auf, also wuerden
+// Routes mit getServerSession() immer 401 zurueckgeben (False Positive).
+//
+// Entfernt am 2026-04-15 aus Sentinel (waren False Positives):
+// - /api/linkedin (404, Route existiert nicht, nur Unterordner)
+// - /api/inbound/stats (404, Ordner leer)
+// - /api/sequences/status (401 by design, getServerSession)
+// - /api/partners (401 by design, getServerSession)
+// Neue Faustregel: Sentinel prueft nur Routes die ohne Auth aufrufbar sind.
 const ROUTE_CHECKS: RouteCheck[] = [
-  {
-    name: 'LinkedIn API',
-    path: '/api/linkedin',
-    verify: (body) => {
-      if (typeof body !== 'object' || body === null) return 'Antwort ist kein Objekt';
-      return true;
-    },
-  },
   {
     name: 'Anrufliste API',
     path: '/api/anrufliste',
@@ -71,24 +73,8 @@ const ROUTE_CHECKS: RouteCheck[] = [
     },
   },
   {
-    name: 'Sequences Status API',
-    path: '/api/sequences/status',
-    verify: (body) => {
-      if (typeof body !== 'object' || body === null) return 'Antwort ist kein Objekt';
-      return true;
-    },
-  },
-  {
-    name: 'Inbound Stats API',
-    path: '/api/inbound/stats',
-    verify: (body) => {
-      if (typeof body !== 'object' || body === null) return 'Antwort ist kein Objekt';
-      return true;
-    },
-  },
-  {
-    name: 'Partners API',
-    path: '/api/partners',
+    name: 'Health API',
+    path: '/api/health',
     verify: (body) => {
       if (typeof body !== 'object' || body === null) return 'Antwort ist kein Objekt';
       return true;

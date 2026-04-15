@@ -29,9 +29,15 @@ import { writeStartLog, writeEndLog } from '@/lib/agent-runtime';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
-const BASE_URL = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : 'https://praxisnova-sales-control.vercel.app';
+// Sentinel ruft Routes immer auf der Public-Domain, NIE auf VERCEL_URL.
+// Grund: process.env.VERCEL_URL zeigt auf die Deployment-URL
+// (z.B. praxisnova-sales-control-xxxx-hertleanjuli-1008s-projects.vercel.app),
+// und diese unterliegt Vercel Deployment Protection. Selbst public Routes
+// geben dort 401 zurueck weil der SSO-Auth-Header fehlt. Die Public-Domain
+// hat keine Protection und liefert die echten Route-Antworten.
+// Beobachtet am 2026-04-15: /api/anrufliste und /api/health gaben auf
+// der Public-Domain 200, auf der Deployment-URL 401. False Positives im Sentinel.
+const BASE_URL = process.env.SENTINEL_BASE_URL || 'https://praxisnova-sales-control.vercel.app';
 
 const ALERT_EMAIL = 'hertle.anjuli@praxisnovaai.com';
 

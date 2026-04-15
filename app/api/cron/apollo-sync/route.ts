@@ -173,6 +173,42 @@ const SEARCH_CONFIGS: SearchConfig[] = [
     q_organization_keyword_tags: ['subunternehmer', 'nachunternehmer', 'subcontractor'],
     person_locations: LOCATIONS_DACH_DE,
   },
+  // Expansion Teil 2 (2026-04-15): 5 weitere Branchen-Configs
+  {
+    label: 'architekten',
+    industry: 'bauunternehmen',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Architekt', 'Projektleiter', 'Managing Director', 'Founder'],
+    q_organization_keyword_tags: ['architekt', 'architektur', 'planungsbuero', 'architecture', 'architectural'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'facility-management',
+    industry: 'immobilien',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Facility Manager', 'Objektleiter', 'Property Manager', 'Managing Director'],
+    q_organization_keyword_tags: ['facility management', 'gebaeudemanagement', 'facility services', 'building management'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'energie-solar',
+    industry: 'handwerk',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Energieberater', 'Meister', 'Founder', 'Managing Director'],
+    q_organization_keyword_tags: ['energieberatung', 'solaranlage', 'photovoltaik', 'solar', 'energieberater', 'erneuerbare energien'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'fenster-tueren-fassaden',
+    industry: 'handwerk',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Meister', 'Vertrieb', 'Managing Director', 'Founder'],
+    q_organization_keyword_tags: ['fenster', 'tueren', 'fassade', 'bauelemente', 'windows', 'facade'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'reinigung-hausmeister',
+    industry: 'immobilien',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Betriebsleiter', 'Managing Director', 'Founder'],
+    q_organization_keyword_tags: ['reinigungsunternehmen', 'hausmeisterservice', 'gebaeudereinigung', 'facility cleaning'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
 ];
 
 interface ApolloContact {

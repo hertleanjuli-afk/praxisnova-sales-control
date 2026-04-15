@@ -3,7 +3,7 @@ import sql from '@/lib/db';
 import { geminiCall } from '@/lib/helpers/gemini-retry';
 import { sendEmail } from '@/lib/helpers/brevo-client';
 import { buildEmail } from '@/lib/helpers/html-email-template';
-import { getTasks } from '@/lib/helpers/tasks-md-reader';
+import { getTasks, readTasksFromDB } from '@/lib/helpers/tasks-md-reader';
 import { recordBlockedTask } from '@/lib/helpers/blocked-tasks';
 import { logger } from '@/lib/helpers/logger';
 import type { PlanBlock } from '@/types/agents';
@@ -23,18 +23,28 @@ async function collectContext(): Promise<PlannerContext> {
 
   let openTasks: string[] = [];
   try {
-    const phases = await getTasks();
-    openTasks = phases
-      .flatMap((p) => p.items)
-      .filter((i) => i.status === 'open' || i.status === 'in_progress')
-      .slice(0, 20)
-      .map((i) => i.text);
-  } catch (err) {
+    const dbTasks = await readTasksFromDB(20);
+    openTasks = dbTasks.map((t) => `${t.title}${t.priority !== 'medium' ? ` [${t.priority}]` : ''}`);
+  } catch (dbErr) {
     await recordBlockedTask({
       agent: AGENT,
-      task: 'tasks-md-read',
-      reason: `TASKS.md not readable at runtime path: ${err instanceof Error ? err.message : String(err)}`,
+      task: 'agent-tasks-db-read',
+      reason: `agent_tasks DB-Lesen fehlgeschlagen: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
     });
+    try {
+      const phases = await getTasks();
+      openTasks = phases
+        .flatMap((p) => p.items)
+        .filter((i) => i.status === 'open' || i.status === 'in_progress')
+        .slice(0, 20)
+        .map((i) => i.text);
+    } catch (fileErr) {
+      await recordBlockedTask({
+        agent: AGENT,
+        task: 'tasks-md-read',
+        reason: `TASKS.md fallback auch fehlgeschlagen: ${fileErr instanceof Error ? fileErr.message : String(fileErr)}`,
+      });
+    }
   }
 
   const activeLeadsRows = await sql`

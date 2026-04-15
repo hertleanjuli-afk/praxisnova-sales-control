@@ -164,3 +164,20 @@ CREATE TABLE IF NOT EXISTS blocked_tasks (
   resolution_notes TEXT,
   UNIQUE(task_name, agent_name, resolved)
 );
+
+-- Neu in Batch 3: zentrale Task-Quelle fuer Agents (ersetzt TASKS.md-Polling auf Vercel).
+CREATE TABLE IF NOT EXISTS agent_tasks (
+  id SERIAL PRIMARY KEY,
+  phase TEXT,
+  task_code TEXT,
+  title TEXT NOT NULL,
+  status TEXT CHECK (status IN ('open','in_progress','done','blocked')) DEFAULT 'open',
+  priority TEXT CHECK (priority IN ('low','medium','high','critical')) DEFAULT 'medium',
+  blocked_reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  UNIQUE (phase, task_code)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_tasks_status ON agent_tasks(status, priority DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_tasks_phase ON agent_tasks(phase);

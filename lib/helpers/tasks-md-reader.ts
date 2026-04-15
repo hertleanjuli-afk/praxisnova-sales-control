@@ -102,3 +102,42 @@ export async function updateTaskStatus(
   if (updated) await fs.writeFile(filePath, lines.join('\n'), 'utf-8');
   return updated;
 }
+
+export interface DbTask {
+  id: number;
+  phase: string | null;
+  taskCode: string | null;
+  title: string;
+  status: TaskItem['status'];
+  priority: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export async function readTasksFromDB(
+  limit = 50,
+  onlyActive = true,
+): Promise<DbTask[]> {
+  const { default: sql } = await import('../db');
+  const statusFilter = onlyActive ? ['open', 'in_progress'] : ['open', 'in_progress', 'done', 'blocked'];
+  const rows = await sql`
+    SELECT id, phase, task_code, title, status, priority
+    FROM agent_tasks
+    WHERE status = ANY(${statusFilter})
+    ORDER BY
+      CASE priority
+        WHEN 'critical' THEN 0
+        WHEN 'high' THEN 1
+        WHEN 'medium' THEN 2
+        WHEN 'low' THEN 3
+      END,
+      created_at ASC
+    LIMIT ${limit}
+  `;
+  return rows.map((r) => ({
+    id: r.id as number,
+    phase: (r.phase as string | null) ?? null,
+    taskCode: (r.task_code as string | null) ?? null,
+    title: r.title as string,
+    status: r.status as TaskItem['status'],
+    priority: r.priority as DbTask['priority'],
+  }));
+}

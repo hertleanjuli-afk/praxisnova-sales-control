@@ -37,8 +37,54 @@ const PER_PAGE = 100;
 // How many to actually insert (after dedup)
 const TARGET_NEW_LEADS = 50;
 
-// Rotate through these search configs daily to get variety
-const SEARCH_CONFIGS = [
+// Locations-Liste fuer DACH mit Schweiz beschraenkt auf deutschsprachige Kantone.
+// Romandie (Genf, Waadt, Neuenburg, Jura, Wallis, Freiburg) und Tessin sind
+// explizit NICHT enthalten. Wird von Configs mit person_locations referenziert.
+const LOCATIONS_DACH_DE = [
+  // Deutschland gesamt
+  'Germany', 'Deutschland',
+  // Oesterreich gesamt
+  'Austria', 'Oesterreich',
+  // Schweiz: nur deutschsprachige Kantone
+  'Zurich, Switzerland',
+  'Bern, Switzerland',
+  'Lucerne, Switzerland',
+  'Uri, Switzerland',
+  'Schwyz, Switzerland',
+  'Obwalden, Switzerland',
+  'Nidwalden, Switzerland',
+  'Glarus, Switzerland',
+  'Zug, Switzerland',
+  'Solothurn, Switzerland',
+  'Basel, Switzerland',
+  'Basel-Landschaft, Switzerland',
+  'Schaffhausen, Switzerland',
+  'Appenzell, Switzerland',
+  'St. Gallen, Switzerland',
+  'Graubuenden, Switzerland',
+  'Aargau, Switzerland',
+  'Thurgau, Switzerland',
+];
+
+// Default-Locations (Rueckwaerts-Kompatibilitaet fuer die 4 alten Configs).
+// Entspricht dem bisherigen hardcoded Verhalten vor 2026-04-15.
+const LOCATIONS_DEFAULT = ['Germany', 'Austria', 'Switzerland', 'Deutschland', 'Oesterreich', 'Schweiz'];
+
+// Config-Typ mit optionalem person_locations Feld. Wenn nicht gesetzt, nutzt
+// fetchApolloContacts den LOCATIONS_DEFAULT Wert.
+type SearchConfig = {
+  label: string;
+  industry: string;
+  person_titles: string[];
+  q_organization_keyword_tags: string[];
+  person_locations?: string[];
+};
+
+// Rotate through these search configs daily to get variety.
+// Bestehende 4 Configs (immobilien-gf, bau-gf, handwerk-gf, immobilien-mgmt)
+// bleiben unveraendert. 9 neue Configs 2026-04-15 hinzugefuegt mit
+// person_locations = LOCATIONS_DACH_DE.
+const SEARCH_CONFIGS: SearchConfig[] = [
   {
     label: 'immobilien-gf',
     industry: 'immobilien',
@@ -63,6 +109,70 @@ const SEARCH_CONFIGS = [
     person_titles: ['Bereichsleiter', 'Niederlassungsleiter', 'Vertriebsleiter', 'Head of Sales', 'Direktor'],
     q_organization_keyword_tags: ['real estate', 'immobilien', 'projektentwicklung', 'bautraeger'],
   },
+  // Neu 2026-04-15: Expansion auf spezifische Branchen mit DACH-DE Fokus
+  {
+    label: 'immobilien-makler',
+    industry: 'immobilien',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'CEO', 'Makler', 'Immobilienmakler', 'Managing Director', 'Founder'],
+    q_organization_keyword_tags: ['makler', 'immobilienmakler', 'real estate agent', 'realtor'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'hausverwaltung',
+    industry: 'immobilien',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Hausverwalter', 'Property Manager', 'Verwalter'],
+    q_organization_keyword_tags: ['hausverwaltung', 'mieterverwaltung', 'wohnungsverwaltung', 'property management'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'bautraeger',
+    industry: 'immobilien',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Projektentwickler', 'Bautraeger', 'Managing Director'],
+    q_organization_keyword_tags: ['bautraeger', 'projektentwicklung', 'projektentwickler', 'real estate developer'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'elektro',
+    industry: 'handwerk',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Elektromeister', 'Meister', 'Founder'],
+    q_organization_keyword_tags: ['elektro', 'elektrotechnik', 'elektroinstallation', 'electrical contractor'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'shk',
+    industry: 'handwerk',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'SHK-Meister', 'Meister', 'Founder'],
+    q_organization_keyword_tags: ['sanitaer', 'heizung', 'klima', 'shk', 'heizungsbau', 'plumbing', 'HVAC'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'maler',
+    industry: 'handwerk',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Malermeister', 'Meister'],
+    q_organization_keyword_tags: ['maler', 'malerbetrieb', 'painter', 'painting'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'schreiner-tischler',
+    industry: 'handwerk',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Schreinermeister', 'Tischlermeister', 'Zimmermeister', 'Meister'],
+    q_organization_keyword_tags: ['schreiner', 'tischler', 'zimmerei', 'carpenter', 'joiner'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'generalunternehmer',
+    industry: 'bauunternehmen',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Projektleiter', 'Bauleiter', 'Managing Director'],
+    q_organization_keyword_tags: ['generalunternehmer', 'general contractor', 'total contractor'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
+  {
+    label: 'subunternehmer',
+    industry: 'bauunternehmen',
+    person_titles: ['Geschaeftsfuehrer', 'Inhaber', 'Projektleiter', 'Founder'],
+    q_organization_keyword_tags: ['subunternehmer', 'nachunternehmer', 'subcontractor'],
+    person_locations: LOCATIONS_DACH_DE,
+  },
 ];
 
 interface ApolloContact {
@@ -82,13 +192,15 @@ interface ApolloContact {
 }
 
 async function fetchApolloContacts(
-  config: (typeof SEARCH_CONFIGS)[0],
+  config: SearchConfig,
   page: number,
   apiKey: string
 ): Promise<ApolloContact[]> {
   const body = {
     person_titles: config.person_titles,
-    person_locations: ['Germany', 'Austria', 'Switzerland', 'Deutschland', 'Oesterreich', 'Schweiz'],
+    // Wenn die Config eigene Locations mitbringt, diese nutzen.
+    // Sonst Default = ALLE DACH-Laender (Rueckwaerts-Kompatibel fuer alte Configs).
+    person_locations: config.person_locations ?? LOCATIONS_DEFAULT,
     organization_num_employees_ranges: ['1,10', '11,50', '51,200'],
     q_organization_keyword_tags: config.q_organization_keyword_tags,
     per_page: PER_PAGE,

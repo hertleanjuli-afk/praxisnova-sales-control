@@ -1,4 +1,12 @@
-const APOLLO_API_URL = 'https://api.apollo.io/v1/mixed_people/api_search';
+// Apollo People Search endpoint.
+// URL-History (Apollo aendert den Pfad ~1x pro Monat, siehe LECK-14):
+//   2024 frueh:  /v1/mixed_people/api_search
+//   2025 Q4:     /v1/mixed_people/search
+//   2026-04 Q1:  /api/v1/mixed_people/search
+//   2026-04-11:  /api/v1/mixed_people/api_search  <-- aktuell, verifiziert in apollo-sync cron (ff4a2b2)
+// Wenn Apollo 422 liefert mit "deprecated endpoint" Hinweis: Error-Text prueft den
+// neuen Pfad. Response-Shape: data.people | data.contacts (Apollo toggled).
+const APOLLO_API_URL = 'https://api.apollo.io/api/v1/mixed_people/api_search';
 export interface ApolloLead {
   id: string;
   email: string | null;
@@ -136,16 +144,28 @@ export async function searchLeads(
   });
 
   if (!response.ok) {
+    // Full error logging - Apollo 422 zeigt den neuen Endpoint-Pfad im Body.
     const errorText = await response.text();
+    console.error(`[apollo] Full Apollo error response (${response.status}):`, errorText);
     throw new Error(
       `Apollo API Fehler (${response.status}): ${errorText}`
     );
   }
 
-  const data = (await response.json()) as ApolloSearchResponse;
+  const data = (await response.json()) as ApolloSearchResponse & { contacts?: ApolloLead[] };
 
-  // Filter out leads without email addresses
-  return data.people.filter(
+  // Apollo toggled zwischen `people` und `contacts` Root-Keys. Beide pruefen.
+  const people = data.people ?? data.contacts ?? [];
+  if (people.length === 0 && data && typeof data === 'object') {
+    console.log('[apollo] Empty result, response root keys:', Object.keys(data));
+  }
+
+  // Filter out leads without email addresses. Wichtig: api_search liefert laut
+  // Apollo-Docs keine Emails mehr; Konsumer muss Enrichment-Endpoint separat
+  // aufrufen. Lib hier gibt aber nur zurueck was Apollo liefert, Caller
+  // entscheidet was mit email=null geschieht (siehe apollo-sync Route fuer
+  // Placeholder-Muster).
+  return people.filter(
     (person) => person.email !== null && person.email !== ''
   );
 }

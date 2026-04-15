@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { sendTransactionalEmail } from '@/lib/brevo';
+import { logAndNotifyError } from '@/lib/error-notify';
 
 function getKW(date: Date): number {
   const startOfYear = new Date(date.getFullYear(), 0, 1);
@@ -420,6 +421,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('[weekly-report] Error:', error);
+    await logAndNotifyError({
+      errorType: 'weekly-report-run-failed',
+      errorMessage: error instanceof Error ? error.message : String(error),
+      action: 'weekly-report cron',
+    }).catch((notifyErr) => console.error('[weekly-report] Notify failed:', notifyErr));
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }

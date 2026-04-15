@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql, { initializeDatabase } from '@/lib/db';
+import { logAndNotifyError } from '@/lib/error-notify';
 
 export const maxDuration = 240;
 
@@ -171,6 +172,11 @@ Antworte NUR mit dem JSON-Array. Kein Text davor oder danach.
     });
   } catch (error) {
     console.error('[news-agent] Fatal error:', error);
+    await logAndNotifyError({
+      errorType: 'news-agent-run-failed',
+      errorMessage: error instanceof Error ? error.message : String(error),
+      action: 'news-agent cron',
+    }).catch((notifyErr) => console.error('[news-agent] Notify failed:', notifyErr));
     return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }

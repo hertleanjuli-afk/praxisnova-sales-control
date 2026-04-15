@@ -23,16 +23,16 @@ const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 let cachedAccessToken: { token: string; expiresAt: number } | null = null;
 
 async function getAccessToken(agent: string): Promise<string | null> {
-  const clientId = process.env.GMAIL_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_OAUTH_CLIENT_SECRET;
-  const refreshToken = process.env.GMAIL_OAUTH_REFRESH_TOKEN;
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
     logger.warn('gmail oauth env missing', { agent });
     await recordBlockedTask({
       agent,
       task: 'gmail-oauth',
-      reason: 'GMAIL_OAUTH_* env vars not set (CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN)',
+      reason: 'GMAIL_* env vars not set (CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN)',
     });
     return null;
   }

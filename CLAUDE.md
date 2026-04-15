@@ -141,3 +141,66 @@ Neu → In Outreach → Nurture | Nicht qualifiziert | Cooldown → Wieder aufne
 - Customer meetings: 10/week (tracked via pipeline stage proxies)
 - Partner meetings: 10/month (tracked via partner outreach count)
 - Agents change approach (A/B/C) if KPIs not met — never just add volume
+
+---
+
+## Boris-Regeln (Anthropic Daily Workflow)
+
+### 1. Plan Mode Default
+- Plan Mode fuer ALLE non-trivial Tasks (3+ Schritte oder Architektur)
+- Plan Mode fuer Verification, nicht nur Bauen
+- Plan Mode fuer Refactoring
+
+### 2. Subagent Strategy
+- Subagents liberal nutzen fuer Context-Hygiene
+- Research, Exploration, Parallel-Analyse an Subagents
+- Ein Task pro Subagent
+
+### 3. Self-Improvement Loop
+- Schreibe Regeln die du nutzt: update `tasks/lessons.md`
+- Regeln gegen gleiche Fehler
+- Lessons iterieren bis Fehlerrate sinkt
+
+### 4. Verification Before Done
+- Nie als erledigt markieren ohne Beweis
+- Behavior zwischen main und Aenderung diffen
+- Frage: Wuerde ein Staff Engineer das genehmigen?
+- Tests + Logs + Korrektheit demonstrieren
+
+### 5. Demand Elegance (Balanced)
+- Non-trivial: pausiere, frage "gibt es einen eleganteren Weg?"
+- Simple obvious fixes: skip, nicht ueber-engineeren
+
+### 6. Autonomous Bug Fixing
+- Bug-Report: einfach fixen, kein Hand-Holding
+- Auf Logs/Errors/failing Tests zeigen, dann loesen
+
+## Skill-Search Before Build (PFLICHT)
+Vor JEDEM Bau:
+1. `ls ~/.agents/skills/`
+2. `ls ~/Desktop/PraxisNovaAI/skills/`
+3. Relevante SKILL.md lesen
+4. Nutzung im Session-Doc dokumentieren
+
+## Model-Selection
+- Opus: Architektur, Multi-File-Refactor, Debugging, neuer Agent, Security
+- Sonnet: Edits, Fixes, Doku, Tests
+
+## Writing Style fuer neuen Code und Docs
+- KEIN em-dash oder en-dash. Komma, Punkt, Hyphen (-).
+- KEIN DACH. Stattdessen "europaweit" oder "Europa".
+- Deutsch intern, Englisch wenn explizit angefragt.
+- Bestehender Code mit em-dash wird NICHT nachtraeglich angepasst.
+
+## No-Go Regeln fuer Autonomous-Build
+- KEIN `vercel --prod` ohne Angie.
+- KEIN Merge zu main ohne Angie.
+- KEINE DB-Migration auf Neon ausfuehren, nur SQL-File schreiben.
+- KEINE Live-Emails (nur Drafts).
+- Die 9 bestehenden Sales-Agent-Routes (app/api/cron/daily-summary, morning-agents, operations-manager, partner-supervisor, partner-outreach-strategist, partner-researcher, outreach-strategist, inbound-response, market-intelligence, monthly-report) NICHT anfassen.
+
+## Referenzen
+- Autonome Sessions: `~/Desktop/PraxisNovaAI/Agent build/prompts/MEGA-PROMPT-STANDALONE-2026-04-15.md`
+- Task-Liste: `~/Desktop/PraxisNovaAI/Agent build/TASKS.md`
+- Master-Plan-Kurzform: `~/Desktop/PraxisNovaAI/Agent build/docs/MASTER-PLAN-REFERENCE.md`
+- Batch-Reports: `~/Desktop/PraxisNovaAI/Agent build/reports/`

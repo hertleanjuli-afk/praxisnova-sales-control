@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
+import { logAndNotifyError } from '@/lib/error-notify'
 
 export const maxDuration = 60
 export const dynamic = 'force-dynamic'
@@ -361,6 +362,11 @@ export async function GET(req: NextRequest) {
     )
   } catch (error) {
     console.error('Brevo stats sync error:', error)
+    await logAndNotifyError({
+      errorType: 'brevo-stats-sync-run-failed',
+      errorMessage: error instanceof Error ? error.message : String(error),
+      action: 'brevo-stats-sync cron',
+    }).catch((notifyErr) => console.error('[brevo-stats-sync] Notify failed:', notifyErr))
     return NextResponse.json(
       {
         ok: false,

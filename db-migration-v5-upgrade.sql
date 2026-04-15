@@ -143,14 +143,29 @@ CREATE TABLE IF NOT EXISTS health_reports (
 
 CREATE TABLE IF NOT EXISTS industry_feeds (
   id SERIAL PRIMARY KEY,
-  industry VARCHAR(50) NOT NULL,
-  feed_url TEXT NOT NULL,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL UNIQUE,
+  industries TEXT[] NOT NULL DEFAULT '{}',
   feed_type VARCHAR(20),
   active BOOLEAN DEFAULT TRUE,
   last_crawled TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(industry, feed_url)
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_industry_feeds_industries ON industry_feeds USING GIN(industries);
+
+-- Batch 4 Seed: branchen-spezifische RSS-Feeds. URL-Validitaet sollte beim ersten
+-- news-scout-Run geprueft werden (Feed-Formate drift ueber Zeit). Idempotent.
+INSERT INTO industry_feeds (name, url, industries) VALUES
+  ('baunetz', 'https://www.baunetz.de/rss.xml', ARRAY['bau','architektur']),
+  ('bauwelt', 'https://www.bauwelt.de/rss.xml', ARRAY['bau','architektur']),
+  ('immobilien-zeitung', 'https://www.iz.de/rss', ARRAY['immobilien']),
+  ('haufe-immobilien', 'https://www.haufe.de/immobilien/rss', ARRAY['immobilien']),
+  ('handwerk-magazin', 'https://www.handwerk-magazin.de/rss', ARRAY['handwerk']),
+  ('energate', 'https://www.energate-messenger.de/rss/news', ARRAY['energie']),
+  ('t3n', 'https://t3n.de/rss.xml', ARRAY['tech','ki']),
+  ('heise', 'https://www.heise.de/rss/heise-atom.xml', ARRAY['tech','ki']),
+  ('handelsblatt', 'https://www.handelsblatt.com/contentexport/feed/top-themen', ARRAY['wirtschaft'])
+ON CONFLICT (url) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS blocked_tasks (
   id SERIAL PRIMARY KEY,

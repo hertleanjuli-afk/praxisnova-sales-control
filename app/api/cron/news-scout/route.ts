@@ -70,20 +70,24 @@ function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 }
 
-async function getActiveFeeds(): Promise<{ industry: string; url: string }[]> {
+async function getActiveFeeds(): Promise<{ name: string; url: string; industries: string[] }[]> {
   try {
     const rows = await sql`
-      SELECT industry, feed_url FROM industry_feeds WHERE active = TRUE
+      SELECT name, url, industries FROM industry_feeds WHERE active = TRUE
     `;
     if (rows.length > 0) {
-      return rows.map((r) => ({ industry: r.industry as string, url: r.feed_url as string }));
+      return rows.map((r) => ({
+        name: r.name as string,
+        url: r.url as string,
+        industries: (r.industries as string[]) ?? [],
+      }));
     }
   } catch {
     /* table may not exist yet */
   }
   return [
-    { industry: 'tech', url: 'https://t3n.de/rss.xml' },
-    { industry: 'tech', url: 'https://www.heise.de/rss/heise-top-atom.xml' },
+    { name: 't3n', url: 'https://t3n.de/rss.xml', industries: ['tech', 'ki'] },
+    { name: 'heise', url: 'https://www.heise.de/rss/heise-top-atom.xml', industries: ['tech', 'ki'] },
   ];
 }
 
@@ -130,7 +134,7 @@ export async function GET(request: NextRequest) {
     const feeds = await getActiveFeeds();
     const allItems: RssItem[] = [];
     for (const f of feeds) {
-      const items = await fetchRssFeed(f.url, new URL(f.url).hostname);
+      const items = await fetchRssFeed(f.url, f.name);
       allItems.push(...items);
     }
 

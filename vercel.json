@@ -51,6 +51,18 @@
     {
       "path": "/api/cron/daily-summary",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/daily-planner-morning",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/daily-planner-evening",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-business-report",
+      "schedule": "0 16 * * 0"
     }
   ]
 }

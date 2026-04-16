@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql, { initializeDatabase } from '@/lib/db';
 import { sendTransactionalEmail } from '@/lib/brevo';
+import { logAndNotifyError } from '@/lib/error-notify';
 
 export const maxDuration = 280;
 
@@ -256,6 +257,11 @@ Antworte NUR mit dem JSON. Kein Text davor oder danach.
     });
   } catch (error) {
     console.error('[linkedin-post-generator] Fatal error:', error);
+    await logAndNotifyError({
+      errorType: 'linkedin-post-generator-run-failed',
+      errorMessage: error instanceof Error ? error.message : String(error),
+      action: 'linkedin-post-generator cron',
+    }).catch((notifyErr) => console.error('[linkedin-post-generator] Notify failed:', notifyErr));
     return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }

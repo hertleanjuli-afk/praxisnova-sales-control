@@ -15,7 +15,7 @@ export const AGENT_LLM_CONFIG: Record<
   string,
   { provider: LLMProvider; pseudonymize: boolean; model?: string }
 > = {
-  // SALES - HIGH PII, bleiben in Phase 2 auf Gemini Paid.
+  // SALES - HIGH PII. Phase 3 Target: Groq + Pseudonym.
   'prospect-researcher': { provider: 'gemini-paid', pseudonymize: false },
   'sales-supervisor': { provider: 'gemini-paid', pseudonymize: false },
   'outreach-strategist': { provider: 'gemini-paid', pseudonymize: false },
@@ -24,31 +24,30 @@ export const AGENT_LLM_CONFIG: Record<
   'partner-supervisor': { provider: 'gemini-paid', pseudonymize: false },
   'partner-outreach': { provider: 'gemini-paid', pseudonymize: false },
   'inbound-response': { provider: 'gemini-paid', pseudonymize: false },
-  'reply-detection': { provider: 'gemini-paid', pseudonymize: false },
   'linkedin-response-check': { provider: 'gemini-paid', pseudonymize: false },
-  'website-inquiry': { provider: 'gemini-paid', pseudonymize: false },
   'call-list-generator': { provider: 'gemini-paid', pseudonymize: false },
   'process-sequences': { provider: 'gemini-paid', pseudonymize: false },
   'gmail-reply-sync': { provider: 'gemini-paid', pseudonymize: false },
-  'email-inbox-agent': { provider: 'gemini-paid', pseudonymize: false },
 
-  // SUPERVISOR und MANAGER - Phase 3 Target: Groq + Pseudonym.
+  // SUPERVISOR und MANAGER.
   'operations-manager': { provider: 'gemini-paid', pseudonymize: false },
-  'marketing-supervisor': { provider: 'gemini-paid', pseudonymize: false },
-  'reporting-forecasting': { provider: 'gemini-paid', pseudonymize: false },
   'daily-summary': { provider: 'gemini-paid', pseudonymize: false },
-  'fix-agent': { provider: 'gemini-paid', pseudonymize: false },
-  'apollo-sync': { provider: 'gemini-paid', pseudonymize: false },
 
-  // ZERO bis LOW PII - Phase 2 Target: Groq.
+  // REPORTING - LOW PII, Phase 2 Target: Groq.
+  'weekly-report': { provider: 'gemini-paid', pseudonymize: false },
+  'monthly-report': { provider: 'gemini-paid', pseudonymize: false },
+  'quarterly-report': { provider: 'gemini-paid', pseudonymize: false },
+
+  // CONTENT und MARKETING - LOW PII, Phase 2 Target: Groq.
   'market-intelligence': { provider: 'gemini-paid', pseudonymize: false },
-  'content-strategist': { provider: 'gemini-paid', pseudonymize: false },
+  'news-agent': { provider: 'gemini-paid', pseudonymize: false },
   'linkedin-post-agent': { provider: 'gemini-paid', pseudonymize: false },
+
+  // MONITORING - ZERO PII, Phase 2 Target: Groq.
   'brevo-stats-sync': { provider: 'gemini-paid', pseudonymize: false },
   'error-sentinel': { provider: 'gemini-paid', pseudonymize: false },
   'health-monitor': { provider: 'gemini-paid', pseudonymize: false },
   'linkedin-posting-check': { provider: 'gemini-paid', pseudonymize: false },
-  'data-integrity': { provider: 'gemini-paid', pseudonymize: false },
 };
 
 export function getAgentConfig(

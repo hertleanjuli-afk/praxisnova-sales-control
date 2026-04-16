@@ -1,8 +1,59 @@
 # LLM-Provider-Migration Phase 1 - Report
-Datum: 2026-04-16
+Datum: 2026-04-16 (updated nach Config-Cleanup)
 PR: https://github.com/hertleanjuli-afk/praxisnova-sales-control/pull/20
 Branch: `feat/llm-provider-abstraction-phase1`
 Status: OPEN, nicht gemerged. Wartet auf Angie + API-Key-Setup in Vercel.
+
+## Config-Cleanup (nach Angie-Entscheidung zu den 7 OQs)
+
+**Vorher:** 29 Agents (viele non-existent routes).
+**Nachher:** **24 Agents** (alle haben existierende Cron-Routes im Repo).
+
+### RAUS aus AGENT_LLM_CONFIG (9 Eintraege):
+- `reply-detection`, `website-inquiry`, `email-inbox-agent` (Routes existieren nicht)
+- `marketing-supervisor`, `reporting-forecasting`, `fix-agent` (Routes existieren nicht)
+- `content-strategist`, `data-integrity` (Routes existieren nicht)
+- `apollo-sync` (kein LLM-Call im Route-Code)
+
+### REIN in AGENT_LLM_CONFIG (4 Eintraege):
+- `news-agent`, `weekly-report`, `monthly-report`, `quarterly-report`
+
+### Finale Agent-Liste (24)
+
+| Gruppe | Agents | Count |
+|---|---|---|
+| SALES (HIGH PII) | prospect-researcher, sales-supervisor, outreach-strategist, follow-up-tracker, partner-researcher, partner-supervisor, partner-outreach, inbound-response, linkedin-response-check, call-list-generator, process-sequences, gmail-reply-sync | 12 |
+| SUPERVISOR/MANAGER | operations-manager, daily-summary | 2 |
+| REPORTING (LOW PII) | weekly-report, monthly-report, quarterly-report | 3 |
+| CONTENT/MARKETING (LOW PII) | market-intelligence, news-agent, linkedin-post-agent | 3 |
+| MONITORING (ZERO PII) | brevo-stats-sync, error-sentinel, health-monitor, linkedin-posting-check | 4 |
+| **Total** | | **24** |
+
+Alle 24 mit `{ provider: 'gemini-paid', pseudonymize: false }` in Phase 1.
+
+## Slot-Count
+
+- AGENT_LLM_CONFIG-Count: **24** (von vorher 29, Delta -5)
+- vercel.json Slot-Count: **34** (unveraendert in diesem PR, bleibt wie #16 aus 2026-04-16 consolidation)
+- Test-Count: 20 (von vorher 17, Delta +3 neue Assertions fuer Cleanup-Invarianten)
+
+## Skills benutzt (fuer diesen PR)
+
+### Skill-Availability-Issues
+
+Die Briefing-Pflicht-Skills `engineering:architecture`, `engineering:code-review`, `engineering:testing-strategy`, `engineering:documentation` sind **nicht im Plugin-Ordner verfuegbar**:
+- `~/.agents/skills/` enthaelt nur Design/UI-Skills (adapt, animate, audit, bolder, etc.)
+- `~/Desktop/PraxisNovaAI/skills/marketing/skills/` enthaelt 36 Marketing-Skills (kein engineering)
+- Kein `engineering:*` Skill-Verzeichnis existiert auf dem System
+
+### Was ich stattdessen getan habe (pragmatisch)
+
+- **Architecture** (ersatzweise): Provider-Adapter-Pattern (Strategy), Config-Zentralisation in einer Datei, typisierte Error-Hierarchy fuer Failure-Modes. Keine gemeinsame Base-Klasse zwischen Adaptern gebaut, da Context differs (Gemini REST vs Groq SDK) - pragmatische Duplication < falsche Abstraktion.
+- **Code-Review** (ersatzweise): Self-Review via `git diff --stat`, `npx tsc --noEmit` Exit 0, manuelle Inspection auf Secrets-Leakage (keine API-Keys in Logs/Errors).
+- **Testing-Strategy** (ersatzweise): Node-native Test-Runner statt externer Framework-Dep. Happy-Path + Error-Paths pro Provider. 3 neue Cleanup-Invariante-Tests: exakter Agent-Count, forbidden-non-LLM, forbidden-non-existent.
+- **Documentation** (ersatzweise): .env.example mit klarer Gruppierung, Inline-JSDoc in lib/llm, diese Report-Aktualisierung, CLAUDE.md Skills-Pflicht-Block ergaenzt.
+
+Ohne verfuegbare Plugin-Skills habe ich internalisierte Senior-Engineer-Best-Practices angewandt. Empfehlung an Angie: Skills-Plugin-Ordner einrichten (z.B. anthropics/skills Repo klonen nach `~/.agents/skills/engineering/`) damit zukuenftige Sessions die Pflicht aus CLAUDE.md wirklich einhalten koennen.
 
 ## Pre-Flight Checks durchgefuehrt
 
@@ -13,20 +64,6 @@ Status: OPEN, nicht gemerged. Wartet auf Angie + API-Key-Setup in Vercel.
 | HTTP probe `curl .../api/cron/health-monitor` | HTTP 401 (alive, needs CRON_SECRET) |
 | `CLAUDE.md` gelesen | Writing-Style-Regeln beachtet |
 | `docs/agents/*.md` | 16 Files existieren (aus PR #19 gestern) |
-
-## Skills genutzt
-
-Die Briefing-Pflicht-Skills (`engineering:architecture`, `engineering:code-review`, `engineering:testing-strategy`, `engineering:documentation`) sind im lokalen Plugin-Ordner NICHT vorhanden.
-
-- `ls ~/.agents/skills/` - nur Design/UI-Skills (adapt, animate, audit, bolder, ...)
-- `ls ~/Desktop/PraxisNovaAI/skills/marketing/skills/` - marketing-Skills (copywriting, seo-audit, ...)
-- Kein `engineering:*` Skill-Verzeichnis vorhanden
-
-Pragmatisch: internalisierte Best-Practices gefolgt:
-- **Architecture**: Provider-Adapter-Pattern (Strategy), Config-Zentralisation in 1 File (AGENT_LLM_CONFIG), Error-Hierarchy mit typisierten Errors pro Failure-Mode.
-- **Code-Review**: Selbst-Review durch Diff-Stat und Typecheck Exit 0. Keine Secrets in Logs (nur Error-Messages werden geloggt, keine API-Responses).
-- **Testing-Strategy**: 17 Unit-Tests mit Node-nativem Test-Runner, keine neue Dep. Happy-Path + Fehler-Pfade pro Provider-Resolution. Echte API-Calls bewusst NICHT integriert (Skip in CI per Brief erlaubt).
-- **Documentation**: .env.example aktualisiert, JSDoc-Kommentare in allen lib/llm-Files, Phase-1/2/3-Absicht inline dokumentiert.
 
 ## Was gebaut wurde (A1-A6)
 
@@ -40,7 +77,7 @@ Pragmatisch: internalisierte Best-Practices gefolgt:
 - `index.ts` - `callLLM(request, provider?)` Entry-Point plus `callLLMForAgent(name, request)` Convenience. Re-Exports aller public Symbols.
 
 ### A2 AGENT_LLM_CONFIG (`lib/llm/config.ts`)
-30 Agents wie im Brief, alle provider:`gemini-paid` pseudonymize:`false`. Phase-2/3-Targets als Kommentar gruppiert (SALES, SUPERVISOR/MANAGER, ZERO/LOW PII).
+24 Agents (nach Config-Cleanup, siehe oben), alle provider:`gemini-paid` pseudonymize:`false`. Phase-2/3-Targets als Kommentar gruppiert (SALES, SUPERVISOR/MANAGER, REPORTING, CONTENT/MARKETING, MONITORING).
 
 ### A3 Schedule-Rework - **NICHT IN DIESEM PR**
 Siehe Open Questions. `vercel.json` bleibt unveraendert.
@@ -48,20 +85,20 @@ Siehe Open Questions. `vercel.json` bleibt unveraendert.
 ### A4 Admin-Endpoint (`app/api/admin/llm-config/route.ts`)
 GET, Auth via Bearer `CRON_SECRET` oder `ADMIN_TOKEN`. Gibt zurueck:
 ```json
-{"ok":true,"default_provider":"gemini-paid","agent_count":30,"provider_counts":{"gemini-paid":30},"config":{...}}
+{"ok":true,"default_provider":"gemini-paid","agent_count":24,"provider_counts":{"gemini-paid":24},"config":{...}}
 ```
 
 ### A5 Dependencies
 `groq-sdk@^1.1.2` in package.json. Gemini SDK `@google/generative-ai@^0.24.1` schon vorhanden, wird aber in den Adaptern nicht benutzt (native fetch statt SDK, um Konsistenz mit bestehenden Gemini-Calls in z.B. `lib/agent-runtime.ts` zu bewahren).
 
 ### A6 Tests
-3 Test-Files in `__tests__/llm/`, 17 Cases, alle gruen:
+3 Test-Files in `__tests__/llm/`, 20 Cases, alle gruen:
 ```
 npm run test:llm
-# tests 17, pass 17, fail 0
+# tests 20, pass 20, fail 0
 ```
 
-- `config.test.ts` - 5 Cases: Phase-1-Assertions, Core-Agents-Check, Fallback-Logik
+- `config.test.ts` - 8 Cases: Phase-1-Assertions, Core-Agents-Check, Fallback-Logik, exakter Agent-Count=24, forbidden-non-LLM, forbidden-non-existent
 - `retry.test.ts` - 7 Cases: Error-Classification + Retry-Semantik (429 retries, 401 doesn't, 3-attempts-exhaustion)
 - `index.test.ts` - 5 Cases: Auth-Error pro Provider, DEFAULT_LLM_PROVIDER env, callLLMForAgent config-resolution
 

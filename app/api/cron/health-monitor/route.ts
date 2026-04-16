@@ -169,6 +169,135 @@ async function sendAlertEmail(issues: HealthIssue[]): Promise<void> {
   }
 }
 
+interface ApiCheck {
+  name: string;
+  url: string;
+  method: 'GET' | 'HEAD';
+  headers?: Record<string, string | undefined>;
+  timeoutMs: number;
+}
+
+function buildApiChecks(): ApiCheck[] {
+  return [
+    {
+      name: 'neon-db',
+      url: 'internal://sql-ping',
+      method: 'GET',
+      timeoutMs: 3000,
+    },
+    {
+      name: 'gemini',
+      url: `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY ?? ''}`,
+      method: 'GET',
+      timeoutMs: 3000,
+    },
+    {
+      name: 'brevo',
+      url: 'https://api.brevo.com/v3/account',
+      method: 'GET',
+      headers: { 'api-key': process.env.BREVO_API_KEY ?? '' },
+      timeoutMs: 3000,
+    },
+    {
+      name: 'gmail',
+      url: 'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+      method: 'GET',
+      headers: process.env.GMAIL_ACCESS_TOKEN ? { authorization: `Bearer ${process.env.GMAIL_ACCESS_TOKEN}` } : undefined,
+      timeoutMs: 3000,
+    },
+    {
+      name: 'hubspot',
+      url: 'https://api.hubapi.com/integrations/v1/me',
+      method: 'GET',
+      headers: process.env.HUBSPOT_TOKEN ? { authorization: `Bearer ${process.env.HUBSPOT_TOKEN}` } : undefined,
+      timeoutMs: 3000,
+    },
+  ];
+}
+
+async function runApiCheck(check: ApiCheck, runId: string): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+  const start = Date.now();
+  if (check.name === 'neon-db') {
+    try {
+      await sql`SELECT 1 AS ok`;
+      return { ok: true, latencyMs: Date.now() - start };
+    } catch (err) {
+      return { ok: false, latencyMs: Date.now() - start, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), check.timeoutMs);
+  try {
+    const res = await fetch(check.url, {
+      method: check.method,
+      headers: check.headers ? (check.headers as Record<string, string>) : undefined,
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return { ok: res.ok, latencyMs: Date.now() - start, error: res.ok ? undefined : `HTTP ${res.status}` };
+  } catch (err) {
+    clearTimeout(timer);
+    return { ok: false, latencyMs: Date.now() - start, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+async function checkApiReachability(runId: string): Promise<HealthIssue[]> {
+  const checks = buildApiChecks();
+  const issues: HealthIssue[] = [];
+
+  for (const check of checks) {
+    const result = await runApiCheck(check, runId);
+
+    // Log this check into agent_decisions (every run, even successes)
+    try {
+      await sql`
+        INSERT INTO agent_decisions (run_id, agent_name, decision_type, subject_type, subject_email, status, data_payload)
+        VALUES (
+          ${runId},
+          'health-monitor',
+          'api_check',
+          'api',
+          ${check.name},
+          ${result.ok ? 'ok' : 'fail'},
+          ${JSON.stringify({ latencyMs: result.latencyMs, error: result.error ?? null })}
+        )
+      `;
+    } catch (dbErr) {
+      console.error('[health-monitor] agent_decisions log failed:', dbErr);
+    }
+
+    if (!result.ok) {
+      // 2-consecutive-fails rule: check if previous run also failed for this API
+      try {
+        const prev = await sql`
+          SELECT status FROM agent_decisions
+          WHERE agent_name = 'health-monitor' AND decision_type = 'api_check'
+            AND subject_email = ${check.name}
+            AND run_id <> ${runId}
+          ORDER BY created_at DESC LIMIT 1
+        `;
+        const prevStatus = prev.length > 0 ? (prev[0].status as string) : null;
+
+        if (prevStatus === 'fail') {
+          issues.push({
+            agent_name: `api:${check.name}`,
+            issue_type: 'error',
+            expected_time: new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' }),
+            actual_status: `2+ consecutive fails (${result.error ?? 'unknown'})`,
+            error_details: `Latency ${result.latencyMs}ms. Previous run also failed.`,
+            severity: 'error',
+          });
+        }
+      } catch (checkErr) {
+        console.error('[health-monitor] prev-status check failed:', checkErr);
+      }
+    }
+  }
+
+  return issues;
+}
+
 export async function GET(request: Request): Promise<NextResponse<HealthCheckResult>> {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -180,10 +309,12 @@ export async function GET(request: Request): Promise<NextResponse<HealthCheckRes
   const timestamp = new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
   console.log(`[health-monitor] Starte Health Check um ${timestamp}...`);
   try {
+    const runId = `hm-${Date.now()}`;
     const errorIssues = await checkRecentErrors();
     const timeoutIssues = await checkIncompleteRuns();
     const missingIssues = await checkMissingRuns();
-    const allIssues = [...errorIssues, ...timeoutIssues, ...missingIssues];
+    const apiIssues = await checkApiReachability(runId);
+    const allIssues = [...errorIssues, ...timeoutIssues, ...missingIssues, ...apiIssues];
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     if (allIssues.length > 0) {
       console.log(`[health-monitor] ${allIssues.length} Probleme gefunden in ${elapsed}s`);

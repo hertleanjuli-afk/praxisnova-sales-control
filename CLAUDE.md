@@ -225,3 +225,28 @@ Vor JEDEM Bau:
 - Task-Liste: `~/Desktop/PraxisNovaAI/Agent build/TASKS.md`
 - Master-Plan-Kurzform: `~/Desktop/PraxisNovaAI/Agent build/docs/MASTER-PLAN-REFERENCE.md`
 - Batch-Reports: `~/Desktop/PraxisNovaAI/Agent build/reports/`
+
+## Skills-Pflicht (verpflichtend fuer jeden Build)
+
+Vor JEDEM Build musst du:
+
+1. Die Aufgabe klassifizieren (Code-Aenderung, Refactor, Bug-Fix, Architektur, Tests, Docs, Incident, Release-Prep, etc.)
+2. Pruefen welche Plugin-Skills via Skill-Tool passen. Minimum-Checkliste pro Aufgabentyp:
+   - Architektur-Entscheidung: engineering:architecture
+   - Neue Feature: engineering:system-design + engineering:testing-strategy
+   - Code-Aenderung vor PR: engineering:code-review
+   - Bug-Debug: engineering:debug
+   - Tests schreiben: engineering:testing-strategy
+   - Doku schreiben: engineering:documentation
+   - Deploy-Vorbereitung: engineering:deploy-checklist
+   - Incident-Fix: engineering:incident-response
+   - Marketing-Aufgabe (Copy, Content, Cold-Email, SEO, CRO, Analytics): pruefe auch `~/Desktop/PraxisNovaAI/skills/marketing/skills/` (36 Skills, nach Aufgaben-Typ waehlen)
+   - Sales-Content: marketing:draft-content oder marketing:email-sequence
+   - DSGVO/Compliance: operations:compliance-tracking oder legal:compliance-check
+   - Process-Doku: operations:process-doc oder operations:runbook
+3. Die relevanten Skills lesen BEVOR du Code schreibst
+4. Im Report (unter `reports/YYYY-MM-DD_xxx.md`) eine Sektion `## Skills benutzt` mit der Liste der gelesenen Skills + kurz wofuer eingesetzt
+
+Wenn keine Skills relevant sind: explizit dokumentieren warum nicht, im Report unter `## Skills benutzt: keine` mit Begruendung. Das ist die Ausnahme, nicht die Regel.
+
+Skills die im Plugin-Ordner nicht verfuegbar sind: vermerken im Report unter "Skill-Availability-Issues".

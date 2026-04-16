@@ -40,7 +40,7 @@ async function checkRecentErrors(): Promise<HealthIssue[]> {
       WHERE created_at > ${twoHoursAgo} AND status = 'error'
       ORDER BY created_at DESC
     `;
-    const logs = result.rows as Array<{ agent_name: string; action: string; status: string; details: string | null; created_at: string }>;
+    const logs = result as Array<{ agent_name: string; action: string; status: string; details: string | null; created_at: string }>;
     for (const log of logs) {
       issues.push({
         agent_name: log.agent_name,
@@ -71,7 +71,7 @@ async function checkIncompleteRuns(): Promise<HealthIssue[]> {
       HAVING MAX(CASE WHEN action = 'started' THEN 1 ELSE 0 END) = 1
         AND MAX(CASE WHEN action = 'completed' THEN 1 ELSE 0 END) = 0
     `;
-    const incompletes = result.rows as Array<{ agent_name: string; run_id: string; started_at: string; completed_at: string | null }>;
+    const incompletes = result as Array<{ agent_name: string; run_id: string; started_at: string; completed_at: string | null }>;
     for (const inc of incompletes) {
       const startedTime = new Date(inc.started_at);
       const timeoutThreshold = new Date(startedTime.getTime() + 10 * 60 * 1000);
@@ -111,7 +111,7 @@ async function checkMissingRuns(): Promise<HealthIssue[]> {
             WHERE agent_name = ${agentName} AND action = 'started'
               AND created_at >= ${windowStart} AND created_at <= ${windowEnd}
           `;
-          const count = (result.rows[0] as { count: number }).count;
+          const count = Number(result[0]?.count ?? 0);
           if (count === 0) {
             issues.push({
               agent_name: agentName,
@@ -310,11 +310,31 @@ export async function GET(request: Request): Promise<NextResponse<HealthCheckRes
   console.log(`[health-monitor] Starte Health Check um ${timestamp}...`);
   try {
     const runId = `hm-${Date.now()}`;
-    const errorIssues = await checkRecentErrors();
-    const timeoutIssues = await checkIncompleteRuns();
-    const missingIssues = await checkMissingRuns();
-    const apiIssues = await checkApiReachability(runId);
-    const allIssues = [...errorIssues, ...timeoutIssues, ...missingIssues, ...apiIssues];
+    const allIssues: HealthIssue[] = [];
+    const checkFailures: string[] = [];
+
+    const safeCheck = async (name: string, fn: () => Promise<HealthIssue[]>): Promise<void> => {
+      try {
+        const issues = await fn();
+        allIssues.push(...issues);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        checkFailures.push(`${name}: ${msg}`);
+        allIssues.push({
+          agent_name: `check:${name}`,
+          issue_type: 'error',
+          expected_time: new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' }),
+          actual_status: 'check-function threw',
+          error_details: msg,
+          severity: 'error',
+        });
+      }
+    };
+
+    await safeCheck('recent-errors', checkRecentErrors);
+    await safeCheck('incomplete-runs', checkIncompleteRuns);
+    await safeCheck('missing-runs', checkMissingRuns);
+    await safeCheck('api-reachability', () => checkApiReachability(runId));
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     if (allIssues.length > 0) {
       console.log(`[health-monitor] ${allIssues.length} Probleme gefunden in ${elapsed}s`);

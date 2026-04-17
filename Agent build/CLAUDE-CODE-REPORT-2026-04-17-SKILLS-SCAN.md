@@ -367,4 +367,6 @@ fallback_mode: cron_only
 
 **Status:** Skill-Scan-Initial abgeschlossen. Manifest und Raw-Scan in Repo. Bereit fuer PR-Review und Batch-A-Start.
 
+**PR:** https://github.com/hertleanjuli-afk/praxisnova-sales-control/pull/22 (Branch `skill-scan/initial`)
+
 **Naechster Touchpoint:** Sonntag 19.04. nach LinkedIn-Blitz-Versand → Operations-Manager-Agent kann erste Skill-Usage-Eintraege schreiben (manuell, bis Router live).

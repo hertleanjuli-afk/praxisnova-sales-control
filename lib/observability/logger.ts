@@ -6,14 +6,19 @@
  * Log-Drains und externe Tools (Datadog, BetterStack) das ohne Parser
  * konsumieren koennen.
  *
- * Error-Level-Logs werden zusaetzlich an einen Slack-Webhook geposted, wenn
- * SLACK_ALERT_WEBHOOK gesetzt ist. Ohne Env-Var wird kein Network-Call
- * gemacht (Test-/Dev-frei). Slack-Versand ist fire-and-forget: Fehler beim
- * Slack-Send killen nicht den Agent-Run.
+ * Error-Level-Logs werden parallel an zwei Kanaele gesendet:
+ *   - Slack via SLACK_ALERT_WEBHOOK (falls gesetzt)
+ *   - ntfy.sh via NTFY_TOPIC_URL (falls gesetzt)
+ * Beide sind unabhaengig: wenn einer broken ist, laeuft der andere weiter.
+ * Wenn keines gesetzt ist, wird nur in die Konsole geloggt (Test-/Dev-frei).
+ *
+ * Versand ist fire-and-forget mit 4s Timeout. Fehler beim Versand killen
+ * nicht den Agent-Run; sie werden nur in die Konsole geloggt.
  *
  * Verhaeltnis zu lib/helpers/logger.ts: dieser hier ist ein Superset mit
- * agent/skill-Pflichtfeldern und Slack. Der bestehende `lib/helpers/logger.ts`
- * bleibt fuer untypisierte Lib-Code-Calls (die kein agent-Konzept haben).
+ * agent/skill-Pflichtfeldern und Push-Channels. Der bestehende
+ * `lib/helpers/logger.ts` bleibt fuer untypisierte Lib-Code-Calls (die kein
+ * agent-Konzept haben).
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -37,6 +42,7 @@ export interface LogInput {
 }
 
 const SLACK_TIMEOUT_MS = 4000;
+const NTFY_TIMEOUT_MS = 4000;
 
 function buildEntry(level: LogLevel, input: LogInput): LogEntry {
   return {
@@ -110,6 +116,72 @@ export async function notifySlack(entry: LogEntry): Promise<void> {
 }
 
 /**
+ * Fire-and-forget ntfy.sh-Notification. Gleiches Muster wie notifySlack:
+ * kein Werfen bei Fehlern, nur Konsolen-Log.
+ *
+ * Angie hat kein Slack, aber die ntfy-iOS-App. Topic-URL wird als ENV
+ * NTFY_TOPIC_URL gesetzt (z.B. https://ntfy.sh/praxisnovaai-alerts-task110).
+ *
+ * ntfy-Protokoll: POST an die Topic-URL mit Plain-Text-Body. Titel und
+ * Priority werden als Header mitgeschickt. Siehe https://docs.ntfy.sh/publish/
+ *
+ * Priority-Mapping:
+ *   - level=error   -> Priority: default (sichtbarer Push ohne Sound)
+ *   - context.critical=true (optional Pattern) -> Priority: high (Sound + Banner)
+ */
+export async function notifyNtfy(entry: LogEntry): Promise<void> {
+  const topicUrl = process.env.NTFY_TOPIC_URL;
+  if (!topicUrl) return;
+
+  const title = `[${entry.agent}] ${entry.level}`;
+  const priority = entry.context?.critical === true ? 'high' : 'default';
+
+  const body =
+    entry.message +
+    (entry.skill ? `\nskill: ${entry.skill}` : '') +
+    (Object.keys(entry.context).length > 0
+      ? `\n${JSON.stringify(entry.context).slice(0, 800)}`
+      : '');
+
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), NTFY_TIMEOUT_MS);
+  try {
+    const res = await fetch(topicUrl, {
+      method: 'POST',
+      headers: {
+        'Title': title,
+        'Priority': priority,
+      },
+      body,
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'ntfy publish non-ok',
+          status: res.status,
+          title,
+          priority,
+          ts: new Date().toISOString(),
+        }),
+      );
+    }
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        msg: 'ntfy publish threw',
+        err: err instanceof Error ? err.message : String(err),
+        ts: new Date().toISOString(),
+      }),
+    );
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/**
  * Hauptschnittstelle fuer Agenten-Code.
  *
  * Beispiel:
@@ -121,9 +193,10 @@ export async function notifySlack(entry: LogEntry): Promise<void> {
  *     duration_ms: 8421,
  *   });
  *
- * .error wartet bewusst auf den Slack-Send (await-able), .info/.warn/.debug
- * geben sofort zurueck. Im Production-Code wird .error oft mit `void` geprefixed
- * damit der Agent-Pfad nicht blockiert.
+ * .error wartet bewusst auf beide Push-Channels parallel (Slack + ntfy) via
+ * Promise.allSettled, damit ein ausfallender Channel den anderen nicht
+ * blockiert. .info/.warn/.debug geben sofort zurueck. Im Production-Code
+ * wird .error oft mit `void` geprefixed damit der Agent-Pfad nicht blockiert.
  */
 export const observe = {
   debug(input: LogInput): void {
@@ -138,12 +211,13 @@ export const observe = {
   async error(input: LogInput): Promise<void> {
     const entry = buildEntry('error', input);
     emitConsole(entry);
-    await notifySlack(entry);
+    // Parallel damit ein broken Channel den anderen nicht blockiert
+    await Promise.allSettled([notifySlack(entry), notifyNtfy(entry)]);
   },
   /** Synchrone Variante wenn der Caller nicht awaiten kann/will. */
   errorSync(input: LogInput): void {
     const entry = buildEntry('error', input);
     emitConsole(entry);
-    void notifySlack(entry);
+    void Promise.allSettled([notifySlack(entry), notifyNtfy(entry)]);
   },
 };

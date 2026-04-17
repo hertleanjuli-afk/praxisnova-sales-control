@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { observe, notifySlack } from '../../lib/observability/logger.ts';
+import {
+  observe,
+  notifySlack,
+  notifyNtfy,
+} from '../../lib/observability/logger.ts';
 
 const originalLog = console.log;
 const originalWarn = console.warn;
@@ -217,6 +221,7 @@ test('observe.error: triggers Slack-Send when webhook env set', async () => {
 
 test('observe.error: NO Slack-Send when webhook not set, only console', async () => {
   delete process.env.SLACK_ALERT_WEBHOOK;
+  delete process.env.NTFY_TOPIC_URL;
   let fetchCalls = 0;
   globalThis.fetch = (async () => {
     fetchCalls += 1;
@@ -233,6 +238,230 @@ test('observe.error: NO Slack-Send when webhook not set, only console', async ()
     const found = c.logs.some((l) => l.includes('triage failed'));
     assert.equal(found, true);
   } finally {
+    restoreFetch();
+    c.restore();
+  }
+});
+
+// ─── ntfy.sh Integration ────────────────────────────────────────────────────
+
+test('notifyNtfy: no topic env, no fetch call', async () => {
+  delete process.env.NTFY_TOPIC_URL;
+  let fetchCalls = 0;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    return new Response('ok');
+  }) as typeof fetch;
+  try {
+    await notifyNtfy({
+      timestamp: new Date().toISOString(),
+      agent: 'a',
+      skill: null,
+      level: 'error',
+      message: 'm',
+      context: {},
+      duration_ms: null,
+    });
+    assert.equal(fetchCalls, 0);
+  } finally {
+    restoreFetch();
+  }
+});
+
+test('notifyNtfy: with topic env, POST with correct body, Title and Priority headers', async () => {
+  process.env.NTFY_TOPIC_URL = 'https://ntfy.sh/praxisnovaai-alerts-task110';
+  let captured: {
+    url: string;
+    method: string;
+    body: string;
+    title: string | null;
+    priority: string | null;
+  } | null = null;
+  globalThis.fetch = (async (url: unknown, init: unknown) => {
+    const i = init as { method?: string; body?: string; headers?: Record<string, string> };
+    const headers = i.headers ?? {};
+    captured = {
+      url: String(url),
+      method: i.method ?? 'GET',
+      body: String(i.body ?? ''),
+      title: headers['Title'] ?? null,
+      priority: headers['Priority'] ?? null,
+    };
+    return new Response('ok');
+  }) as typeof fetch;
+  try {
+    await notifyNtfy({
+      timestamp: '2026-04-18T08:00:00.000Z',
+      agent: 'outreach_strategist',
+      skill: 'sales.draft-outreach',
+      level: 'error',
+      message: 'apollo enrichment failed',
+      context: { lead_id: 1234 },
+      duration_ms: 8421,
+    });
+    assert.ok(captured);
+    assert.equal(captured!.url, 'https://ntfy.sh/praxisnovaai-alerts-task110');
+    assert.equal(captured!.method, 'POST');
+    assert.equal(captured!.title, '[outreach_strategist] error');
+    assert.equal(captured!.priority, 'default');
+    assert.ok(captured!.body.includes('apollo enrichment failed'));
+    assert.ok(captured!.body.includes('sales.draft-outreach'));
+    assert.ok(captured!.body.includes('1234'));
+  } finally {
+    delete process.env.NTFY_TOPIC_URL;
+    restoreFetch();
+  }
+});
+
+test('notifyNtfy: priority=high when context.critical=true', async () => {
+  process.env.NTFY_TOPIC_URL = 'https://ntfy.sh/test';
+  let capturedPriority: string | null = null;
+  globalThis.fetch = (async (_url: unknown, init: unknown) => {
+    const headers = (init as { headers?: Record<string, string> }).headers ?? {};
+    capturedPriority = headers['Priority'] ?? null;
+    return new Response('ok');
+  }) as typeof fetch;
+  try {
+    await notifyNtfy({
+      timestamp: new Date().toISOString(),
+      agent: 'health_checker',
+      skill: null,
+      level: 'error',
+      message: 'db unreachable',
+      context: { critical: true },
+      duration_ms: null,
+    });
+    assert.equal(capturedPriority, 'high');
+  } finally {
+    delete process.env.NTFY_TOPIC_URL;
+    restoreFetch();
+  }
+});
+
+test('notifyNtfy: 429 response does not throw, logs non-ok', async () => {
+  process.env.NTFY_TOPIC_URL = 'https://ntfy.sh/test';
+  globalThis.fetch = (async () =>
+    new Response('rate limited', { status: 429 })) as typeof fetch;
+  const c = captureConsole();
+  try {
+    await notifyNtfy({
+      timestamp: new Date().toISOString(),
+      agent: 'a',
+      skill: null,
+      level: 'error',
+      message: 'm',
+      context: {},
+      duration_ms: null,
+    });
+    const found = c.logs.some((l) => l.includes('ntfy publish non-ok'));
+    assert.equal(found, true);
+  } finally {
+    delete process.env.NTFY_TOPIC_URL;
+    restoreFetch();
+    c.restore();
+  }
+});
+
+test('notifyNtfy: network-throw caught and logged', async () => {
+  process.env.NTFY_TOPIC_URL = 'https://ntfy.sh/test';
+  globalThis.fetch = (async () => {
+    throw new Error('network down');
+  }) as typeof fetch;
+  const c = captureConsole();
+  try {
+    await notifyNtfy({
+      timestamp: new Date().toISOString(),
+      agent: 'a',
+      skill: null,
+      level: 'error',
+      message: 'm',
+      context: {},
+      duration_ms: null,
+    });
+    const found = c.logs.some((l) => l.includes('ntfy publish threw'));
+    assert.equal(found, true);
+  } finally {
+    delete process.env.NTFY_TOPIC_URL;
+    restoreFetch();
+    c.restore();
+  }
+});
+
+// ─── observe.error: beide Kanaele parallel ─────────────────────────────────
+
+test('observe.error: triggers BOTH Slack AND ntfy when both envs set', async () => {
+  process.env.SLACK_ALERT_WEBHOOK = 'https://hooks.slack.test/x';
+  process.env.NTFY_TOPIC_URL = 'https://ntfy.sh/test';
+  const urls: string[] = [];
+  globalThis.fetch = (async (url: unknown) => {
+    urls.push(String(url));
+    return new Response('ok');
+  }) as typeof fetch;
+  const c = captureConsole();
+  try {
+    await observe.error({
+      agent: 'reply_detector',
+      message: 'triage failed',
+      context: { msg_id: 'gmail-x' },
+    });
+    assert.equal(urls.length, 2);
+    assert.ok(urls.some((u) => u.includes('hooks.slack.test')));
+    assert.ok(urls.some((u) => u.includes('ntfy.sh')));
+  } finally {
+    delete process.env.SLACK_ALERT_WEBHOOK;
+    delete process.env.NTFY_TOPIC_URL;
+    restoreFetch();
+    c.restore();
+  }
+});
+
+test('observe.error: only ntfy when only NTFY_TOPIC_URL set', async () => {
+  delete process.env.SLACK_ALERT_WEBHOOK;
+  process.env.NTFY_TOPIC_URL = 'https://ntfy.sh/test';
+  const urls: string[] = [];
+  globalThis.fetch = (async (url: unknown) => {
+    urls.push(String(url));
+    return new Response('ok');
+  }) as typeof fetch;
+  const c = captureConsole();
+  try {
+    await observe.error({
+      agent: 'reply_detector',
+      message: 'triage failed',
+      context: {},
+    });
+    assert.equal(urls.length, 1);
+    assert.ok(urls[0].includes('ntfy.sh'));
+  } finally {
+    delete process.env.NTFY_TOPIC_URL;
+    restoreFetch();
+    c.restore();
+  }
+});
+
+test('observe.error: one channel failing does not block the other (Promise.allSettled)', async () => {
+  process.env.SLACK_ALERT_WEBHOOK = 'https://hooks.slack.test/x';
+  process.env.NTFY_TOPIC_URL = 'https://ntfy.sh/test';
+  let ntfyCalls = 0;
+  globalThis.fetch = (async (url: unknown) => {
+    if (String(url).includes('slack')) {
+      throw new Error('slack network down');
+    }
+    ntfyCalls += 1;
+    return new Response('ok');
+  }) as typeof fetch;
+  const c = captureConsole();
+  try {
+    // should not throw even though slack throws
+    await observe.error({
+      agent: 'a',
+      message: 'm',
+      context: {},
+    });
+    assert.equal(ntfyCalls, 1, 'ntfy should still fire despite Slack-Throw');
+  } finally {
+    delete process.env.SLACK_ALERT_WEBHOOK;
+    delete process.env.NTFY_TOPIC_URL;
     restoreFetch();
     c.restore();
   }

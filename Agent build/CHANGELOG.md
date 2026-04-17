@@ -6,6 +6,65 @@ Format: [Datum] Paket-Name / Kurzbeschreibung.
 
 ---
 
+## [2026-04-18] Tech-Gaps ntfy.sh als zweite Push-Spur (PR noch offen)
+
+Folge-PR zu T3 Observability. Angie hat kein Slack aber eine ntfy-iOS-App; ntfy-Push wird als gleichwertiger zweiter Kanal zu Slack integriert.
+
+- **GEAENDERT** `lib/observability/logger.ts`: neue `notifyNtfy(entry)` Funktion. `observe.error` ruft beide Channels parallel via Promise.allSettled -> ein ausfallender Channel blockt den anderen nicht.
+- **GEAENDERT** `__tests__/helpers/observability.test.ts`: 8 neue ntfy-Tests (kein Topic-env / POST-Body + Title + Priority / priority=high bei critical / 429 / network-throw / beide Channels / nur ntfy / allSettled Isolation)
+- **GEAENDERT** `.env.example`: `SLACK_ALERT_WEBHOOK` + `NTFY_TOPIC_URL` dokumentiert, mit Default-Topic `https://ntfy.sh/praxisnovaai-alerts-task110`
+- **GEAENDERT** `Agent build/RUNBOOKS-TECH-GAPS-2026-04-18.md`: Runbook A deckt beide Kanaele ab (Slack-Alert ODER ntfy-Push), mit "fehlender Kanal als Signal" Diagnose-Hilfe
+- **Branch:** `tech-gaps/ntfy-integration`, basiert auf `tech-gaps/t3-observability`. Merge-Reihenfolge: T3 (#25) zuerst, dann dieser PR gegen main.
+
+### ENV-Aktion offen
+- `NTFY_TOPIC_URL=https://ntfy.sh/praxisnovaai-alerts-task110` in Vercel setzen (Production + Preview) nach Merge. Push-Test bereits bestanden.
+
+---
+
+## [2026-04-18] Tech-Gaps Wave 1 / Fallback, Retry, Observability, Memory-Hygiene
+
+Vier Tech-Gaps in 4 isolierten PRs geschlossen. Alle Production-Routes
+unangetastet (CLAUDE.md ban list eingehalten). Adoption in den Routes folgt als
+Folge-PRs nach Approval. **Status:** PRs warten auf Angies Review.
+
+### T1 — Fallback-Mechanismen (PR #23)
+- **NEU** `lib/agents/fallback.ts` mit `executeFallback(agent, primary, spec, context, runner?)`
+- **NEU** `lib/agents/configs.ts` mit 3 Pilot-Konfigurationen (lead_ingestor: legacy, outreach_strategist: skill, reply_detector: noop)
+- **NEU** `__tests__/helpers/fallback.test.ts` (11 Tests, alle gruen)
+
+### T2 — Retry mit Backoff (PR #24)
+- **NEU** `lib/util/retry.ts` mit `retryWithBackoff` plus Wrapper (Apollo 5x, Calendar/Gmail/OpenAI/Brevo 3x)
+- **GEAENDERT** `lib/apollo.ts`, `lib/google-calendar-client.ts`, `lib/gmail-client.ts`: 5 Call-Sites migriert
+- **NEU** `__tests__/helpers/retry.test.ts` (13 Tests, alle gruen)
+
+### T3 — Observability + Slack + recent-errors (PR #25)
+- **NEU** `lib/observability/logger.ts` mit `observe.{debug,info,warn,error}` (JSON Lines, Slack-Send bei Error-Level)
+- **NEU** `app/api/observability/recent-errors/route.ts` (GET, Bearer CRON_SECRET, default 50 Errors aus error_logs Tabelle)
+- **NEU** `__tests__/helpers/observability.test.ts` (9 Tests, inkl. Slack-Failure-Modes, alle gruen)
+- **ENV (optional):** `SLACK_ALERT_WEBHOOK` — wenn nicht gesetzt, kein Slack-Send
+
+### T4 — Memory-Hygiene (PR #26)
+- **NEU** `lib/memory/hygiene.ts` mit `verifyMemoryFacts(facts, context, options)` (3 Status: fresh/stale/verify_failed)
+- **NEU** `lib/memory/agent-facts.ts` mit 3 Pilot-Agenten je 3 Facts
+- **NEU** `docs/memory-hygiene-checks.md` (Failure-Bedeutung + ESC-Pfad pro Fact)
+- **NEU** `__tests__/helpers/memory-hygiene.test.ts` (8 Tests, alle gruen)
+
+### Reports und Runbooks (PR docs branch)
+- **NEU** `Agent build/CLAUDE-CODE-REPORT-2026-04-18-TECH-GAPS.md` (Executive Summary, Was-rein, Was-aus, Naechste Schritte)
+- **NEU** `Agent build/RUNBOOKS-TECH-GAPS-2026-04-18.md` (Runbook A: Slack-Alert, Runbook B: Stale-Fact, Runbook C: Apollo-429-Eskalation)
+
+### Skills genutzt
+engineering.architecture, engineering.system-design, engineering.code-review, engineering.testing-strategy, engineering.documentation, operations.runbook (alle Cowork-Plugin-Skills, im SKILLS-MANIFEST eingetragen)
+
+### Branches und PRs
+- tech-gaps/t1-fallback (PR #23)
+- tech-gaps/t2-retry (PR #24)
+- tech-gaps/t3-observability (PR #25)
+- tech-gaps/t4-memory-hygiene (PR #26)
+- tech-gaps/docs (dieser PR)
+
+---
+
 ## [2026-04-17] Skill-Scan Initial / Manifest und External-Reference
 
 Voll-Scan aller verfuegbaren Skills auf Angies Mac plus External-Reference-Integration. Vorbereitung fuer Skill-Router (Batch B) und 8-Agent-Konsolidierung (Batch C).

@@ -6,6 +6,33 @@ Format: [Datum] Paket-Name / Kurzbeschreibung.
 
 ---
 
+## [2026-04-18] Tech-Gaps Adoption Wave 2 / Apollo, Gmail, Calendar (PRs offen)
+
+Adoption der Wave-1-Mechanismen in 3 kritische Production-Agenten. Mechanismen sind jetzt aktiv statt passiv im Lib-Code.
+
+### T1 Apollo Lead-Ingestor (PR #29)
+- **GEAENDERT** `app/api/cron/apollo-sync/route.ts`: retryApollo (5x) + observe Start/Completion/Error + Safe-NoOp Fallback (200 OK statt 500 bei Apollo-Ausfall) + ntfy Priority=high bei Final-Fail.
+- **NEU** `__tests__/helpers/apollo-adoption.test.ts` (5 Faelle: 429-Spike, 500-Recover, persistent-429, 400-non-retry, Network-Error)
+
+### T2 Gmail Reply-Detector (PR #30)
+- **GEAENDERT** `app/api/cron/gmail-reply-sync/route.ts`: observe Start/Completion/Error + pre-run memory-hygiene (replyDetectorFacts topN=3) + Safe-NoOp + ntfy Priority=high bei OAuth-missing und Fatal.
+- **GEAENDERT** `lib/memory/agent-facts.ts`: Bugfix `import sql from '../db'` -> `'../db.ts'` fuer node-ESM-Kompatibilitaet (Wave 1 T4 latent, Production-Next-Build unaengst).
+- **NEU** `__tests__/helpers/gmail-adoption.test.ts` (5 Faelle: stale-Detect, fresh, filter, retryGmail 3x, 503-Recover)
+
+### T3 Calendar OAuth Agent (PR #31)
+- **GEAENDERT** `app/api/cron/google-calendar-sync/route.ts`: fine-grained observe (Start / Token-Refresh / Events-List / Completion / Fatal) + Safe-NoOp + ntfy Priority=high. 401 bewusst non-retryable (expired Token = sofort-Alert, kein Retry-Storm).
+- **NEU** `__tests__/helpers/calendar-adoption.test.ts` (5 Faelle: 503-Loop, 401-non-retry, 503-Recover, Network, Happy-Path)
+
+### Report und Docs
+- **NEU** `Agent build/CLAUDE-CODE-REPORT-2026-04-18-ADOPTION.md`: Executive Summary, pro-PR Detail, Saturday-Value, Agent-Robustness-Matrix
+
+### Metrics
+- 15 neue Integrations-Tests, 64 total, alle gruen
+- 0 Aenderung an Route-Signaturen, nur internal Wrapping
+- 0 Mutation der 9 in CLAUDE.md gebannten Routes
+
+---
+
 ## [2026-04-18] Tech-Gaps ntfy.sh als zweite Push-Spur (PR noch offen)
 
 Folge-PR zu T3 Observability. Angie hat kein Slack aber eine ntfy-iOS-App; ntfy-Push wird als gleichwertiger zweiter Kanal zu Slack integriert.

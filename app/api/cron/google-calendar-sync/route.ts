@@ -34,6 +34,7 @@ import {
   isOwnerCreated,
   type CalendarEvent,
 } from '@/lib/google-calendar-client';
+import { observe } from '@/lib/observability/logger';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -141,12 +142,39 @@ export async function runGoogleCalendarSync(): Promise<{
   errors: number;
 }> {
   const runId = crypto.randomUUID();
+  const startTime = Date.now();
   await writeStartLog(runId, 'google_calendar_sync');
+  observe.info({
+    agent: 'calendar_oauth',
+    skill: 'operations.runbook',
+    message: 'google-calendar-sync started',
+    context: { run_id: runId },
+  });
 
   // 1) Credentials lesen
   const creds = readCalendarCredentialsFromEnv();
   if (!creds) {
     console.warn('[google-calendar-sync] ENV vars not configured - skipping');
+    // observe.error mit context.critical=true -> ntfy Priority=high
+    // fuer sofortige Angie-Sicht auf iPhone. Calendar-OAuth ist historisch
+    // fragil (Token-Refresh), deshalb bewusst als kritisch markiert.
+    await observe.error({
+      agent: 'calendar_oauth',
+      skill: 'operations.runbook',
+      message: 'google-calendar OAuth not configured, safe-noop',
+      context: {
+        run_id: runId,
+        reason: 'env_missing',
+        missing_vars: [
+          !process.env.GOOGLE_CALENDAR_CLIENT_ID && !process.env.GMAIL_CLIENT_ID && 'CLIENT_ID',
+          !process.env.GOOGLE_CALENDAR_CLIENT_SECRET && !process.env.GMAIL_CLIENT_SECRET && 'CLIENT_SECRET',
+          !process.env.GOOGLE_CALENDAR_REFRESH_TOKEN && 'REFRESH_TOKEN',
+          !process.env.GOOGLE_CALENDAR_ID && 'CALENDAR_ID',
+        ].filter(Boolean),
+        critical: true,
+      },
+      duration_ms: Date.now() - startTime,
+    });
     await writeEndLog(runId, 'google_calendar_sync', 'partial', {
       status: 'not_configured',
       summary: 'Google Calendar OAuth nicht eingerichtet - siehe Agent build/GOOGLE-CALENDAR-ENV-WERTE.md',
@@ -164,11 +192,28 @@ export async function runGoogleCalendarSync(): Promise<{
   }
 
   try {
-    // 2) Access Token
+    // 2) Access Token. retryCalendar-Wrapper ist in lib/google-calendar-client
+    // bereits aktiv (Wave 1 T2): 3 Versuche mit Backoff.
+    const tokenStart = Date.now();
     const accessToken = await getCalendarAccessToken(creds);
+    observe.info({
+      agent: 'calendar_oauth',
+      skill: 'operations.runbook',
+      message: 'calendar token refreshed',
+      context: { run_id: runId },
+      duration_ms: Date.now() - tokenStart,
+    });
 
-    // 3) Events listen
+    // 3) Events listen. Ebenfalls retryCalendar-wrapped auf lib-Ebene.
+    const listStart = Date.now();
     const events = await listRecentEvents(accessToken, creds.calendarId, CALENDAR_LOOKBACK_MINUTES);
+    observe.info({
+      agent: 'calendar_oauth',
+      skill: 'operations.runbook',
+      message: 'calendar events listed',
+      context: { run_id: runId, events_count: events.length },
+      duration_ms: Date.now() - listStart,
+    });
 
     let newLeads = 0;
     let existingLeads = 0;
@@ -253,6 +298,20 @@ export async function runGoogleCalendarSync(): Promise<{
       },
     );
 
+    observe.info({
+      agent: 'calendar_oauth',
+      skill: 'operations.runbook',
+      message: 'google-calendar-sync completed',
+      context: {
+        run_id: runId,
+        events_checked: events.length,
+        new_leads: newLeads,
+        existing_leads: existingLeads,
+        errors: errorList.length,
+      },
+      duration_ms: Date.now() - startTime,
+    });
+
     return {
       status: errorList.length > 0 ? 'partial' : 'completed',
       summary,
@@ -265,6 +324,21 @@ export async function runGoogleCalendarSync(): Promise<{
     };
   } catch (err) {
     console.error('[google-calendar-sync] Fatal error:', err);
+    // observe.error mit ntfy-Priority=high. Calendar-Fehler sind historisch
+    // fragil (Token-Refresh-401) und koennen Real Estate Pilot Buchungen
+    // verpassen. Angie soll es sofort auf iPhone sehen.
+    await observe.error({
+      agent: 'calendar_oauth',
+      skill: 'operations.runbook',
+      message: 'google-calendar-sync fatal error',
+      context: {
+        run_id: runId,
+        err: err instanceof Error ? err.message : String(err),
+        attempts: (err as { attempts?: number }).attempts,
+        critical: true,
+      },
+      duration_ms: Date.now() - startTime,
+    });
     await writeEndLog(runId, 'google_calendar_sync', 'error', {
       error: String(err),
       summary: `Fataler Fehler: ${String(err).substring(0, 200)}`,

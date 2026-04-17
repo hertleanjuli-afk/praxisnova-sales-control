@@ -6,6 +6,33 @@ Format: [Datum] Paket-Name / Kurzbeschreibung.
 
 ---
 
+## [2026-04-17] Skill-Scan Initial / Manifest und External-Reference
+
+Voll-Scan aller verfuegbaren Skills auf Angies Mac plus External-Reference-Integration. Vorbereitung fuer Skill-Router (Batch B) und 8-Agent-Konsolidierung (Batch C).
+
+### Pflicht-Docs nach Repo kopiert (Vorbedingung Option C)
+- **NEU** `Agent build/SKILL-ARCHITECTURE-2026-04-17.md` (kopiert aus Documents/Claude/Projects/Agent build)
+- **NEU** `Agent build/OPTION-C-PLAN-AMENDMENT-2026-04-17-SKILL-ARCHITECTURE.md`
+- **NEU** `Agent build/OPTION-C-MASTER-PLAN-2026-04-17.md`
+
+### Voll-Scan Mac-Home (827 SKILL.md Dateien, 220 unique Skills)
+- **NEU** `Agent build/SKILLS-RAW-SCAN-2026-04-17.md`: vollstaendiges Quellen-Inventar nach Source-Type sortiert
+- **NEU** `Agent build/SKILLS-MANIFEST.md`: kuratiertes Single-Source-of-Truth-Manifest, 18 Kategorien, primary/optional Skills pro Agent
+- **NEU** `Agent build/CLAUDE-CODE-REPORT-2026-04-17-SKILLS-SCAN.md`: Top-30 Skills, Plugin-Overlaps, WARNINGS, Empfehlungen
+
+### External Reference: msitarzewski/agency-agents
+- Cloned nach `~/praxisnovaai-external/agency-agents` (MIT-Lizenz, ca. 80 Agenten in 20 Kategorien)
+- 5 Uebernahme-Muster extrahiert (YAML-Frontmatter, Persona/Operations-Trennung, Multi-Agent-Workflow, Reality-Checker-Gate, Convert-Adapter)
+
+### Skills genutzt (Pflicht-Sektion)
+- engineering.documentation, engineering.architecture, engineering.system-design, operations.runbook (Cowork-Plugins)
+
+### Branch und PR
+- Branch: `skill-scan/initial`
+- PR-Titel: Skill Inventory: Initial Manifest and External Reference Integration
+
+---
+
 ## [2026-04-12] Paket B: Tracking, Calendar Sync, Popup, Sonderzeichen
 
 Vier eigenstaendige Commits, jeder rollback-faehig.

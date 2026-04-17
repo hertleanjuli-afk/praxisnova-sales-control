@@ -57,6 +57,9 @@ import {
   getOrCreateLabel,
 } from '@/lib/gmail-client';
 import { detectOOO } from '@/lib/ooo-detector';
+import { observe } from '@/lib/observability/logger';
+import { verifyMemoryFacts, getStaleFacts } from '@/lib/memory/hygiene';
+import { replyDetectorFacts } from '@/lib/memory/agent-facts';
 
 export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
@@ -299,18 +302,62 @@ export async function GET(request: NextRequest) {
   }
 
   const runId = crypto.randomUUID();
+  const startTime = Date.now();
   await writeStartLog(runId, 'gmail_reply_sync');
+  observe.info({
+    agent: 'reply_detector',
+    skill: 'customer-support.ticket-triage',
+    message: 'gmail-reply-sync started',
+    context: { run_id: runId },
+  });
+
+  // Memory-Hygiene: verify the 3 wichtigsten Facts bevor der Loop startet.
+  // Stale-Facts blocken den Run NICHT, aber sie werden als Warnungen geloggt
+  // und (falls kritisch) triggert observe.warn/error ihre Push-Kanaele.
+  try {
+    const factResults = await verifyMemoryFacts(
+      replyDetectorFacts,
+      { agent: 'reply_detector', run_id: runId },
+      { topN: 3, timeoutMs: 2000 },
+    );
+    const stale = getStaleFacts(factResults);
+    if (stale.length > 0) {
+      observe.warn({
+        agent: 'reply_detector',
+        message: 'memory hygiene: stale facts detected, run continues',
+        context: {
+          run_id: runId,
+          stale_facts: stale.map((f) => f.fact_id),
+        },
+      });
+    }
+  } catch (hygErr) {
+    // Hygiene selbst sollte nie werfen (verifyMemoryFacts never-throws),
+    // aber Defense-in-Depth.
+    console.warn('[gmail-reply-sync] memory hygiene threw (non-fatal):', hygErr);
+  }
 
   try {
     // 1) Credentials lesen - graceful fail wenn unkonfiguriert
     const creds = readCredentialsFromEnv();
     if (!creds) {
       console.warn('[gmail-reply-sync] GMAIL_* env vars not configured - skipping');
+      await observe.error({
+        agent: 'reply_detector',
+        skill: 'customer-support.ticket-triage',
+        message: 'gmail oauth not configured, safe-noop',
+        context: {
+          run_id: runId,
+          reason: 'env_missing',
+          critical: true,
+        },
+        duration_ms: Date.now() - startTime,
+      });
       await writeEndLog(runId, 'gmail_reply_sync', 'partial', {
         status: 'not_configured',
         summary: 'Gmail OAuth nicht eingerichtet - siehe SETUP-gmail-reply-sync.md',
       });
-      return NextResponse.json({ ok: true, status: 'not_configured' });
+      return NextResponse.json({ ok: true, status: 'not_configured', fallback: 'safe-noop' });
     }
 
     // 2) Dedupe-Tabelle sicherstellen (idempotent)
@@ -577,6 +624,20 @@ export async function GET(request: NextRequest) {
       },
     );
 
+    observe.info({
+      agent: 'reply_detector',
+      skill: 'customer-support.ticket-triage',
+      message: 'gmail-reply-sync completed',
+      context: {
+        run_id: runId,
+        messages_checked: messages.length,
+        new_replies: newReplies,
+        ooo_detected: oooDetected,
+        errors: errors.length,
+      },
+      duration_ms: Date.now() - startTime,
+    });
+
     return NextResponse.json({
       ok: true,
       messages_checked: messages.length,
@@ -590,6 +651,20 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error('[gmail-reply-sync] Fatal error:', err);
+    // observe.error triggert ntfy-Push auf Angies iPhone fuer gmail-Fatal-Error.
+    // context.critical=true -> Priority=high (Sound/Banner). Kritisch weil
+    // Reply-Detection fuer Real Estate Pilot Antworten unersetzlich ist.
+    await observe.error({
+      agent: 'reply_detector',
+      skill: 'customer-support.ticket-triage',
+      message: 'gmail-reply-sync fatal error',
+      context: {
+        run_id: runId,
+        err: err instanceof Error ? err.message : String(err),
+        critical: true,
+      },
+      duration_ms: Date.now() - startTime,
+    });
     await writeEndLog(runId, 'gmail_reply_sync', 'error', {
       error: String(err),
       summary: `Fataler Fehler: ${String(err).substring(0, 200)}`,

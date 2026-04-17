@@ -13,7 +13,7 @@
  * Die Facts werden von docs/memory-hygiene-checks.md kanonisch dokumentiert.
  */
 
-import sql from '../db';
+import sql from '../db.ts';
 import type { MemoryFact } from './hygiene.ts';
 
 // ─── Lead-Ingestor Facts ────────────────────────────────────────────────────

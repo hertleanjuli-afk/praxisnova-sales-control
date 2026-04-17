@@ -1,4 +1,6 @@
 // Apollo People Search endpoint.
+import { retryApollo } from '@/lib/util/retry';
+
 // URL-History (Apollo aendert den Pfad ~1x pro Monat, siehe LECK-14):
 //   2024 frueh:  /v1/mixed_people/api_search
 //   2025 Q4:     /v1/mixed_people/search
@@ -134,25 +136,31 @@ export async function searchLeads(
     contact_email_status: ['verified', 'guessed', 'unavailable'],
   };
 
-  const response = await fetch(APOLLO_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-Key': apiKey,
-    },
-    body: JSON.stringify(body),
+  // Apollo ist 429-heavy bei Search-Endpoints (siehe LECK-14). Wrap in
+  // retryApollo (5 Versuche, exponentielles Backoff) damit kurze Spikes
+  // keine ganzen Lead-Imports kosten.
+  const data = await retryApollo(async () => {
+    const response = await fetch(APOLLO_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[apollo] Full Apollo error response (${response.status}):`, errorText);
+      const err = new Error(
+        `Apollo API Fehler (${response.status}): ${errorText}`,
+      );
+      Object.assign(err, { status: response.status });
+      throw err;
+    }
+
+    return (await response.json()) as ApolloSearchResponse & { contacts?: ApolloLead[] };
   });
-
-  if (!response.ok) {
-    // Full error logging - Apollo 422 zeigt den neuen Endpoint-Pfad im Body.
-    const errorText = await response.text();
-    console.error(`[apollo] Full Apollo error response (${response.status}):`, errorText);
-    throw new Error(
-      `Apollo API Fehler (${response.status}): ${errorText}`
-    );
-  }
-
-  const data = (await response.json()) as ApolloSearchResponse & { contacts?: ApolloLead[] };
 
   // Apollo toggled zwischen `people` und `contacts` Root-Keys. Beide pruefen.
   const people = data.people ?? data.contacts ?? [];

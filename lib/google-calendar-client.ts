@@ -22,6 +22,8 @@
  * verschmutzen.
  */
 
+import { retryCalendar } from '@/lib/util/retry';
+
 // ─── Credentials + Auth ──────────────────────────────────────────────────
 
 export type CalendarCredentials = {
@@ -53,20 +55,24 @@ export async function getCalendarAccessToken(creds: CalendarCredentials): Promis
     grant_type: 'refresh_token',
   });
 
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
+  const data = await retryCalendar(async () => {
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      const err = new Error(
+        `Google Calendar OAuth token refresh failed: ${res.status} ${errText.substring(0, 300)}`,
+      );
+      Object.assign(err, { status: res.status });
+      throw err;
+    }
+
+    return (await res.json()) as { access_token?: string; error?: string; scope?: string; token_type?: string };
   });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(
-      `Google Calendar OAuth token refresh failed: ${res.status} ${errText.substring(0, 300)}`,
-    );
-  }
-
-  const data = (await res.json()) as { access_token?: string; error?: string; scope?: string; token_type?: string };
   if (!data.access_token) {
     throw new Error(`Google Calendar OAuth response missing access_token: ${data.error || 'unknown'}`);
   }
@@ -146,18 +152,22 @@ export async function listRecentEvents(
     `https://www.googleapis.com/calendar/v3/calendars/` +
     `${encodeURIComponent(calendarId)}/events?${params.toString()}`;
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  const data = await retryCalendar(async () => {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      const err = new Error(
+        `Google Calendar events.list failed: ${res.status} ${errText.substring(0, 300)}`,
+      );
+      Object.assign(err, { status: res.status });
+      throw err;
+    }
+
+    return (await res.json()) as CalendarEventsListResponse;
   });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(
-      `Google Calendar events.list failed: ${res.status} ${errText.substring(0, 300)}`,
-    );
-  }
-
-  const data = (await res.json()) as CalendarEventsListResponse;
   return data.items || [];
 }
 

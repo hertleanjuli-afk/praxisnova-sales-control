@@ -17,6 +17,8 @@
  * sieht welche Replies bereits im Tool angekommen sind.
  */
 
+import { retryGmail } from '@/lib/util/retry';
+
 // ─── OAuth2: Refresh Token → Access Token ────────────────────────────────
 
 export type GmailCredentials = {
@@ -51,20 +53,24 @@ export async function getAccessToken(creds: GmailCredentials): Promise<string> {
     grant_type: 'refresh_token',
   });
 
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
+  const data = await retryGmail(async () => {
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      const err = new Error(
+        `Gmail OAuth token refresh failed: ${res.status} ${errText.substring(0, 300)}`,
+      );
+      Object.assign(err, { status: res.status });
+      throw err;
+    }
+
+    return (await res.json()) as { access_token?: string; error?: string };
   });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(
-      `Gmail OAuth token refresh failed: ${res.status} ${errText.substring(0, 300)}`,
-    );
-  }
-
-  const data = (await res.json()) as { access_token?: string; error?: string };
   if (!data.access_token) {
     throw new Error(`Gmail OAuth response missing access_token: ${data.error || 'unknown'}`);
   }
@@ -314,15 +320,19 @@ export async function findLabelId(
   accessToken: string,
   labelName: string,
 ): Promise<string | null> {
-  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  const data = await retryGmail(async () => {
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) {
+      const err = new Error(`Gmail list labels failed: ${res.status}`);
+      Object.assign(err, { status: res.status });
+      throw err;
+    }
+
+    return (await res.json()) as { labels?: GmailLabel[] };
   });
-
-  if (!res.ok) {
-    throw new Error(`Gmail list labels failed: ${res.status}`);
-  }
-
-  const data = (await res.json()) as { labels?: GmailLabel[] };
   const labels = data.labels || [];
   const match = labels.find(l => l.name === labelName);
   return match?.id || null;

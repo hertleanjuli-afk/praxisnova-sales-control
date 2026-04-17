@@ -19,6 +19,8 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { isAuthorized, sendErrorNotification, writeStartLog, writeEndLog } from '@/lib/agent-runtime';
+import { retryApollo } from '@/lib/util/retry';
+import { observe } from '@/lib/observability/logger';
 
 export const maxDuration = 60;
 
@@ -244,27 +246,36 @@ async function fetchApolloContacts(
     prospected_by_current_team: ['no'],
   };
 
-  const res = await fetch(APOLLO_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache',
-      'X-Api-Key': apiKey,
-    },
-    body: JSON.stringify(body),
+  // Wrap in retryApollo: 5 Versuche mit exponential backoff (siehe
+  // lib/util/retry.ts retryApollo). Apollo ist 429-heavy bei Search-
+  // Endpoints; short Spikes sollen keine Lead-Imports kosten.
+  const data = await retryApollo(async () => {
+    const res = await fetch(APOLLO_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'X-Api-Key': apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      // Full response text logging (nicht mehr auf 200 Zeichen schneiden).
+      // Apollo wechselt URL und Request-Schema in kurzen Intervallen, und der
+      // gesamte Error-Text ist oft die einzige Quelle die uns sagt was Apollo
+      // diesmal erwartet. Siehe LECK-14 fuer History.
+      const text = await res.text();
+      console.error(`[apollo-sync] Full Apollo error response (${res.status}):`, text);
+      // Status annotieren damit defaultShouldRetry greift (429/5xx retryable,
+      // 4xx andere nicht).
+      const err = new Error(`Apollo API error ${res.status}: ${text}`);
+      Object.assign(err, { status: res.status });
+      throw err;
+    }
+
+    return await res.json();
   });
-
-  if (!res.ok) {
-    // Full response text logging (nicht mehr auf 200 Zeichen schneiden).
-    // Apollo wechselt URL und Request-Schema in kurzen Intervallen, und der
-    // gesamte Error-Text ist oft die einzige Quelle die uns sagt was Apollo
-    // diesmal erwartet. Siehe LECK-14 fuer History.
-    const text = await res.text();
-    console.error(`[apollo-sync] Full Apollo error response (${res.status}):`, text);
-    throw new Error(`Apollo API error ${res.status}: ${text}`);
-  }
-
-  const data = await res.json();
   // Apollo kann die Top-Level-Key unterschiedlich benennen: altes Schema war
   // `people`, bei `api_search` koennte es auch `contacts` oder anders heissen.
   // Wir pruefen beide bekannten Varianten und loggen die Root-Keys wenn nichts
@@ -298,6 +309,12 @@ export async function GET(request: NextRequest) {
   const today = new Date().toISOString().split('T')[0];
   console.log(`[apollo-sync] Starte Apollo-Sync fuer ${today}...`);
   await writeStartLog(runId, 'apollo_sync');
+  observe.info({
+    agent: 'lead_ingestor',
+    skill: 'apollo.prospect',
+    message: 'apollo-sync started',
+    context: { run_id: runId, date: today },
+  });
 
   try {
     // Determine which search config to use today (rotate daily)
@@ -313,15 +330,40 @@ export async function GET(request: NextRequest) {
 
     console.log(`[apollo-sync] Config: ${searchConfig.label}, Seite: ${page}`);
 
-    // Fetch from Apollo
+    // Fetch from Apollo. retryApollo (in fetchApolloContacts) handled schon
+    // 429/5xx/Network-Fehler mit 5 Retries. Wenn wir hier im catch landen,
+    // ist Apollo wirklich broken - Safe-NoOp Fallback: 0 Leads statt 500,
+    // damit der Cron nicht rot markiert wird und die restliche Pipeline
+    // (Prospect-Researcher etc.) weiter laeuft.
     let apolloContacts: ApolloContact[] = [];
     try {
       apolloContacts = await fetchApolloContacts(searchConfig, page, apiKey);
     } catch (err) {
-      console.error(`[apollo-sync] Apollo API Fehler:`, err);
-      await sendErrorNotification('Apollo Sync', String(err), Math.round((Date.now() - startTime) / 1000));
+      const duration_ms = Date.now() - startTime;
+      console.error(`[apollo-sync] Apollo API Fehler nach 5 Retries:`, err);
+      // observe.error triggert ntfy + Slack fuer sofortige Angie-Sicht
+      await observe.error({
+        agent: 'lead_ingestor',
+        skill: 'apollo.prospect',
+        message: 'apollo-sync failed after retries, safe-noop',
+        context: {
+          run_id: runId,
+          err: err instanceof Error ? err.message : String(err),
+          attempts: (err as { attempts?: number }).attempts,
+          critical: true,
+        },
+        duration_ms,
+      });
+      await sendErrorNotification('Apollo Sync', String(err), Math.round(duration_ms / 1000));
       await writeEndLog(runId, 'apollo_sync', 'error', { error: String(err), stage: 'fetch_apollo' });
-      return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+      // Safe-NoOp: 200 OK mit inserted=0 + fallback-Flag, kein 500-Trigger
+      // fuer Health-Checker. Angie sieht es an der ntfy-Notification.
+      return NextResponse.json({
+        ok: true,
+        inserted: 0,
+        fallback: 'safe-noop',
+        reason: 'apollo_unavailable_after_retries',
+      });
     }
 
     console.log(`[apollo-sync] Apollo hat ${apolloContacts.length} Kontakte zurueckgegeben`);
@@ -456,6 +498,19 @@ export async function GET(request: NextRequest) {
       summary: `${inserted} neue Leads (${skippedDupe} Duplikate, ${skippedNoName} ohne Name) via ${searchConfig.label}`,
     });
 
+    observe.info({
+      agent: 'lead_ingestor',
+      skill: 'apollo.prospect',
+      message: 'apollo-sync completed',
+      context: {
+        run_id: runId,
+        inserted,
+        skipped_dupe: skippedDupe,
+        config: searchConfig.label,
+      },
+      duration_ms: Date.now() - startTime,
+    });
+
     return NextResponse.json({
       ok: true,
       inserted,
@@ -468,6 +523,16 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.error(`[apollo-sync] Unerwarteter Fehler:`, err);
+    await observe.error({
+      agent: 'lead_ingestor',
+      skill: 'apollo.prospect',
+      message: 'apollo-sync unexpected error (post-fetch)',
+      context: {
+        run_id: runId,
+        err: err instanceof Error ? err.message : String(err),
+      },
+      duration_ms: Date.now() - startTime,
+    });
     await writeEndLog(runId, 'apollo_sync', 'error', { error: String(err), elapsed_seconds: elapsed });
     await sendErrorNotification('Apollo Sync', String(err), elapsed);
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });

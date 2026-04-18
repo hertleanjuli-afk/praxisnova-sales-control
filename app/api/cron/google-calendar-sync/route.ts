@@ -35,6 +35,10 @@ import {
   type CalendarEvent,
 } from '@/lib/google-calendar-client';
 import { observe } from '@/lib/observability/logger';
+import { reportAgentFailure, reportAgentSuccess } from '@/lib/observability/alert-state';
+
+// Logischer Agent-Name fuer alert-state Dedup (LECK-17).
+const AGENT_NAME = 'calendar_oauth';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -155,14 +159,13 @@ export async function runGoogleCalendarSync(): Promise<{
   const creds = readCalendarCredentialsFromEnv();
   if (!creds) {
     console.warn('[google-calendar-sync] ENV vars not configured - skipping');
-    // observe.error mit context.critical=true -> ntfy Priority=high
-    // fuer sofortige Angie-Sicht auf iPhone. Calendar-OAuth ist historisch
-    // fragil (Token-Refresh), deshalb bewusst als kritisch markiert.
-    await observe.error({
-      agent: 'calendar_oauth',
-      skill: 'operations.runbook',
-      message: 'google-calendar OAuth not configured, safe-noop',
-      context: {
+    // LECK-17: vorher observe.error direkt -> ntfy-Spam. Jetzt ueber
+    // reportAgentFailure mit 3-fail-threshold + 60min cooldown.
+    await reportAgentFailure(
+      AGENT_NAME,
+      'google-calendar OAuth not configured, safe-noop',
+      {
+        skill: 'operations.runbook',
         run_id: runId,
         reason: 'env_missing',
         missing_vars: [
@@ -171,10 +174,9 @@ export async function runGoogleCalendarSync(): Promise<{
           !process.env.GOOGLE_CALENDAR_REFRESH_TOKEN && 'REFRESH_TOKEN',
           !process.env.GOOGLE_CALENDAR_ID && 'CALENDAR_ID',
         ].filter(Boolean),
-        critical: true,
+        duration_ms: Date.now() - startTime,
       },
-      duration_ms: Date.now() - startTime,
-    });
+    );
     await writeEndLog(runId, 'google_calendar_sync', 'partial', {
       status: 'not_configured',
       summary: 'Google Calendar OAuth nicht eingerichtet - siehe Agent build/GOOGLE-CALENDAR-ENV-WERTE.md',
@@ -312,6 +314,10 @@ export async function runGoogleCalendarSync(): Promise<{
       duration_ms: Date.now() - startTime,
     });
 
+    // LECK-17: Success zaehlt fuer alert-state (reset consecutive_failures).
+    // Wenn ein Recovery nach Fail-Run folgt, feuert EIN recovery-Push.
+    await reportAgentSuccess(AGENT_NAME, { run_id: runId });
+
     return {
       status: errorList.length > 0 ? 'partial' : 'completed',
       summary,
@@ -324,21 +330,20 @@ export async function runGoogleCalendarSync(): Promise<{
     };
   } catch (err) {
     console.error('[google-calendar-sync] Fatal error:', err);
-    // observe.error mit ntfy-Priority=high. Calendar-Fehler sind historisch
-    // fragil (Token-Refresh-401) und koennen Real Estate Pilot Buchungen
-    // verpassen. Angie soll es sofort auf iPhone sehen.
-    await observe.error({
-      agent: 'calendar_oauth',
-      skill: 'operations.runbook',
-      message: 'google-calendar-sync fatal error',
-      context: {
+    // LECK-17: State-basiertes Alerting. Push erst nach 3 Fails und dann
+    // nur 1x pro 60min. Calendar-OAuth-Fehler fallen historisch in
+    // dauerhaften-stuck Zustand, einmal alerten reicht bis Reauth.
+    await reportAgentFailure(
+      AGENT_NAME,
+      'google-calendar-sync fatal error',
+      {
+        skill: 'operations.runbook',
         run_id: runId,
         err: err instanceof Error ? err.message : String(err),
         attempts: (err as { attempts?: number }).attempts,
-        critical: true,
+        duration_ms: Date.now() - startTime,
       },
-      duration_ms: Date.now() - startTime,
-    });
+    );
     await writeEndLog(runId, 'google_calendar_sync', 'error', {
       error: String(err),
       summary: `Fataler Fehler: ${String(err).substring(0, 200)}`,

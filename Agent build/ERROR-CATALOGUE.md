@@ -28,12 +28,36 @@ Tech-Gaps-T3-Adoption-PR #31 hat `observe.error({ critical: true })` in den Fata
 - **Dauer bis Fix wirksam:** abhaengig von Vercel-Deploy ca. 30-90 Sekunden
 - **Rollback:** Re-add der Zeile in vercel.json. Falls der Underlying-OAuth-Fehler nicht gefixt ist, triggert der Spam sofort wieder
 
-### Phase 2: Root-Cause-Diagnose (geplant)
+### Phase 2: Root-Cause-Diagnose (abgeschlossen 2026-04-18)
 
-- Cron-Endpoint manuell via curl aufrufen mit Authorization: Bearer CRON_SECRET
-- Exakte Fehlermeldung sammeln (invalid_grant vs scope-mismatch vs no-token)
-- ENV-Check in Vercel: GOOGLE_CALENDAR_CLIENT_ID, _SECRET, _REFRESH_TOKEN auf Production + Preview
-- Findings werden in diesen Katalog-Eintrag ergaenzt
+**Primaer-Befund (lokale ENV-Analyse):**
+
+`.env.local` enthaelt:
+- `GOOGLE_CALENDAR_CLIENT_SECRET` (gesetzt)
+- `GOOGLE_CALENDAR_REFRESH_TOKEN` (gesetzt)
+- `GOOGLE_CALENDAR_ID` (gesetzt)
+- **`GOOGLE_CALENDAR_CLIENT_ID` FEHLT**
+
+In `lib/google-calendar-client.ts:38-39` steht:
+```
+const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID || process.env.GMAIL_CLIENT_ID;
+const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET;
+```
+
+Der Fallback-Pattern nutzt dann **Gmail Client-ID mit Calendar Client-Secret** beim Token-Refresh. Das ist ein **hybrider OAuth-State**, der garantiert `invalid_grant` oder `invalid_client` zurueckgibt, weil Google die Client-ID und das Client-Secret als Paar validiert. Dasselbe gilt wenn Vercel-Production nur `GOOGLE_CALENDAR_CLIENT_SECRET` aber keine `GOOGLE_CALENDAR_CLIENT_ID` hat.
+
+**Sekundaer-Hypothese (aus 869b83f commit-msg, 2026-04-12):**
+Scope-Mismatch. Selbst wenn der Client-ID-Fallback "funktioniert", ist der Refresh-Token moeglicherweise mit `gmail.modify` Scope generiert (weil er als Teil des Gmail-Flows geholt wurde), nicht mit `calendar.readonly`. events.list wirft dann 403.
+
+**Warum der Spam erst seit 2026-04-18 passiert:**
+Das OAuth-Problem ist latent seit mindestens 2026-04-12. Tech-Gaps-T3-Adoption (PR #31) hat `observe.error({ critical: true })` in den Fatal-Catch eingebaut, was ntfy-Priority=high triggert. Ohne State-basiertes Alerting (Dedup + Threshold) feuert jeder Cron-Run einen Push.
+
+**Nicht-verifizierte Punkte (werden nach Angies Reauth gefuellt):**
+- Exakte Google-Error-Response (`invalid_grant` vs `invalid_client` vs scope-specific)
+- Vercel-Production-ENV-Snapshot (Angie muss `vercel env ls production` laufen lassen)
+- Historisch: wann wurde der aktuelle GOOGLE_CALENDAR_REFRESH_TOKEN generiert, mit welchem Client
+
+**Fix-Pfad:** Phase 3 (Reauth-Route) loest das Problem unabhaengig von der exakten aktuellen Fehler-Auspraegung, weil sie einen sauberen neuen OAuth-Flow mit korrektem Scope startet und den Token frisch schreibt.
 
 ### Phase 3: Permanenter Fix (geplant)
 

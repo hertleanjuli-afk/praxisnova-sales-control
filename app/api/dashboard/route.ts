@@ -179,13 +179,17 @@ export async function GET(request: NextRequest) {
     `;
 
     // ── Leads by sector ──────────────────────────────────────────────────────
+    // Audit 2026-04-20 LECK-18: der fruehere Filter `WHERE sequence_type IS NOT NULL`
+    // produzierte Summe(Branchen) < Alle-Lead-Count. Forensik 2026-04-11 zeigte
+    // Alle=0 vs Immobilien=100 weil KPI-Cards ALLE Leads zaehlen, Sector-Query
+    // aber nur non-NULL. Fix: Filter raus, COALESCE gruppiert NULL als
+    // 'allgemein'. Damit ergibt Summe(Branchen) = Total.
     const sectorBreakdown = await sql`
       SELECT
         COALESCE(sequence_type, 'allgemein') AS sector,
         COUNT(*) AS count
       FROM leads
-      WHERE sequence_type IS NOT NULL
-      GROUP BY sequence_type
+      GROUP BY COALESCE(sequence_type, 'allgemein')
       ORDER BY count DESC
     `;
 

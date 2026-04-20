@@ -126,3 +126,58 @@ test('apollo-adoption: network-error retried per Apollo-Config', async () => {
     restoreConsole();
   }
 });
+
+test('apollo-adoption: 422 deprecation signal fails immediately (single attempt)', async () => {
+  // Apollo nutzt 422 um auf deprecated Endpoint-Pfade hinzuweisen (siehe
+  // lib/apollo.ts URL-History). Retry waere sinnlos weil der Pfad geaendert
+  // werden muss, nicht die Zeit abzuwarten ist. Der Wrapper muss sauber
+  // throwen, damit der Cron-Handler den Error an observe.error + ntfy
+  // weitergibt statt still zu scheitern.
+  silenceConsole();
+  try {
+    let calls = 0;
+    const call = async () => {
+      calls += 1;
+      const err = new Error('Apollo API Fehler (422): endpoint deprecated, use /api/v1/mixed_people/api_search');
+      Object.assign(err, { status: 422 });
+      throw err;
+    };
+    let thrown: unknown;
+    try {
+      await retryApollo(call, { baseDelayMs: 1, jitterFactor: 0 });
+    } catch (e) {
+      thrown = e;
+    }
+    assert.equal(calls, 1, 'should not retry on 422');
+    assert.ok(thrown instanceof Error);
+    assert.equal((thrown as { status: number }).status, 422);
+    assert.equal((thrown as { attempts: number }).attempts, 1);
+    assert.match((thrown as Error).message, /422/);
+  } finally {
+    restoreConsole();
+  }
+});
+
+test('apollo-adoption: 422 with status only in message (lib/apollo.ts style) fails immediately', async () => {
+  // lib/apollo.ts throwt Error mit `(422)` im Text ohne .status-Property.
+  // defaultShouldRetry parst den Code aus der Message. Das muss auch
+  // ohne .status-Annotation non-retryable sein.
+  silenceConsole();
+  try {
+    let calls = 0;
+    const call = async () => {
+      calls += 1;
+      throw new Error('Apollo API Fehler (422): Unprocessable Entity');
+    };
+    let thrown: unknown;
+    try {
+      await retryApollo(call, { baseDelayMs: 1, jitterFactor: 0 });
+    } catch (e) {
+      thrown = e;
+    }
+    assert.equal(calls, 1, 'message-only 422 should not retry');
+    assert.equal((thrown as { attempts: number }).attempts, 1);
+  } finally {
+    restoreConsole();
+  }
+});

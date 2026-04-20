@@ -6,6 +6,27 @@ Format: [Datum] Paket-Name / Kurzbeschreibung.
 
 ---
 
+## [2026-04-20] Batch-A A.1 Apollo 422-Test-Coverage (PR #35 gemergt)
+
+- **NEU** `__tests__/helpers/apollo-adoption.test.ts`: zwei explizite 422-Test-Cases (mit .status-Property und nur-in-Message), beide pruefen non-retryable-Verhalten. Insgesamt 76 Helper-Tests gruen.
+- Hintergrund: Apollo nutzt 422 als Deprecation-Signal fuer Endpoint-Pfade (lib/apollo.ts URL-History). Retry sinnlos, Wrapper muss sauber werfen damit observe.error + ntfy greifen.
+- Kein Production-Code geaendert, nur Test-Gap-Schluss. Hauptarbeit zu A.1 (Retry + Observe + Safe-NoOp) bereits via PR #29 (dea4e92, 2026-04-17) auf main.
+- Merge-Commit: `af48b78`
+
+## [2026-04-20] Batch-A A.3 Gmail Domain-Match Helper + Amelie-Case Tests
+
+Amelie-Case Root-Cause aus 2026-04-13 Forensik: Reply von anderem Absender gleicher Firmen-Domain wurde im Gmail-Reply-Detector nicht gematcht. Logik war seit PR #30 (9d21bcd) bereits inline in der Route, aber ohne Test-Abdeckung.
+
+- **NEU** `lib/gmail/domain-match.ts`: exportiert `FREE_EMAIL_DOMAINS` (16 Provider) und `extractCompanyDomain(email)` Helper. Pure Funktion ohne DB- oder Netz-Abhaengigkeiten.
+- **GEAENDERT** `app/api/cron/gmail-reply-sync/route.ts`: importiert Helper, ersetzt lokalen `FREE_EMAIL_DOMAINS` Const-Block und Inline-Split-Logik (~10 Zeilen entfernt, 1 Zeile hinzugefuegt). Verhalten identisch, Mechanik testbar.
+- **NEU** 5 Test-Cases in `__tests__/helpers/gmail-adoption.test.ts`:
+  - Amelie-Case: Marco und Amelie liefern die gleiche Domain
+  - Case-insensitive (From-Header Varianten)
+  - Free-Mail-Filter (gmail, web.de, gmx, t-online, icloud)
+  - Malformed (kein-at, zwei-at, leer)
+  - Regression-Guard: `realestatepilot.com` NICHT in FREE_EMAIL_DOMAINS
+- 81 Helper-Tests gruen total (76 + 5 neu).
+
 ## [2026-04-18] P0 Hotfix + Permanenter Fix LECK-17 / Calendar OAuth ntfy-Spam
 
 **Incident:** Angie bekam alle 5 Min eine ntfy-Push mit Calendar-OAuth-Fehler. Amplifier: Tech-Gaps-T3-Adoption (PR #31) hatte `observe.error({ critical: true })` ohne State-Dedup eingebaut. Root-Cause: latenter OAuth-Client-ID-Mismatch (Scope/ID-Paar, seit 2026-04-12 commit 869b83f bekannt, nie verifiziert).
@@ -21,15 +42,15 @@ Format: [Datum] Paket-Name / Kurzbeschreibung.
 - Beide in ERROR-CATALOGUE.md dokumentiert.
 
 ### Phase 3 Permanenter Fix (PR fix/calendar-oauth-reset)
-- **NEU** `app/api/admin/calendar-reauth/route.ts` — GET, redirect auf Google OAuth2 mit `access_type=offline&prompt=consent` (erzwingt neuen Refresh-Token), Scope `calendar.readonly`.
-- **NEU** `app/api/admin/calendar-reauth/callback/route.ts` — tauscht Code gegen Tokens, HTML-Response zeigt Refresh-Token zum Copy-Paste. Kein Logging des Tokens.
-- **NEU** `db-migration-v8-agent-error-state.sql` — `agent_error_state` Tabelle (nicht ausgefuehrt, Angie muss auf Neon laufen lassen).
-- **NEU** `lib/observability/alert-state.ts` — `reportAgentFailure` / `reportAgentSuccess` mit 3-fail-threshold und 60min-cooldown. Fire bei Threshold-reached. Recovery-Push bei Success nach vorherigen Alerts.
-- **GEAENDERT** `app/api/cron/google-calendar-sync/route.ts` — `observe.error`-Calls durch `reportAgentFailure` ersetzt, Success ruft `reportAgentSuccess`.
-- **GEAENDERT** `vercel.json` — calendar-sync cron wieder hinzugefuegt mit `0 */4 * * *` (alle 4h statt 5 Min). Safe dank alert-state Dedup.
-- **NEU** `Agent build/RUNBOOK-CALENDAR-AGENT.md` — vollstaendiger Incident-Triage + Reauth-Flow + ENV-Check + State-Reset.
-- **NEU** `__tests__/helpers/alert-state.test.ts` — 8 Tests, alle gruen. Insgesamt 82 Tests.
-- **NEU** `Agent build/CLAUDE-CODE-REPORT-2026-04-17-NTFY-CALENDAR.md` — Session-Report.
+- **NEU** `app/api/admin/calendar-reauth/route.ts`, GET redirect auf Google OAuth2 mit `access_type=offline&prompt=consent` (erzwingt neuen Refresh-Token), Scope `calendar.readonly`.
+- **NEU** `app/api/admin/calendar-reauth/callback/route.ts`, tauscht Code gegen Tokens, HTML-Response zeigt Refresh-Token zum Copy-Paste. Kein Logging des Tokens.
+- **NEU** `db-migration-v8-agent-error-state.sql`, `agent_error_state` Tabelle (nicht ausgefuehrt, Angie muss auf Neon laufen lassen).
+- **NEU** `lib/observability/alert-state.ts`, `reportAgentFailure` / `reportAgentSuccess` mit 3-fail-threshold und 60min-cooldown. Fire bei Threshold-reached. Recovery-Push bei Success nach vorherigen Alerts.
+- **GEAENDERT** `app/api/cron/google-calendar-sync/route.ts`, `observe.error`-Calls durch `reportAgentFailure` ersetzt, Success ruft `reportAgentSuccess`.
+- **GEAENDERT** `vercel.json`, calendar-sync cron wieder hinzugefuegt mit `0 */4 * * *` (alle 4h statt 5 Min). Safe dank alert-state Dedup.
+- **NEU** `Agent build/RUNBOOK-CALENDAR-AGENT.md`, vollstaendiger Incident-Triage + Reauth-Flow + ENV-Check + State-Reset.
+- **NEU** `__tests__/helpers/alert-state.test.ts`, 8 Tests, alle gruen. Insgesamt 82 Tests.
+- **NEU** `Agent build/CLAUDE-CODE-REPORT-2026-04-17-NTFY-CALENDAR.md`, Session-Report.
 
 ### Action Items fuer Angie
 1. DB-Migration `db-migration-v8-agent-error-state.sql` auf Neon ausfuehren.

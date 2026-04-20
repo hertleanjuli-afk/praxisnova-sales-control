@@ -20,6 +20,10 @@ import {
   type MemoryFact,
 } from '../../lib/memory/hygiene.ts';
 import { retryGmail } from '../../lib/util/retry.ts';
+import {
+  FREE_EMAIL_DOMAINS,
+  extractCompanyDomain,
+} from '../../lib/gmail/domain-match.ts';
 
 // Mirror der DB-freien Facts aus lib/memory/agent-facts.ts
 const mockOauthFact: MemoryFact = {
@@ -162,4 +166,67 @@ test('gmail-adoption: retryGmail success after 503 then ok', async () => {
   } finally {
     restoreConsole();
   }
+});
+
+// ─── Domain-Match fuer unternehmensweite Reply-Detection (Amelie-Case) ─────
+//
+// Szenario aus 2026-04-13 Forensik: Marco Hoffmann (m.hoffmann@realestatepilot.com)
+// erhielt Sequenz-Email. Die Antwort kam von Amelie Chwalinski
+// (amelie.chwalinski@realestatepilot.com), weil Marco intern weitergeleitet
+// hat. Per-Email-Match im Gmail-Reply-Sync fand nichts, weil die Reply-
+// Absender-Email nicht im leads.email stand. Ergebnis: die Sequenz an Marco
+// lief weiter obwohl die Firma bereits geantwortet hatte.
+//
+// Fix-Mechanismus: extractCompanyDomain liefert fuer beide Adressen die
+// gleiche Domain "realestatepilot.com". Die Route nutzt die Domain um
+// aktive Leads der gleichen Firma zu finden und stoppt deren Sequenzen.
+
+test('domain-match: Amelie-Case extrahiert gleiche Firmen-Domain wie Marco', () => {
+  const marcoEmail = 'm.hoffmann@realestatepilot.com';
+  const amelieEmail = 'amelie.chwalinski@realestatepilot.com';
+
+  const marcoDomain = extractCompanyDomain(marcoEmail);
+  const amelieDomain = extractCompanyDomain(amelieEmail);
+
+  assert.equal(marcoDomain, 'realestatepilot.com');
+  assert.equal(amelieDomain, 'realestatepilot.com');
+  assert.equal(
+    marcoDomain,
+    amelieDomain,
+    'Beide Emails derselben Firma muessen die gleiche Domain liefern',
+  );
+});
+
+test('domain-match: Amelie-Case ist case-insensitive (From-Header Varianten)', () => {
+  // Gmail liefert die From-Email manchmal mit gemischter Grossschreibung
+  // (z.B. aus Display-Name Parsing). Der Match muss case-insensitive sein.
+  const mixedCase = 'Amelie.Chwalinski@ReaLEstatepiLOT.com';
+  assert.equal(extractCompanyDomain(mixedCase), 'realestatepilot.com');
+});
+
+test('domain-match: Free-Mail-Adressen liefern null (kein Firmen-Match)', () => {
+  // Ohne den Free-Mail-Filter wuerde jede gmail.com-Antwort als
+  // "Firmen-Kollege" von jedem anderen gmail.com-Lead gewertet und
+  // deren Sequenzen flaechendeckend stoppen.
+  assert.equal(extractCompanyDomain('someone@gmail.com'), null);
+  assert.equal(extractCompanyDomain('kontakt@web.de'), null);
+  assert.equal(extractCompanyDomain('test@gmx.de'), null);
+  assert.equal(extractCompanyDomain('buero@t-online.de'), null);
+  assert.equal(extractCompanyDomain('user@icloud.com'), null);
+});
+
+test('domain-match: malformed Emails liefern null', () => {
+  assert.equal(extractCompanyDomain('kein-at-zeichen'), null);
+  assert.equal(extractCompanyDomain('zwei@at@zeichen.com'), null);
+  assert.equal(extractCompanyDomain('leer@'), null);
+  assert.equal(extractCompanyDomain(''), null);
+});
+
+test('domain-match: FREE_EMAIL_DOMAINS enthaelt nicht realestatepilot.com', () => {
+  // Regression-Absicherung: keine Firmen-Domain darf versehentlich in
+  // die Free-Mail-Liste rutschen.
+  assert.equal(FREE_EMAIL_DOMAINS.has('realestatepilot.com'), false);
+  // Gegen-Probe: gaengige Free-Mail-Domains sind drin
+  assert.equal(FREE_EMAIL_DOMAINS.has('gmail.com'), true);
+  assert.equal(FREE_EMAIL_DOMAINS.has('web.de'), true);
 });

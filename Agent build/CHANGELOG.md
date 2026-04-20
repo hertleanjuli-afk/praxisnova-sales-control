@@ -27,6 +27,39 @@ Amelie-Case Root-Cause aus 2026-04-13 Forensik: Reply von anderem Absender gleic
   - Regression-Guard: `realestatepilot.com` NICHT in FREE_EMAIL_DOMAINS
 - 81 Helper-Tests gruen total (76 + 5 neu).
 
+## [2026-04-18] P0 Hotfix + Permanenter Fix LECK-17 / Calendar OAuth ntfy-Spam
+
+**Incident:** Angie bekam alle 5 Min eine ntfy-Push mit Calendar-OAuth-Fehler. Amplifier: Tech-Gaps-T3-Adoption (PR #31) hatte `observe.error({ critical: true })` ohne State-Dedup eingebaut. Root-Cause: latenter OAuth-Client-ID-Mismatch (Scope/ID-Paar, seit 2026-04-12 commit 869b83f bekannt, nie verifiziert).
+
+### Phase 1 Hotfix (PR #33, gemergt)
+- **GEAENDERT** `vercel.json`: calendar-sync cron entfernt. Deploy stoppt Spam nach 30-90 Sek.
+- **NEU** `Agent build/ERROR-CATALOGUE.md` mit LECK-17-Eintrag (Root-Cause-Hypothese, Phasen-Plan, Lessons).
+- Sofort-ntfy "spam stopped" an Angie.
+
+### Phase 2 Root-Cause-Diagnose
+- `.env.local` Analyse: `GOOGLE_CALENDAR_CLIENT_ID` fehlt -> Lib-Fallback kombiniert Gmail-Client-ID mit Calendar-Client-Secret = invalid_grant garantiert.
+- Sekundaer-Hypothese: Scope-Mismatch (gmail.modify statt calendar.readonly).
+- Beide in ERROR-CATALOGUE.md dokumentiert.
+
+### Phase 3 Permanenter Fix (PR fix/calendar-oauth-reset)
+- **NEU** `app/api/admin/calendar-reauth/route.ts`, GET redirect auf Google OAuth2 mit `access_type=offline&prompt=consent` (erzwingt neuen Refresh-Token), Scope `calendar.readonly`.
+- **NEU** `app/api/admin/calendar-reauth/callback/route.ts`, tauscht Code gegen Tokens, HTML-Response zeigt Refresh-Token zum Copy-Paste. Kein Logging des Tokens.
+- **NEU** `db-migration-v8-agent-error-state.sql`, `agent_error_state` Tabelle (nicht ausgefuehrt, Angie muss auf Neon laufen lassen).
+- **NEU** `lib/observability/alert-state.ts`, `reportAgentFailure` / `reportAgentSuccess` mit 3-fail-threshold und 60min-cooldown. Fire bei Threshold-reached. Recovery-Push bei Success nach vorherigen Alerts.
+- **GEAENDERT** `app/api/cron/google-calendar-sync/route.ts`, `observe.error`-Calls durch `reportAgentFailure` ersetzt, Success ruft `reportAgentSuccess`.
+- **GEAENDERT** `vercel.json`, calendar-sync cron wieder hinzugefuegt mit `0 */4 * * *` (alle 4h statt 5 Min). Safe dank alert-state Dedup.
+- **NEU** `Agent build/RUNBOOK-CALENDAR-AGENT.md`, vollstaendiger Incident-Triage + Reauth-Flow + ENV-Check + State-Reset.
+- **NEU** `__tests__/helpers/alert-state.test.ts`, 8 Tests, alle gruen. Insgesamt 82 Tests.
+- **NEU** `Agent build/CLAUDE-CODE-REPORT-2026-04-17-NTFY-CALENDAR.md`, Session-Report.
+
+### Action Items fuer Angie
+1. DB-Migration `db-migration-v8-agent-error-state.sql` auf Neon ausfuehren.
+2. Reauth-Flow durchlaufen (Runbook RUNBOOK-CALENDAR-AGENT.md Schritt 3), neuen Refresh-Token in Vercel-ENV setzen.
+3. Naechster Cron-Run in 4h = erster Test. Recovery-Push erwartet.
+
+### Skills genutzt
+engineering.incident-response, engineering.debug, engineering.system-design (alert-state-Interface), operations.runbook (RUNBOOK-Doc), engineering.code-review.
+
 ---
 
 ## [2026-04-18] Tech-Gaps Adoption Wave 2 / Apollo, Gmail, Calendar (PRs offen)

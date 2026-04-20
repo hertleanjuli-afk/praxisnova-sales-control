@@ -6,6 +6,14 @@ Format: [Datum] Paket-Name / Kurzbeschreibung.
 
 ---
 
+## [2026-04-20] B1.b Dashboard Sector-Filter Fix (LECK-18)
+
+Audit 2026-04-20 hat den Alle-vs-Branchen-Bug aus 2026-04-11 Forensik im Code reproduziert: `app/api/dashboard/route.ts:187` hatte `WHERE sequence_type IS NOT NULL`, KPI-Cards zaehlten jedoch alle Leads. Folge: Summe(Branchen) < Total, `allgemein`-Bucket unsichtbar.
+
+- **GEAENDERT** `app/api/dashboard/route.ts`: Filter entfernt, `GROUP BY COALESCE(sequence_type, 'allgemein')` ersetzt `GROUP BY sequence_type`. NULL-Rows aggregieren jetzt korrekt zum `allgemein`-Bucket.
+- **NEU** `__tests__/helpers/dashboard-sector-regression.test.ts`: 3 Regression-Tests (Query-Shape-Guard gegen Bug-Wiederkehr, COALESCE-Pattern in SELECT und GROUP BY, Sum-of-Sectors-Invariante). Insgesamt 92 Helper-Tests gruen.
+- Acceptance: Dashboard-Widget zeigt jetzt Summe(Branchen) == Alle fuer jedes Zeitfenster.
+
 ## [2026-04-20] Batch-A A.1 Apollo 422-Test-Coverage (PR #35 gemergt)
 
 - **NEU** `__tests__/helpers/apollo-adoption.test.ts`: zwei explizite 422-Test-Cases (mit .status-Property und nur-in-Message), beide pruefen non-retryable-Verhalten. Insgesamt 76 Helper-Tests gruen.

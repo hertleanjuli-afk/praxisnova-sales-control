@@ -1,6 +1,6 @@
 # PraxisNova Sales Control
 
-Internes Sales-Dashboard für Lead-Tracking, E-Mail-Sequenzen und DSGVO-konformes Abonnement-Management.
+Internes Sales-Dashboard fuer Lead-Tracking, E-Mail-Sequenzen und Abonnement-Management mit Double-Opt-In und Unsubscribe-Handling.
 
 ## Features
 

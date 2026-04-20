@@ -1,6 +1,6 @@
 /**
  * PraxisNova AI — Website Click Tracker
- * DSGVO-konform: Nur anonyme Visitor-ID, keine IP, kein Name ohne Einwilligung
+ * Nur anonyme Visitor-ID, keine IP, kein Name ohne Einwilligung
  *
  * Einbindung auf praxisnovaai.com:
  * <script src="https://praxisnova-sales-control.vercel.app/tracker.js" defer></script>

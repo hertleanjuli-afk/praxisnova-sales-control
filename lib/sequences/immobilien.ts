@@ -16,7 +16,7 @@ export const immobilienSequence: SequenceStep[] = [
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>wie viel Geld steckt bei {{company_name}} gerade in &uuml;berf&auml;lligen Forderungen?</p>
 <p>Mietausf&auml;lle, offene Provisionen, versp&auml;tete Nebenkostennachzahlungen &ndash; bei vielen Immobilienunternehmen summiert sich das auf f&uuml;nfstellige Betr&auml;ge.</p>
-<p>Wir haben ein automatisches 3-Stufen-Mahnsystem gebaut. Von der freundlichen Erinnerung bis zur f&ouml;rmlichen Mahnung. L&auml;uft im Hintergrund, DSGVO-konform.</p>
+<p>Wir haben ein automatisches 3-Stufen-Mahnsystem gebaut. Von der freundlichen Erinnerung bis zur foermlichen Mahnung. Laeuft im Hintergrund.</p>
 <p>F&uuml;r 3&nbsp;Unternehmen richten wir das kostenlos ein. Interesse?</p>
 <p>Antworten Sie einfach auf diese E-Mail.</p>
 {{SIGNATURE}}

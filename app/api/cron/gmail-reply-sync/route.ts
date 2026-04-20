@@ -60,6 +60,7 @@ import { detectOOO } from '@/lib/ooo-detector';
 import { observe } from '@/lib/observability/logger';
 import { verifyMemoryFacts, getStaleFacts } from '@/lib/memory/hygiene';
 import { replyDetectorFacts } from '@/lib/memory/agent-facts';
+import { extractCompanyDomain } from '@/lib/gmail/domain-match';
 
 export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
@@ -74,14 +75,6 @@ const MAX_MESSAGES_PER_RUN = 100;
 // Name des Labels das auf verarbeitete Mails gesetzt wird.
 // Erscheint in Angies Gmail-Oberflaeche als Tag.
 const PROCESSED_LABEL_NAME = 'praxisnova-processed';
-
-// Free-Mail-Domains die beim Domain-Matching uebersprungen werden.
-const FREE_EMAIL_DOMAINS = new Set([
-  'gmail.com', 'web.de', 'gmx.de', 'gmx.net', 'yahoo.com',
-  'hotmail.com', 'outlook.com', 't-online.de', 'freenet.de',
-  'posteo.de', 'icloud.com', 'live.de', 'live.com', 'aol.com',
-  'mail.de', 'protonmail.com',
-]);
 
 // ─── Reply-Verarbeitung (echter Reply, kein OOO) ─────────────────────────
 
@@ -435,10 +428,9 @@ export async function GET(request: NextRequest) {
 
         if (leads.length === 0) {
           // --- Domain-based matching: check if a colleague from the same company replied ---
-          const emailParts = fromEmail.split('@');
-          const domain = emailParts.length === 2 ? emailParts[1].toLowerCase() : null;
+          const domain = extractCompanyDomain(fromEmail);
 
-          if (domain && !FREE_EMAIL_DOMAINS.has(domain)) {
+          if (domain) {
             const domainLeads = await sql`
               SELECT id, company, hubspot_contact_id, signal_email_reply, first_name, last_name
               FROM leads

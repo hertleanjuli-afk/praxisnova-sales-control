@@ -6,6 +6,29 @@ Format: [Datum] Paket-Name / Kurzbeschreibung.
 
 ---
 
+## [2026-04-20] Batch-A A.1 Apollo 422-Test-Coverage (PR #35 gemergt)
+
+- **NEU** `__tests__/helpers/apollo-adoption.test.ts`: zwei explizite 422-Test-Cases (mit .status-Property und nur-in-Message), beide pruefen non-retryable-Verhalten. Insgesamt 76 Helper-Tests gruen.
+- Hintergrund: Apollo nutzt 422 als Deprecation-Signal fuer Endpoint-Pfade (lib/apollo.ts URL-History). Retry sinnlos, Wrapper muss sauber werfen damit observe.error + ntfy greifen.
+- Kein Production-Code geaendert, nur Test-Gap-Schluss. Hauptarbeit zu A.1 (Retry + Observe + Safe-NoOp) bereits via PR #29 (dea4e92, 2026-04-17) auf main.
+- Merge-Commit: `af48b78`
+
+## [2026-04-20] Batch-A A.3 Gmail Domain-Match Helper + Amelie-Case Tests
+
+Amelie-Case Root-Cause aus 2026-04-13 Forensik: Reply von anderem Absender gleicher Firmen-Domain wurde im Gmail-Reply-Detector nicht gematcht. Logik war seit PR #30 (9d21bcd) bereits inline in der Route, aber ohne Test-Abdeckung.
+
+- **NEU** `lib/gmail/domain-match.ts`: exportiert `FREE_EMAIL_DOMAINS` (16 Provider) und `extractCompanyDomain(email)` Helper. Pure Funktion ohne DB- oder Netz-Abhaengigkeiten.
+- **GEAENDERT** `app/api/cron/gmail-reply-sync/route.ts`: importiert Helper, ersetzt lokalen `FREE_EMAIL_DOMAINS` Const-Block und Inline-Split-Logik (~10 Zeilen entfernt, 1 Zeile hinzugefuegt). Verhalten identisch, Mechanik testbar.
+- **NEU** 5 Test-Cases in `__tests__/helpers/gmail-adoption.test.ts`:
+  - Amelie-Case: Marco und Amelie liefern die gleiche Domain
+  - Case-insensitive (From-Header Varianten)
+  - Free-Mail-Filter (gmail, web.de, gmx, t-online, icloud)
+  - Malformed (kein-at, zwei-at, leer)
+  - Regression-Guard: `realestatepilot.com` NICHT in FREE_EMAIL_DOMAINS
+- 81 Helper-Tests gruen total (76 + 5 neu).
+
+---
+
 ## [2026-04-18] Tech-Gaps Adoption Wave 2 / Apollo, Gmail, Calendar (PRs offen)
 
 Adoption der Wave-1-Mechanismen in 3 kritische Production-Agenten. Mechanismen sind jetzt aktiv statt passiv im Lib-Code.

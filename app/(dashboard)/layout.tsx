@@ -15,6 +15,7 @@ const navGroups: NavGroup[] = [
     title: 'Übersicht',
     items: [
       { label: 'Dashboard', href: '/', emoji: '📊' },
+      { label: 'Dashboard V2', href: '/dashboard-v2', emoji: '🧭' },
       { label: 'Wochenbericht', href: '/wochenbericht', emoji: '📅' },
       { label: 'Agenten', href: '/agents', emoji: '🤖' },
     ],

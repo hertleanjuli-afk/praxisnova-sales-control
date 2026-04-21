@@ -14,7 +14,7 @@
  * Forbidden-Phrases-Liste siehe scripts/legal-scan.sh und
  * PLATFORM-STANDARDS 1.1. legal-scan MUSS gruen bleiben.
  */
-import { SequenceStep } from './allgemein';
+import type { SequenceStep } from './allgemein.ts';
 
 export const proptechSequence: SequenceStep[] = [
   {

@@ -16,7 +16,7 @@
  * DSGVO-Sensibilitaet: Kanzleien arbeiten selbst mit Mandantendaten, daher
  * prominente Datenschutz-Erwaehnung in Touch 1 und Touch 3.
  */
-import { SequenceStep } from './allgemein';
+import type { SequenceStep } from './allgemein.ts';
 
 export const kanzleiSequence: SequenceStep[] = [
   {

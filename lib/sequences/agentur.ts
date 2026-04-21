@@ -11,7 +11,7 @@
  * Hook: White-Label + Done-for-you. Foerder-Hinweis bleibt Nebenpunkt
  * ohne Prozent-Zahlen (PLATFORM-STANDARDS 1.1).
  */
-import { SequenceStep } from './allgemein';
+import type { SequenceStep } from './allgemein.ts';
 
 export const agenturSequence: SequenceStep[] = [
   {

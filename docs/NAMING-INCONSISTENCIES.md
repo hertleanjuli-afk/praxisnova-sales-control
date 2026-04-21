@@ -64,3 +64,23 @@ Kontext gilt. Kein Rename, bis es einen dedizierten Sunset-Track gibt.
 - **Sunset-Trigger:** Wenn alle konsumierenden Queries auf `linkedin_state`
   umgestellt sind, kann `status` die `linkedin_*`-Werte verlieren. Separater
   Track, nicht Teil von v9.
+
+## 4. linkedin_posts (eigene Posts) vs. linkedin_feed_posts (eingelesene Posts)
+
+- **DB-Tabelle (v4):** `linkedin_posts` trackt Angies **eigene** LinkedIn-Posts
+  mit `post_date`, `post_number`, `posted BOOLEAN`, `posted_by`, Engagement-
+  Zahlen (`likes`, `comments`, `shares`, `impressions`), UNIQUE(post_date,
+  post_number).
+- **Neu in v11:** `linkedin_feed_posts` fuer **eingelesene** LinkedIn-Posts
+  aus einem externen Feed (Apify / Scraper / Unipile). Trackt Author, Post-
+  Text, Publish-Datum, Capture-Zeitpunkt, Relevance-Score gegen ICP-Keywords.
+- **Gilt seit:** v11 Migration (2026-04-21).
+- **Reason:** Semantisch disjunkte Konzepte. Angies Freigabe-Prompt wollte
+  den Namen `linkedin_posts`, aber v4 belegt ihn bereits. Umbenennen der
+  v4-Tabelle waere Breaking Change fuer `app/api/linkedin-posting/route.ts`
+  und `/api/cron/linkedin-posting-check/route.ts`.
+- **Regel:**
+  - Eigene Posts (Scheduler, Engagement-Tracking): `linkedin_posts` (v4).
+  - Externer Feed (Inbound-Signal fuer ICP-Monitoring): `linkedin_feed_posts`
+    (v11). Unique per `post_url`, Dedup-Logik in `lib/linkedin-feed/dedup.ts`.
+- **Sunset-Trigger:** Kein Sunset geplant. Die zwei Konzepte bleiben parallel.

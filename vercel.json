@@ -34,6 +34,7 @@
     { "path": "/api/cron/linkedin-posting-check",       "schedule": "30 15 * * 1-5"        },
     { "path": "/api/cron/error-sentinel",               "schedule": "0 18 * * 1-5"         },
     { "path": "/api/cron/brevo-stats-sync",             "schedule": "0 19 * * 1-5"         },
-    { "path": "/api/cron/google-calendar-sync",         "schedule": "0 */4 * * *"          }
+    { "path": "/api/cron/google-calendar-sync",         "schedule": "0 */4 * * *"          },
+    { "path": "/api/cron/linkedin-feed",                "schedule": "0 8 * * *"            }
   ]
 }

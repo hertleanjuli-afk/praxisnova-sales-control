@@ -1,27 +1,24 @@
--- Migration v12: icp_config + icp_score + icp_tag + ready_to_contact
+-- Migration v12: icp_score + icp_tag + ready_to_contact + icp_config-Seeds
 -- Track 3, T3.4, 2026-04-21
--- Vorher: Track 3 v11 (sequence_pause_log).
+-- Vorher: Track 1 v11 (icp_config TEXT[] + linkedin_feed_posts + cron_runs).
 -- Nachher: Track 3 T3.5 Outreach-Strategist Prompt-Update (kein Schema).
 --
--- Zweck:
---   1. icp_config-Tabelle fuer datengesteuerte ICP-Definition (PLATFORM-STANDARDS 2.3)
---   2. NACE-Codes als JSONB-Array pro ICP, Lookup-Efficient
---   3. Seed der vier neuen ICPs (PropTech, Hausverwaltung, Kanzlei, Agentur)
---   4. leads.icp_score, leads.icp_tag, leads.nace_code, leads.ready_to_contact,
---      leads.triage_reason Spalten
---   5. Initial-Backfill der icp_score/icp_tag aus icp_config.nace_codes
+-- Design-Entscheidung 2026-04-21: icp_config wurde in v11 bereits als
+-- TEXT[] nace_codes angelegt (PLATFORM-STANDARDS 3.5). Diese Migration
+-- ergaenzt industry_keywords JSONB (fuer Keyword-Lookup), seedet die vier
+-- neuen ICPs idempotent und legt die leads-Scoring-Spalten an.
 --
 -- Ausfuehrung: Angie fuehrt manuell aus. Claude Code schreibt nur das SQL-File.
 -- Reversible via DOWN-Kommentare am File-Ende.
 
 -- UP -----------------------------------------------------------------------
 
--- icp_config-Tabelle: datengesteuerte ICP-Definition
+-- icp_config sollte bereits aus v11 existieren. Defensives CREATE IF NOT EXISTS
+-- deckt Standalone-Rollout ab, falls v11 noch nicht auf dieser DB ist.
 CREATE TABLE IF NOT EXISTS icp_config (
   id TEXT PRIMARY KEY,
   display_name TEXT NOT NULL,
-  nace_codes JSONB NOT NULL DEFAULT '[]'::jsonb,
-  industry_keywords JSONB NOT NULL DEFAULT '[]'::jsonb,
+  nace_codes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
   base_score INTEGER NOT NULL DEFAULT 50,
   sequence_id TEXT,
   hook_type TEXT,
@@ -30,38 +27,42 @@ CREATE TABLE IF NOT EXISTS icp_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- industry_keywords als JSONB fuer Keyword-Substring-Match (neu in v12).
+ALTER TABLE icp_config
+  ADD COLUMN IF NOT EXISTS industry_keywords JSONB NOT NULL DEFAULT '[]'::jsonb;
+
 CREATE INDEX IF NOT EXISTS idx_icp_config_enabled ON icp_config(enabled);
 
--- Seed: vier neue ICPs (2026-04-21 Pivot).
--- ON CONFLICT: existierende Rows werden NICHT ueberschrieben, damit Live-DB
--- mit eventuell abweichendem Schema (z.B. TEXT[] statt JSONB) nicht crasht.
+-- Seed: vier neue ICPs. ON CONFLICT DO NOTHING damit Live-Rows nicht
+-- ueberschrieben werden. Wenn Track 1 v11 bereits gleiche IDs gesetzt hat,
+-- werden die v12-Werte ignoriert.
 INSERT INTO icp_config (id, display_name, nace_codes, industry_keywords, base_score, sequence_id, hook_type)
 VALUES
   (
     'icp-proptech',
     'PropTech + Immobilien-Software',
-    '["6820", "6831", "6832", "7022", "6201", "6209"]'::jsonb,
+    ARRAY['6820', '6831', '6832', '7022', '6201', '6209']::TEXT[],
     '["proptech", "real estate software", "immobiliensoftware", "property management software"]'::jsonb,
     90, 'proptech', 'roi'
   ),
   (
     'icp-hausverwaltung',
     'Hausverwaltung',
-    '["6832", "6820"]'::jsonb,
+    ARRAY['6832', '6820']::TEXT[],
     '["hausverwaltung", "property management", "immobilienverwaltung"]'::jsonb,
     85, 'hausverwaltung', 'roi'
   ),
   (
     'icp-kanzlei',
     'Steuerberater + Anwaelte',
-    '["6910", "6920", "7021"]'::jsonb,
+    ARRAY['6910', '6920', '7021']::TEXT[],
     '["kanzlei", "steuerberater", "rechtsanwalt", "law firm", "tax advisor"]'::jsonb,
     80, 'kanzlei', 'compliance'
   ),
   (
     'icp-agentur',
     'Digitale Agenturen',
-    '["7311", "7312", "7320", "6311"]'::jsonb,
+    ARRAY['7311', '7312', '7320', '6311']::TEXT[],
     '["digital agency", "marketing agency", "werbeagentur", "agentur"]'::jsonb,
     75, 'agentur', 'whitelabel'
   )
@@ -80,20 +81,21 @@ CREATE INDEX IF NOT EXISTS idx_leads_ready_to_contact ON leads(ready_to_contact)
 CREATE INDEX IF NOT EXISTS idx_leads_nace_code ON leads(nace_code);
 
 -- Initial-Backfill: existierende Leads klassifizieren.
--- Primaerpfad: nace_code ist gesetzt UND steckt in icp_config.nace_codes JSONB-Array.
--- Nutzt ? Operator fuer JSONB-Containment (NACE-Code ist Element des Arrays).
+-- Pfad 1: nace_code ist gesetzt UND in icp_config.nace_codes (TEXT[]).
+-- Nutzt ANY-Operator fuer Array-Containment (NACE-Code ist Element des Arrays).
 UPDATE leads l
 SET
   icp_score = c.base_score,
   icp_tag = c.id
 FROM icp_config c
 WHERE c.enabled = true
-  AND c.nace_codes ? l.nace_code
   AND l.nace_code IS NOT NULL
+  AND l.nace_code = ANY(c.nace_codes)
   AND l.icp_tag IS NULL;
 
--- Sekundaerpfad: industry-Keyword-Fallback bei leerem nace_code.
--- iteriert industry_keywords-Array und matcht case-insensitive gegen leads.industry.
+-- Pfad 2: industry-Keyword-Fallback bei leerem nace_code oder no-match.
+-- iteriert industry_keywords-JSONB-Array und matcht case-insensitive
+-- gegen leads.industry.
 UPDATE leads l
 SET
   icp_score = c.base_score,
@@ -104,7 +106,7 @@ WHERE c.enabled = true
   AND l.industry IS NOT NULL
   AND position(lower(kw) IN lower(l.industry)) > 0;
 
--- Alte ICPs explizit auf 0 setzen (Bau, Handwerk raus).
+-- Pfad 3: alte ICPs explizit auf 0 setzen (Bau, Handwerk raus).
 UPDATE leads
 SET icp_score = 0, icp_tag = NULL, triage_reason = 'icp-pivot-2026-04-21-bau-handwerk-raus'
 WHERE sequence_type IN ('bauunternehmen', 'handwerk')
@@ -119,7 +121,7 @@ WHERE ready_to_contact IS DISTINCT FROM (icp_score >= 60);
 --   SELECT icp_tag, COUNT(*) FROM leads GROUP BY 1 ORDER BY 2 DESC;
 --   SELECT ready_to_contact, COUNT(*) FROM leads GROUP BY 1;
 --   SELECT icp_score, COUNT(*) FROM leads GROUP BY 1 ORDER BY 1;
---   SELECT id, display_name, jsonb_array_length(nace_codes) FROM icp_config;
+--   SELECT id, display_name, array_length(nace_codes, 1) FROM icp_config;
 
 -- DOWN ---------------------------------------------------------------------
 -- Reaktivierung (falls Rollback noetig):
@@ -128,4 +130,8 @@ WHERE ready_to_contact IS DISTINCT FROM (icp_score >= 60);
 --   ALTER TABLE leads DROP COLUMN IF EXISTS nace_code;
 --   ALTER TABLE leads DROP COLUMN IF EXISTS ready_to_contact;
 --   ALTER TABLE leads DROP COLUMN IF EXISTS triage_reason;
---   DROP TABLE IF EXISTS icp_config;
+-- WICHTIG: icp_config NICHT droppen, die gehoert zu v11 (Track 1).
+-- Wenn Seeds entfernt werden sollen:
+--   DELETE FROM icp_config WHERE id IN ('icp-proptech', 'icp-hausverwaltung',
+--                                       'icp-kanzlei', 'icp-agentur');
+-- industry_keywords-Spalte kann bleiben (nicht-disruptiv).

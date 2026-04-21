@@ -21,6 +21,7 @@ import sql from '@/lib/db';
 import { isAuthorized, sendErrorNotification, writeStartLog, writeEndLog } from '@/lib/agent-runtime';
 import { retryApollo } from '@/lib/util/retry';
 import { observe } from '@/lib/observability/logger';
+import { scoreUnclassifiedLeads } from '@/lib/icp-score';
 
 export const maxDuration = 60;
 
@@ -462,6 +463,18 @@ export async function GET(request: NextRequest) {
         // Log but continue â likely a unique constraint on email
         console.warn(`[apollo-sync] Insert fehlgeschlagen fuer ${firstName} ${lastName}: ${insertErr}`);
       }
+    }
+
+    // ICP-Scoring fuer alle frisch-importierten Leads (Track 3 T3.4).
+    // Laeuft auch wenn 0 neue Leads eingefuegt wurden, um Backlog zu fangen.
+    let icpScored = 0;
+    try {
+      icpScored = await scoreUnclassifiedLeads(500);
+      if (icpScored > 0) {
+        console.log(`[apollo-sync] ICP-Scoring: ${icpScored} Leads klassifiziert`);
+      }
+    } catch (scoreErr) {
+      console.warn(`[apollo-sync] ICP-Scoring fehlgeschlagen, non-blocking: ${scoreErr}`);
     }
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);

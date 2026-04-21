@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:helpers": "node --experimental-strip-types --test __tests__/helpers/*.test.ts",
-    "test:llm": "node --experimental-strip-types --test __tests__/llm/*.test.ts"
+    "test:llm": "node --experimental-strip-types --test __tests__/llm/*.test.ts",
+    "test:track3": "node --experimental-strip-types --test __tests__/track3/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

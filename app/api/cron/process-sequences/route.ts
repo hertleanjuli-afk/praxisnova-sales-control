@@ -295,6 +295,7 @@ export async function GET(request: NextRequest) {
         .replace(/\{\{last_name\}\}/g, lead.last_name || '')
         .replace(/\{\{company_name\}\}/g, lead.company || 'Ihrem Unternehmen')
         .replace(/\{\{CALENDLY_LINK\}\}/g, getCalendlyUrl(senderConfig.email))
+        .replace(/\{\{FOOTER\}\}/g, '')
         .replace(/href="(https:\/\/(?:www\.)?praxisnovaai\.com[^"]*?)"/g, (_match, url) => {
           const separator = url.includes('?') ? '&' : '?';
           return `href="${url}${separator}vid=${lead.id}"`;

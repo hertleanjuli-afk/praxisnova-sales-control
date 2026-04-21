@@ -8,9 +8,10 @@
  * Target-Sequenz-Name in Apollo: Kanzleien-Steuerberater-DE-Workshop
  * 5 Touches ueber 12 Tage.
  *
- * Hook: AZAV-Vermittlung rechtssicher formuliert. Kein direktes AZAV-Versprechen
- * von PraxisNova AI (PLATFORM-STANDARDS 1.1), sondern Vermittlung akkreditierter
- * Trainings-Partner.
+ * Hook: Reine Orientierungs-Linie zu Foerderprogrammen, kein direktes
+ * AZAV-Versprechen von PraxisNova AI. Legal-Linie 2026-04-21 Track 2
+ * aligned: Outreach-Content nur Orientierung, keine Vermittlungs- oder
+ * Partner-Formulierungen (PLATFORM-STANDARDS 1.1 plus Track-2-Baseline).
  *
  * DSGVO-Sensibilitaet: Kanzleien arbeiten selbst mit Mandantendaten, daher
  * prominente Datenschutz-Erwaehnung in Touch 1 und Touch 3.
@@ -25,7 +26,7 @@ export const kanzleiSequence: SequenceStep[] = [
     subject: '{Spintax: KI in der Kanzlei|Zeit zurueckgewinnen in} {{company_name}}',
     bodyTemplate: `<p>{{SALUTATION}},</p>
 <p>Kanzleien arbeiten unter hohem Termindruck und gleichzeitig mit sensiblen Mandantendaten. Genau dort sehen wir aktuell den groessten Hebel fuer KI: Texte zusammenfassen, Dokumente strukturieren, wiederkehrende Schriftsaetze vorbereiten. Unterbrechungsfrei und in dem Setup, das Ihre Datenschutz-Anforderungen einhaelt.</p>
-<p>Wir fuehren regelmaessig Inhouse-Workshops fuer Steuerberater und Anwaelte durch. Fuer passende Foerderprogramme vermitteln wir bei Bedarf akkreditierte Trainings-Partner.</p>
+<p>Wir fuehren regelmaessig Inhouse-Workshops fuer Steuerberater und Anwaelte durch. Zu Foerderprogrammen geben wir Orientierung, was fuer Kanzlei-Groessen wie Ihre grundsaetzlich in Frage kommt.</p>
 <p>Hat ein 10-Minuten-Potenzial-Check in den naechsten Tagen Platz bei Ihnen?</p>
 {{SIGNATURE}}
 {{FOOTER}}`
@@ -57,7 +58,7 @@ export const kanzleiSequence: SequenceStep[] = [
 <li>Rechts- und datenschutz-konforme Tool-Auswahl, abgestimmt auf Berufsrecht</li>
 <li>Workflow-Bau an drei eigenen Faellen aus dem Kanzleialltag</li>
 <li>Prompt-Strukturen fuer typische Schriftsatz- und Analyse-Aufgaben</li>
-<li>Orientierung zu Foerderprogrammen, wir vermitteln bei Bedarf AZAV-zertifizierte Trainings-Partner</li>
+<li>Orientierung zu Foerderprogrammen in der aktuellen AZAV- und Bildungsfoerderungs-Landschaft</li>
 </ul>
 <p>Mandantendaten bleiben im Workshop ausserhalb von Fremd-Servern. Das Setup legen wir vorher fest.</p>
 <p>10-Minuten-Call zum Abstimmen?</p>

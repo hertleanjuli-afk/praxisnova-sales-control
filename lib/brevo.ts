@@ -51,16 +51,10 @@ function getHmacSecret(): string {
   return secret;
 }
 
-function buildDsgvoFooter(unsubscribeLink: string): string {
-  return `
-<br/>
-<hr style="border:none;border-top:1px solid #ddd;margin:24px 0"/>
-<p style="font-size:11px;color:#999;line-height:1.5;">
-  PraxisNova AI | Otto-Hahn-Str., 72622 N&uuml;rtingen | info@praxisnovaai.com<br/>
-  Sie erhalten diese E-Mail da Ihre Gesch&auml;ftsadresse &ouml;ffentlich zug&auml;nglich ist (UWG &sect;7).<br/>
-  Wenn Sie keine weiteren E-Mails w&uuml;nschen: <a href="${unsubscribeLink}">Abmelden</a>
-</p>`;
-}
+// DSGVO-Footer fuer Cold-Outreach. Implementierung in lib/dsgvo-footer.ts
+// damit die Pure-Function-Logik unabhaengig von Brevo-Infrastruktur
+// unit-testbar bleibt (PLATFORM-STANDARDS 1.3 Testing-Gate).
+import { buildDsgvoFooter } from './dsgvo-footer';
 
 async function sendViaBrevo(
   senderEmail: string,

@@ -9,6 +9,9 @@ import { handwerkSequence } from '@/lib/sequences/handwerk';
 import { bauunternehmenSequence } from '@/lib/sequences/bauunternehmen';
 import { inboundSequence } from '@/lib/sequences/inbound';
 import { allgemeinSequence } from '@/lib/sequences/allgemein';
+import { proptechSequence } from '@/lib/sequences/proptech';
+import { kanzleiSequence } from '@/lib/sequences/kanzlei';
+import { agenturSequence } from '@/lib/sequences/agentur';
 import type { SequenceStep } from '@/types';
 import { formatSalutation } from '@/lib/gender';
 import { logAndNotifyError } from '@/lib/error-notify';
@@ -19,6 +22,10 @@ const sequenceMap: Record<string, SequenceStep[]> = {
   bauunternehmen: bauunternehmenSequence,
   inbound: inboundSequence,
   allgemein: allgemeinSequence,
+  proptech: proptechSequence,
+  hausverwaltung: proptechSequence,
+  kanzlei: kanzleiSequence,
+  agentur: agenturSequence,
 };
 
 // Inbox rotation for allgemein sequence
@@ -52,6 +59,25 @@ function getSenderForSequence(sequenceType: string, leadId?: number): { email: s
       return {
         email: process.env.BREVO_SENDER_INBOUND_EMAIL || 'info@praxisnovaai.com',
         name: process.env.BREVO_SENDER_INBOUND_NAME || 'Anjuli Hertle',
+        title: 'CEO &amp; Head of Sales',
+      };
+    case 'proptech':
+    case 'hausverwaltung':
+      return {
+        email: process.env.BREVO_SENDER_PROPTECH_EMAIL || 'info@praxisnovaai.com',
+        name: process.env.BREVO_SENDER_PROPTECH_NAME || 'Anjuli Hertle',
+        title: 'CEO &amp; Head of Sales',
+      };
+    case 'kanzlei':
+      return {
+        email: process.env.BREVO_SENDER_KANZLEI_EMAIL || 'info@praxisnovaai.com',
+        name: process.env.BREVO_SENDER_KANZLEI_NAME || 'Anjuli Hertle',
+        title: 'CEO &amp; Head of Sales',
+      };
+    case 'agentur':
+      return {
+        email: process.env.BREVO_SENDER_AGENTUR_EMAIL || 'info@praxisnovaai.com',
+        name: process.env.BREVO_SENDER_AGENTUR_NAME || 'Anjuli Hertle',
         title: 'CEO &amp; Head of Sales',
       };
     case 'allgemein': {

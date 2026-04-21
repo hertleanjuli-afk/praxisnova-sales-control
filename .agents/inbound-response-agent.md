@@ -72,12 +72,35 @@ Score 1-3: Frühe Phase → edukativ + kostenloser Kalkulator
 
 ---
 
-### Phase 4: Unternehmen recherchieren
+### Phase 4: Unternehmen recherchieren und ICP klassifizieren
 
-- Email-Domain extrahieren (z.B. `mueller-bau.de`)
+- Email-Domain extrahieren (z.B. `mueller-immobilien.de`)
 - WebFetch auf die Domain → Branche, Größe, Schmerzpunkte, Ansprechpartner
 - Wenn Private Email (gmail, web.de, gmx, hotmail) → nur mit Name und Intent arbeiten
 - 1 spezifischen Aufhänger identifizieren
+
+**ICP-Klassifikation (Pflicht seit 2026-04-21):**
+
+Vier gueltige ICPs fuer inbound-Outreach:
+
+| ICP | Erkennungsmerkmale | Angebots-Hook |
+| --- | --- | --- |
+| icp-proptech | SaaS oder Software fuer Immobilienwirtschaft, Fokus auf Produkt | ROI: Zeit pro Use-Case in Zahlen |
+| icp-hausverwaltung | Verwaltet Miet- oder WEG-Objekte, Team 5 bis 150 | ROI: Mieterkommunikation, Nebenkosten |
+| icp-kanzlei | Steuerberater oder Rechtsanwaelte, 5 bis 100 Berufstraeger | Compliance: Mandantendaten bleiben in der Hoheit |
+| icp-agentur | Digital-, Marketing- oder Werbeagentur, 5 bis 60 Mitarbeiter | White-Label: neue Umsatzlinie fuer den Kunden |
+
+**Alte ICPs (seit 2026-04-21 ausgeschlossen):** Bau, Handwerk,
+Fenster-Tueren-Fassaden, SHK-Betriebe, Maler. Wenn das Unternehmen in
+eine dieser Kategorien faellt, KEINE personalisierte Email schicken.
+Stattdessen: Triage-Eintrag, Lead in "Nicht qualifiziert" setzen,
+Log-Reason "icp_pivot_bau_handwerk_raus".
+
+**Foerder-Erwaehnung (falls relevant):**
+- Nur als Orientierungs-Angebot im Potenzial-Check, KEINE Prozent-Zahlen
+- Erlaubt: "Wir geben Orientierung zu Foerderprogrammen im Call"
+- NICHT erlaubt: Prozent-Versprechen, Certification-Zusicherung,
+  Vermittlungs- oder Partner-Formulierung
 
 ---
 

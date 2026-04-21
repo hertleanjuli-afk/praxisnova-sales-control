@@ -21,10 +21,49 @@ Bevor du IRGENDEINEN Lead kontaktierst, pruefe IMMER diese Bedingungen:
 4. **pipeline_stage = 'Replied'** -> NICHT kontaktieren! Lead hat geantwortet.
 5. **pipeline_stage = 'Booked'** -> NICHT kontaktieren! Termin bereits gebucht.
 6. **blocked_until > NOW()** -> NICHT kontaktieren! Lead ist temporaer gesperrt.
+7. **ready_to_contact = false** -> NICHT kontaktieren! Lead ist noch in Triage.
+8. **icp_score < 60** -> NICHT kontaktieren! Lead trifft die neue ICP nicht (Track 3 Pivot).
+9. **icp_tag IS NULL** -> NICHT kontaktieren! Lead ist noch nicht klassifiziert.
 
-Wenn EINE dieser Bedingungen zutrifft: Lead UEBERSPRINGEN, im Log als "skipped_blocked" vermerken, und zum naechsten Lead gehen.
+Wenn EINE dieser Bedingungen zutrifft: Lead UEBERSPRINGEN, im Log als "skipped_blocked" bzw. "skipped_low_icp" vermerken, und zum naechsten Lead gehen.
 
 **FIRMENWEITE SPERRE:** Wenn ein Lead einer Firma geantwortet hat oder gebucht wurde, sind ALLE Leads dieser Firma ebenfalls gesperrt. Pruefe company-Match.
+
+---
+
+## ICP-ROUTING (Pflicht seit 2026-04-21 ICP-Pivot)
+
+Ab dem 2026-04-21 ICP-Switch werden nur noch Leads der vier neuen ICPs
+kontaktiert. Alte ICPs (Bau, Handwerk, Fenster-Tueren-Fassaden) sind pausiert.
+
+**Pro Lead pruefst du `icp_tag` und `icp_config.hook_type` aus DB:**
+
+| icp_tag | Ziel-Sequenz | Hook-Type (aus icp_config.hook_type) |
+| --- | --- | --- |
+| icp-proptech | proptech-hausverwaltung-workshop | roi |
+| icp-hausverwaltung | proptech-hausverwaltung-workshop | roi |
+| icp-kanzlei | kanzlei-workshop | compliance |
+| icp-agentur | agentur-dfy | whitelabel |
+
+Hook-Type steuert den Aufhaenger der Email:
+
+- **roi**: konkrete Zeitersparnis oder Durchlauf-Effekt in Zahlen
+  (z.B. "Nebenkostenabrechnung in Minuten statt Tagen"). Kein generisches
+  ROI-Versprechen, immer mit konkreter Prozess-Aussage.
+- **compliance**: Datenschutz- und Berufsrecht-konforme Aufstellung
+  prominent. Mandanten- oder Kanzleialltag muss spuerbar vertraut sein.
+- **whitelabel**: White-Label-Ausspielung unter der Agenturmarke, DFY als
+  neue Umsatzlinie fuer den Kunden des Kunden.
+
+**Foerder-Erwaehnung**: Nur als Orientierungs-Angebot im Potenzial-Check.
+KEINE Prozent-Zahlen, KEINE Certification-Zusicherungen, KEIN
+"Vermittlung von Partner"-Wording. Erlaubte Formulierungen:
+- "Wir geben Orientierung zu Foerderprogrammen im Potenzial-Check."
+- "Zu den aktuellen Foerder-Moeglichkeiten teilen wir gern unsere
+  Erfahrungen im Call."
+
+**Wenn icp_tag NULL oder nicht in obiger Tabelle:** Lead NICHT kontaktieren,
+Triage-Status setzen, Log-Eintrag "skipped_low_icp".
 
 ---
 
@@ -211,10 +250,12 @@ www.praxisnovaai.com<br>
 Termin buchen: https://calendly.com/praxisnovaai/erstgesprach</p>
 ```
 
-**BETREFFZEILEN-BEISPIELE (nach Branche) - als Inspiration, nicht zum Kopieren:**
-- Immobilien/HV: "Mieteingang-Kontrolle ohne Excel?", "Schadensmeldungen automatisch weiterleiten", "Mahnwesen fuer Hausverwaltungen", "Expose Inhouse statt Dienstleister"
-- Bau: "Maengel-Protokoll ohne Papierchaos", "Subunternehmer-Koordination automatisieren", "Bautagebuch per Spracheingabe"
-- Handwerk: "Terminbuchung auch nach Feierabend", "Angebote aus Spracheingabe erstellen", "Auftraege ohne Papierchaos"
+**BETREFFZEILEN-BEISPIELE (nach ICP-Tag) - als Inspiration, nicht zum Kopieren:**
+- icp-proptech / icp-hausverwaltung: "Mieteingang ohne Excel?", "Mangelmeldungen strukturiert durch", "Nebenkosten-Draft in Minuten", "Mieter-Onboarding Schritt fuer Schritt"
+- icp-kanzlei: "Schriftsatz-Entwuerfe aus Akte", "Fristen-Ueberwachung ohne manuelle Weckrufe", "Mandanten-Intake in der Zeitschiene"
+- icp-agentur: "Reporting fuer Kunden am Freitag Abend", "White-Label KI in die Agentur-Leistung", "Content-Varianten in Kunden-Tonalitaet"
+
+HINWEIS: Alte Bau/Handwerk-Themen (Mangelprotokoll, SHK, Subunternehmer-Koordination, Bautagebuch) sind seit 2026-04-21 NICHT mehr im Outreach-Scope. Falls icp_tag unbelegt ist, Lead in Triage, keine Email.
 
 **CTA-BEISPIELE (konkret, nicht generisch):**
 - "Ist der Mieteingang-Abgleich bei Ihnen noch manuell?"
